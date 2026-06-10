@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Historial de Oficios — Secretaría de Bienestar e Inclusión Social</title>
+  <link rel="stylesheet" href="css/styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+
+  <style>
+    /* ── Remitente: sin truncar ── */
+    .th-remitente .th-val {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: unset !important;
+      word-break: break-word;
+    }
+
+    /* ── Tarjeta urgente ── */
+    .tarjeta-urgente {
+      border: 1.5px solid #e53935 !important;
+      box-shadow: 0 0 0 3px rgba(229,57,53,0.10), 0 2px 8px rgba(229,57,53,0.12) !important;
+    }
+    .urgente-banner {
+      background: linear-gradient(90deg, #c62828, #e53935);
+      color: #fff;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      padding: 7px 18px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 8px 8px 0 0;
+    }
+    .urgente-banner .ti { font-size: 14px; }
+    /* Quitar border-radius superior de t-header cuando hay banner */
+    .tarjeta-urgente .t-header {
+      border-radius: 0 !important;
+    }
+
+    /* ── Tarjetas de documentos del área ── */
+    .docs-area-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .doc-area-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #fff;
+      border: 1px solid #d8ccd0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    .doc-area-card:hover {
+      border-color: var(--guinda, #6B0F2B);
+      background: #fdf6f8;
+      box-shadow: 0 2px 8px rgba(107,15,43,0.10);
+    }
+    .doc-area-icon {
+      width: 38px; height: 38px; flex-shrink: 0;
+      background: #fce4ec;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #8c1212;
+      font-size: 20px;
+    }
+    .doc-area-info {
+      flex: 1;
+      display: flex; flex-direction: column; gap: 2px;
+      overflow: hidden;
+    }
+    .doc-area-nombre {
+      font-size: 13px; font-weight: 600;
+      color: #222;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-family: 'Source Sans 3', sans-serif;
+    }
+    .doc-area-meta {
+      font-size: 11px; color: #999;
+      font-family: 'Source Sans 3', sans-serif;
+    }
+    .doc-area-abrir {
+      flex-shrink: 0;
+      color: var(--guinda, #6B0F2B);
+      font-size: 16px;
+      opacity: 0.5;
+      transition: opacity .15s;
+    }
+    .doc-area-card:hover .doc-area-abrir { opacity: 1; }
+
+    /* ── Botón Editar ── */
+    .btn-editar {
+      background: var(--dorado, #C8A951);
+      color: #fff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'Source Sans 3', sans-serif;
+      transition: background 0.2s;
+    }
+    .btn-editar:hover { background: #a8882e; }
+
+    /* ══ MODAL DE EDICIÓN ══ */
+    #modal-editar {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.50);
+      z-index: 9999;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      overflow-y: auto;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 700px;
+      box-shadow: 0 10px 50px rgba(107,15,43,0.20);
+      font-family: 'Source Sans 3', sans-serif;
+      overflow: hidden;
+    }
+    .modal-header {
+      background: var(--guinda, #6B0F2B);
+      color: #fff;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-family: 'Crimson Pro', serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-header button {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.8);
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .modal-header button:hover { background: rgba(255,255,255,0.15); }
+
+    .modal-body {
+      padding: 28px 28px 0;
+    }
+    .modal-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 20px;
+    }
+    .modal-grid .col-full { grid-column: 1 / -1; }
+    .modal-campo label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b6b6b;
+      margin-bottom: 5px;
+    }
+    .modal-campo label .req { color: var(--guinda, #6B0F2B); }
+    .modal-campo input,
+    .modal-campo select,
+    .modal-campo textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #d8ccd0;
+      border-radius: 5px;
+      padding: 8px 11px;
+      font-size: 13.5px;
+      font-family: 'Source Sans 3', sans-serif;
+      color: #222;
+      background: #fff;
+      transition: border-color 0.2s;
+    }
+    .modal-campo input:focus,
+    .modal-campo select:focus,
+    .modal-campo textarea:focus {
+      outline: none;
+      border-color: var(--guinda, #6B0F2B);
+    }
+    .modal-campo textarea { resize: vertical; }
+
+    .modal-error {
+      color: #821d11;
+      font-size: 12.5px;
+      font-weight: 600;
+      margin: 12px 28px 0;
+      min-height: 18px;
+    }
+    .modal-footer {
+      padding: 20px 28px 24px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .modal-footer button {
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-size: 13.5px;
+      font-weight: 600;
+      font-family: 'Source Sans 3', sans-serif;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-modal-cancelar {
+      background: #f0f0f0;
+      color: #444;
+    }
+    .btn-modal-cancelar:hover { background: #e0e0e0; }
+    .btn-modal-guardar {
+      background: var(--guinda, #6B0F2B);
+      color: #fff;
+    }
+    .btn-modal-guardar:hover { background: #8B1535; }
+    .btn-modal-guardar:disabled {
+      background: #b08090;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════
+       ENCABEZADO INSTITUCIONAL
+  ══════════════════════════════════════ -->
+  <header class="header-institucional">
+    <div class="header-banda-superior">
+      <div class="header-texto">
+        <span class="header-gobierno">GOBIERNO DE MÉXICO</span>
+        <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="header-fecha" id="header-fecha"></div>
+      <button onclick="cerrarSesion()" style="
+        background: transparent;
+        border: 1px solid rgba(107,15,43,0.35);
+        color: var(--guinda);
+        padding: 6px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 16px;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#f0dde4'"
+         onmouseout="this.style.background='transparent'">
+        <i class="ti ti-logout"></i> Cerrar sesión
+      </button>
+    </div>
+    <div class="header-banda-tricolor">
+      <div class="banda guinda"></div>
+      <div class="banda dorada"></div>
+      <div class="banda guinda-oscuro"></div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════
+       BARRA DE MENÚ
+  ══════════════════════════════════════ -->
+  <nav class="barra-menu">
+    <div class="menu-container">
+      <span class="menu-label">MENÚ</span>
+      <ul class="menu-lista">
+        <li><a href="captura.html" class="menu-item">Nuevo Registro</a></li>
+        <li><a href="historial.html" class="menu-item active">Historial</a></li>
+        <li><a href="#" class="menu-item"> - </a></li>
+        <li><a href="#" class="menu-item"> - </a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════
+       CONTENIDO PRINCIPAL
+  ══════════════════════════════════════ -->
+  <main class="main-contenido">
+    <div class="contenido-wrapper">
+
+      <div class="seccion-titulo-bloque">
+        <i class="ti ti-files titulo-icono" aria-hidden="true"></i>
+        <h1 class="seccion-titulo-h1">Historial de Oficios</h1>
+      </div>
+
+      <!-- Buscador -->
+      <div style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 4px rgba(107,15,43,0.06);
+      ">
+        <i class="ti ti-search" style="font-size:18px;color:#999;flex-shrink:0;"></i>
+        <input
+          id="buscador"
+          type="text"
+          placeholder="Buscar por N. Control, área turnada o nombre del remitente..."
+          oninput="buscar(this.value)"
+          style="
+            border: none; outline: none; flex: 1;
+            font-family: 'Source Sans 3', sans-serif;
+            font-size: 14px; color: #333;
+            background: transparent;
+          "
+        />
+        <button
+          id="btn-limpiar-busqueda"
+          onclick="limpiarBusqueda()"
+          title="Limpiar búsqueda"
+          style="
+            display: none;
+            background: #f0e8eb;
+            border: none; border-radius: 50%;
+            width: 26px; height: 26px;
+            cursor: pointer; flex-shrink: 0;
+            align-items: center; justify-content: center;
+            color: var(--guinda, #6B0F2B); font-size: 13px;
+            transition: background .15s;
+          "
+          onmouseover="this.style.background='#e0d0d5'"
+          onmouseout="this.style.background='#f0e8eb'"
+        ><i class="ti ti-x"></i></button>
+      </div>
+
+      <!-- Filtros -->
+      <div class="filtros-barra">
+        <button class="chip on" onclick="filtrar(this,'todos')">Todos</button>
+        <button class="chip" onclick="filtrar(this,'turnado')">Turnado</button>
+        <button class="chip" onclick="filtrar(this,'atendido')">Atendido</button>
+        <button class="chip" onclick="filtrar(this,'completado')">Completado</button>
+        <div class="filtro-spacer"></div>
+        <span class="filtro-total">Total: <strong id="tot">0</strong> registros</span>
+      </div>
+
+      <!-- Lista de tarjetas -->
+      <div class="lista" id="lista"></div>
+
+      <!-- Pie / paginación -->
+      <div class="pie-tabla">
+        <span id="pie-txt"></span>
+        <div class="paginacion">
+          <button class="btn-pag"><i class="ti ti-chevron-left" style="font-size:11px;"></i></button>
+          <button class="btn-pag on">1</button>
+          <button class="btn-pag">2</button>
+          <button class="btn-pag">3</button>
+          <button class="btn-pag"><i class="ti ti-chevron-right" style="font-size:11px;"></i></button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ══════════════════════════════════════
+       MODAL DE EDICIÓN
+  ══════════════════════════════════════ -->
+  <div id="modal-editar">
+    <div class="modal-box">
+
+      <div class="modal-header">
+        <h2><i class="ti ti-edit"></i> Editar Oficio</h2>
+        <button onclick="cerrarEditar()" title="Cerrar">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-grid">
+
+          <div class="modal-campo">
+            <label>F. Oficio <span class="req">*</span></label>
+            <input id="edit-f-oficio" type="date"/>
+          </div>
+
+          <div class="modal-campo">
+            <label>F. Sello</label>
+            <input id="edit-f-sello" type="date"/>
+          </div>
+
+          <div class="modal-campo col-full">
+            <label>Remitente <span class="req">*</span></label>
+            <input id="edit-remitente" type="text" placeholder="Nombre completo del remitente"/>
+          </div>
+
+          <div class="modal-campo">
+            <label>Dependencia</label>
+            <input id="edit-dependencia" type="text" placeholder="Dependencia de origen"/>
+          </div>
+
+          <div class="modal-campo">
+            <label># Número de Oficio</label>
+            <input id="edit-numero" type="text" placeholder="Ej. J-2026-112"/>
+          </div>
+
+          <div class="modal-campo">
+            <label>N. Referencia</label>
+            <input id="edit-n-referencia" type="text" placeholder="Referencia del oficio"/>
+          </div>
+
+          <div class="modal-campo">
+            <label>Instrucción</label>
+            <input id="edit-instruccion" type="text" placeholder="Instrucción recibida"/>
+          </div>
+
+          <div class="modal-campo">
+            <label>Folio Despacho</label>
+            <input id="edit-folio" type="text" placeholder="Folio de despacho"/>
+          </div>
+
+          <div class="modal-campo">
+            <label>Días de Entrega</label>
+            <select id="edit-dias" style="width:100%;box-sizing:border-box;border:1px solid #d8ccd0;border-radius:5px;padding:8px 11px;font-size:13.5px;font-family:'Source Sans 3',sans-serif;color:#222;background:#fff;">
+              <option value="">— Sin definir —</option>
+              <option value="1">1 día  🔴 Urgente</option>
+              <option value="2">2 días 🔴 Urgente</option>
+              <option value="3">3 días 🔴 Urgente</option>
+              <option value="4">4 días</option>
+              <option value="5">5 días</option>
+            </select>
+          </div>
+
+          <div class="modal-campo">
+            <label>Hora Recibido</label>
+            <input id="edit-hora" type="time"/>
+          </div>
+
+          <div class="modal-campo">
+            <label>Turnado a</label>
+            <select id="edit-turnado">
+              <option value="">— Sin turnar —</option>
+              <option value="Coordinación Administrativa">Coordinación Administrativa</option>
+              <option value="R. Humanos">R. Humanos</option>
+              <option value="R. Financieros">R. Financieros</option>
+              <option value="Seguimiento de Auditorías">Seguimiento de Auditorías</option>
+              <option value="Informática">Informática</option>
+              <option value="R. Materiales">R. Materiales</option>
+              <option value="Archivo">Archivo</option>
+              <option value="Transparencia">Transparencia</option>
+            </select>
+          </div>
+
+          <div class="modal-campo col-full">
+            <label>Descripción del Asunto</label>
+            <textarea id="edit-descripcion" rows="3" placeholder="Descripción del asunto..."></textarea>
+          </div>
+
+        </div>
+      </div>
+
+      <p class="modal-error" id="edit-error"></p>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" onclick="cerrarEditar()">
+          <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button class="btn-modal-guardar" id="edit-btn-guardar" onclick="guardarEdicion()">
+          <i class="ti ti-device-floppy"></i> Guardar cambios
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PIE DE PÁGINA
+  ══════════════════════════════════════ -->
+  <footer class="footer-institucional">
+    <div class="footer-banda-tricolor">
+      <div class="banda guinda"></div>
+      <div class="banda dorada"></div>
+      <div class="banda guinda-oscuro"></div>
+    </div>
+    <div class="footer-contenido">
+      <span>© 2026 Gobierno de México — Secretaría de Bienestar e Inclusión Social</span>
+      <span>Sistema de Correspondencia.</span>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

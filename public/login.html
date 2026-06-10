@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SBIS — Acceso al Sistema</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+
+  <style>
+    /* ── Variables ── */
+    :root {
+      --guinda:        #6B0F2B;
+      --guinda-oscuro: #4A0A1D;
+      --guinda-claro:  #f9f0f3;
+      --dorado:        #C8A951;
+      --dorado-oscuro: #9a7d30;
+      --dorado-claro:  #faf4e1;
+      --borde:         #e0c4cc;
+      --txt:           #1a0a10;
+      --txt2:          #7a4255;
+      --blanco:        #ffffff;
+      --error:         #a32d2d;
+      --fuente-titulo: 'Crimson Pro', Georgia, serif;
+      --fuente-cuerpo: 'Source Sans 3', 'Segoe UI', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+
+    body {
+      font-family: var(--fuente-cuerpo);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--guinda-oscuro);
+      overflow: hidden;
+    }
+
+    /* ══ FONDO CON PATRÓN SUTIL ══ */
+    .fondo-patron {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(200,169,81,.13) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 80% at 100% 100%, rgba(107,15,43,.5) 0%, transparent 60%),
+        linear-gradient(160deg, var(--guinda-oscuro) 0%, #3a0818 40%, #1e0510 100%);
+      z-index: 0;
+    }
+
+    /* Rejilla decorativa */
+    .fondo-patron::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(200,169,81,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200,169,81,.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 0%, transparent 75%);
+    }
+
+    /* ══ BANDA TRICOLOR SUPERIOR ══ */
+    .banda-top {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      height: 5px;
+      z-index: 10;
+    }
+    .banda-top span { flex: 1; }
+    .banda-top .g1 { background: var(--guinda); }
+    .banda-top .g2 { background: var(--dorado); }
+    .banda-top .g3 { background: var(--guinda-oscuro); }
+
+    /* ══ CONTENEDOR CENTRAL ══ */
+    .login-wrapper {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      animation: aparecer .5s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    @keyframes aparecer {
+      from { opacity: 0; transform: translateY(28px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+
+    /* ── Cabecera institucional ── */
+    .login-header {
+      background: var(--blanco);
+      border-radius: 10px 10px 0 0;
+      padding: 28px 32px 22px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border-bottom: 3px solid var(--dorado);
+    }
+
+    .escudo-placeholder {
+      width: 52px;
+      height: 62px;
+      flex-shrink: 0;
+    }
+
+    /* SVG escudo simplificado */
+    .escudo-placeholder svg { width: 100%; height: 100%; }
+
+    .login-header-texto { flex: 1; }
+
+    .login-gov {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--txt2);
+      margin-bottom: 3px;
+    }
+
+    .login-secretaria {
+      font-family: var(--fuente-titulo);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--guinda);
+      line-height: 1.2;
+    }
+
+    .login-subsecretaria {
+      font-size: 0.72rem;
+      color: var(--txt2);
+      margin-top: 2px;
+    }
+
+    /* ── Cuerpo del formulario ── */
+    .login-body {
+      background: var(--blanco);
+      padding: 28px 32px 32px;
+      border-radius: 0 0 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .login-titulo-bloque {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .login-titulo {
+      font-family: var(--fuente-titulo);
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--guinda);
+    }
+
+    .login-subtitulo {
+      font-size: 0.8rem;
+      color: var(--txt2);
+    }
+
+    /* ── Separador ── */
+    .sep {
+      height: 1px;
+      background: linear-gradient(90deg, var(--borde), transparent);
+      margin: -4px 0;
+    }
+
+    /* ── Grupos de campo ── */
+    .campo-grupo {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .campo-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--txt2);
+    }
+
+    .campo-input-wrap {
+      position: relative;
+    }
+
+    .campo-input-wrap .icono-campo {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 17px;
+      color: var(--txt2);
+      pointer-events: none;
+      transition: color .2s;
+    }
+
+    .campo-input {
+      width: 100%;
+      padding: 10px 14px 10px 40px;
+      border: 1.5px solid var(--borde);
+      border-radius: 6px;
+      font-size: 0.93rem;
+      font-family: var(--fuente-cuerpo);
+      color: var(--txt);
+      background: var(--blanco);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .campo-input:focus {
+      border-color: var(--guinda);
+      box-shadow: 0 0 0 3px rgba(107,15,43,.1);
+    }
+
+    .campo-input:focus + .icono-campo,
+    .campo-input-wrap:focus-within .icono-campo {
+      color: var(--guinda);
+    }
+
+    /* Toggle contraseña */
+    .btn-ver-pass {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 17px;
+      color: var(--txt2);
+      padding: 4px;
+      transition: color .2s;
+    }
+
+    .btn-ver-pass:hover { color: var(--guinda); }
+
+    /* ── Mensaje de error ── */
+    .error-msg {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: #fff2f2;
+      border: 1px solid #f5c6c6;
+      border-left: 3px solid var(--error);
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: var(--error);
+      animation: shake .35s ease;
+    }
+
+    .error-msg.visible { display: flex; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60%  { transform: translateX(-5px); }
+      40%,80%  { transform: translateX(5px); }
+    }
+
+    /* ── Botón de acceso ── */
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--guinda) 0%, var(--guinda-oscuro) 100%);
+      color: #f8eed4;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      font-family: var(--fuente-cuerpo);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: filter .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 4px 14px rgba(74,10,29,.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-login::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(200,169,81,.18), transparent);
+      opacity: 0;
+      transition: opacity .2s;
+    }
+
+    .btn-login:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(74,10,29,.45); }
+    .btn-login:hover::after { opacity: 1; }
+    .btn-login:active { transform: translateY(0); }
+
+    .btn-login:disabled {
+      opacity: .7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(248,238,212,.3);
+      border-top-color: #f8eed4;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .btn-login.cargando .spinner    { display: block; }
+    .btn-login.cargando .btn-texto  { display: none; }
+    .btn-login.cargando .btn-icono  { display: none; }
+
+    /* ── Pie del card ── */
+    .login-pie {
+      font-size: 0.72rem;
+      color: var(--txt2);
+      text-align: center;
+    }
+
+    /* ══ BANDA INFERIOR ══ */
+    .banda-bottom {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(74,10,29,.6);
+      backdrop-filter: blur(8px);
+      padding: 10px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      border-top: 1px solid rgba(200,169,81,.15);
+    }
+
+    .banda-bottom span {
+      font-size: 0.68rem;
+      color: rgba(255,255,255,.35);
+      letter-spacing: 0.04em;
+    }
+
+    /* ══ RESPONSIVE ══ */
+    @media (max-width: 480px) {
+      .login-header { padding: 20px 20px 16px; }
+      .login-body   { padding: 20px 20px 24px; }
+      .banda-bottom { padding: 8px 16px; }
+      .banda-bottom .derecha { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Fondo -->
+  <div class="fondo-patron"></div>
+
+  <!-- Banda tricolor superior -->
+  <div class="banda-top">
+    <span class="g1"></span>
+    <span class="g2"></span>
+    <span class="g3"></span>
+  </div>
+
+  <!-- Formulario -->
+  <div class="login-wrapper">
+    <div class="login-card">
+
+      <!-- Cabecera -->
+      <div class="login-header">
+        <div class="login-header-texto">
+          <div class="login-gov">Gobierno del Estado de Hidalgo</div>
+          <div class="login-secretaria">Secretaría de Bienestar e Inclusión Social</div>
+          <div class="login-subsecretaria">Sistema de Correspondencia</div>
+        </div>
+      </div>
+
+      <!-- Cuerpo -->
+      <div class="login-body">
+
+        <div class="login-titulo-bloque"> <center>
+          <div class="login-titulo">Acceso al Sistema</div>
+          <div class="login-subtitulo">Ingresa tus credenciales institucionales</div>
+        </center></div>
+
+        <div class="sep"></div>
+
+        <!-- Usuario -->
+        <div class="campo-grupo">
+          <label class="campo-label" for="inp-usuario">Usuario</label>
+          <div class="campo-input-wrap">
+            <input
+              class="campo-input"
+              id="inp-usuario"
+              type="text"
+              autocomplete="username"
+              placeholder="Ej. rhumanos"
+              spellcheck="false"
+            />
+            <i class="ti ti-user icono-campo"></i>
+          </div>
+        </div>
+
+        <!-- Contraseña -->
+        <div class="campo-grupo">
+          <label class="campo-label" for="inp-password">Contraseña</label>
+          <div class="campo-input-wrap">
+            <input
+              class="campo-input"
+              id="inp-password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+            />
+            <i class="ti ti-lock icono-campo"></i>
+            <button class="btn-ver-pass" type="button" id="btn-ver" title="Mostrar contraseña" tabindex="-1">
+              <i class="ti ti-eye" id="ico-ojo"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="error-msg">
+          <i class="ti ti-alert-circle"></i>
+          <span id="error-txt">Usuario o contraseña incorrectos.</span>
+        </div>
+
+        <!-- Botón -->
+        <button class="btn-login" id="btn-login" type="button">
+          <span class="spinner"></span>
+          <i class="ti ti-login btn-icono"></i>
+          <span class="btn-texto">Ingresar al Sistema</span>
+        </button>
+
+        <div class="login-pie">
+          Sistema de uso exclusivo para personal autorizado de la Secretaría
+        </div>
+
+      </div><!-- /login-body -->
+    </div><!-- /login-card -->
+  </div>
+
+  <!-- Pie de página -->
+  <div class="banda-bottom">
+    <span>SBIS © 2026 — Secretaría de Bienestar e Inclusión Social</span>
+    <span class="derecha">Gobierno del Estado de Hidalgo</span>
+  </div>
+
+  <script>
+    /* ═══════════════════════════════════════════════════
+       SBIS — Login Logic
+       ═══════════════════════════════════════════════════ */
+
+    const API = 'http://localhost:3000/api';
+
+    const inpUsuario  = document.getElementById('inp-usuario');
+    const inpPassword = document.getElementById('inp-password');
+    const btnLogin    = document.getElementById('btn-login');
+    const errorMsg    = document.getElementById('error-msg');
+    const errorTxt    = document.getElementById('error-txt');
+    const btnVer      = document.getElementById('btn-ver');
+    const icoOjo      = document.getElementById('ico-ojo');
+
+    /* ── Toggle contraseña visible ── */
+    btnVer.addEventListener('click', () => {
+      const esPassword = inpPassword.type === 'password';
+      inpPassword.type = esPassword ? 'text' : 'password';
+      icoOjo.className = esPassword ? 'ti ti-eye-off' : 'ti ti-eye';
+    });
+
+    /* ── Limpiar error al escribir ── */
+    [inpUsuario, inpPassword].forEach(el => {
+      el.addEventListener('input', () => errorMsg.classList.remove('visible'));
+    });
+
+    /* ── Enter en cualquier campo ── */
+    [inpUsuario, inpPassword].forEach(el => {
+      el.addEventListener('keydown', e => { if (e.key === 'Enter') hacerLogin(); });
+    });
+
+    /* ── Login ── */
+    btnLogin.addEventListener('click', hacerLogin);
+
+    async function hacerLogin() {
+      const username = inpUsuario.value.trim();
+      const password = inpPassword.value;
+
+      /* Validación básica */
+      if (!username || !password) {
+        mostrarError('Completa todos los campos.');
+        if (!username) inpUsuario.focus();
+        else inpPassword.focus();
+        return;
+      }
+
+      /* Estado de carga */
+      btnLogin.classList.add('cargando');
+      btnLogin.disabled = true;
+      errorMsg.classList.remove('visible');
+
+      try {
+        const res = await fetch(`${API}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          mostrarError(data.mensaje || 'Usuario o contraseña incorrectos.');
+          inpPassword.value = '';
+          inpPassword.focus();
+          return;
+        }
+
+        /* Guardar sesión */
+        localStorage.setItem('sbis_token',   data.token);
+        localStorage.setItem('sbis_usuario', JSON.stringify(data.usuario));
+
+        /* Redirigir según rol */
+        if (data.usuario.rol === 'admin') {
+          window.location.href = '/historial.html';
+        } else {
+          window.location.href = '/area.html';
+        }
+
+      } catch (err) {
+        mostrarError('No se pudo conectar con el servidor.');
+        console.error('[login]', err);
+      } finally {
+        btnLogin.classList.remove('cargando');
+        btnLogin.disabled = false;
+      }
+    }
+
+    function mostrarError(msg) {
+      errorTxt.textContent = msg;
+      errorMsg.classList.add('visible');
+    }
+
+    /* ── Si ya hay sesión válida, redirigir ── */
+    (async () => {
+      const token = localStorage.getItem('sbis_token');
+      if (!token) return;
+      try {
+        const res = await fetch(`${API}/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const { usuario } = await res.json();
+          window.location.href = usuario.rol === 'admin' ? '/historial.html' : '/area.html';
+        }
+      } catch { /* token inválido, continuar en login */ }
+    })();
+  </script>
+</body>
+</html>

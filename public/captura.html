@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nuevo Registro — Secretaría de Bienestar e Inclusión Social</title>
+  <link rel="stylesheet" href="css/styles.css"/>
+  <link rel="stylesheet" href="css/captura.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+</head>
+<body>
+
+  <!-- ══ HEADER ══ -->
+  <header class="header-institucional">
+    <div class="header-banda-superior">
+      <div class="header-texto">
+        <span class="header-gobierno">GOBIERNO DE MÉXICO</span>
+        <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="header-fecha" id="header-fecha"></div>
+      <button onclick="cerrarSesion()" style="
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.5);
+        color: #fff;
+        padding: 6px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 16px;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='rgba(255,255,255,0.15)'"
+         onmouseout="this.style.background='transparent'">
+        <i class="ti ti-logout"></i> Cerrar sesión
+      </button>
+    </div>
+    <div class="header-banda-tricolor">
+      <div class="banda guinda"></div>
+      <div class="banda dorada"></div>
+      <div class="banda guinda-oscuro"></div>
+    </div>
+  </header>
+
+  <!-- ══ MENÚ ══ -->
+  <nav class="barra-menu">
+    <div class="menu-container">
+      <span class="menu-label">MENÚ</span>
+      <ul class="menu-lista">
+        <li><a href="captura.html"  class="menu-item active">Nuevo Registro</a></li>
+        <li><a href="historial.html" class="menu-item">Historial</a></li>
+        <li><a href="#" class="menu-item"> - </a></li>
+        <li><a href="#" class="menu-item"> - </a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ══ CONTENIDO ══ -->
+  <main class="main-contenido">
+    <div class="contenido-wrapper">
+
+      <div class="seccion-titulo-bloque">
+        <i class="ti ti-file-plus titulo-icono" aria-hidden="true"></i>
+        <h1 class="seccion-titulo-h1">Nuevo Registro de Oficio</h1>
+      </div>
+
+      <!-- Toast de notificación -->
+      <div class="toast" id="toast">
+        <i class="ti ti-circle-check toast-ico" aria-hidden="true"></i>
+        <span id="toast-msg">Oficio registrado correctamente.</span>
+      </div>
+
+      <!-- ════════════════════════════════
+           FORMULARIO
+           ════════════════════════════════ -->
+      <form id="form-captura" novalidate>
+
+        <!-- ── Sección 1: Datos del Oficio ── -->
+        <section class="card-seccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-id-badge" aria-hidden="true"></i> Datos del Oficio
+            </span>
+          </div>
+
+          <div class="form-grid">
+
+            <div class="campo">
+              <label class="campo-label" for="n_control">N. Control</label>
+              <input id="n_control" name="n_control" type="text" class="campo-input"
+                     placeholder="Se genera automáticamente" readonly/>
+              <span class="campo-hint">Generado por el sistema al guardar</span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="f_sello">F. Sello</label>
+              <input id="f_sello" name="f_sello" type="date" class="campo-input"/>
+            </div>
+
+            <!-- F. Oficio: OBLIGATORIO -->
+            <div class="campo">
+              <label class="campo-label req" for="f_oficio">F. Oficio</label>
+              <input id="f_oficio" name="f_oficio" type="date" class="campo-input" required/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label req" for="dias_entrega">Días de Entrega</label>
+              <select id="dias_entrega" name="dias_entrega" class="campo-select" required>
+                <option value="">— Seleccionar —</option>
+                <option value="1">1 día  🔴 Urgente</option>
+                <option value="2">2 días 🔴 Urgente</option>
+                <option value="3">3 días 🔴 Urgente</option>
+                <option value="4">4 días</option>
+                <option value="5">5 días</option>
+              </select>
+              <span class="campo-hint" id="dias-hint" style="display:none;color:#c62828;font-weight:600;">
+                ⚠️ Prioridad alta — se marcará en rojo
+              </span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="numero"># (Número de Oficio)</label>
+              <input id="numero" name="numero" type="text" class="campo-input"
+                     placeholder="Ej. J-2026-112"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="n_referencia">N. Referencia</label>
+              <input id="n_referencia" name="n_referencia" type="text"
+                     class="campo-input" placeholder="Referencia del oficio"/>
+            </div>
+
+            <!-- Remitente: OBLIGATORIO -->
+            <div class="campo col-full">
+              <label class="campo-label req" for="remitente">Remitente</label>
+              <input id="remitente" name="remitente" type="text" class="campo-input"
+                     placeholder="Nombre completo del remitente" required/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="dependencia">Dependencia</label>
+              <input id="dependencia" name="dependencia" type="text" class="campo-input"
+                     placeholder="Dependencia de origen"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="instruccion">Instrucción</label>
+              <input id="instruccion" name="instruccion" type="text" class="campo-input"
+                     placeholder="Instrucción recibida"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="f_registro">F. Registro</label>
+              <input id="f_registro" name="f_registro" type="date"
+                     class="campo-input" readonly/>
+              <span class="campo-hint">Fecha actual al guardar</span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="folio_despacho">Folio Despacho</label>
+              <input id="folio_despacho" name="folio_despacho" type="text"
+                     class="campo-input" placeholder="Folio de despacho"/>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ── Sección 2: Descripción del Asunto ── -->
+        <section class="card-seccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-align-left" aria-hidden="true"></i> Descripción del Asunto
+            </span>
+          </div>
+          <div class="form-grid">
+            <div class="campo col-full">
+              <label class="campo-label" for="descripcion">Descripción del Asunto</label>
+              <textarea id="descripcion" name="descripcion" class="campo-textarea"
+                        rows="4" placeholder="Describa detalladamente el asunto del oficio..."></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Sección 3: Turnado y Control ── -->
+        <section class="card-seccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-arrow-forward" aria-hidden="true"></i> Turnado y Control
+            </span>
+          </div>
+          <div class="form-grid">
+
+            <div class="campo">
+              <label class="campo-label" for="turnado_a">Turnado a</label>
+              <select id="turnado_a" name="turnado_a" class="campo-select">
+                <option value="">— Sin turnar —</option>
+                <option value="Coordinación Administrativa">Coordinación Administrativa</option>
+                <option value="R. Humanos">R. Humanos</option>
+                <option value="R. Financieros">R. Financieros</option>
+                <option value="Seguimiento de Auditorías">Seguimiento de Auditorías</option>
+                <option value="Informática">Informática</option>
+                <option value="R. Materiales">R. Materiales</option>
+                <option value="Archivo">Archivo</option>
+                <option value="Transparencia">Transparencia</option>
+              </select>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="hora_recibido">Hora Recibido</label>
+              <input id="hora_recibido" name="hora_recibido" type="time" class="campo-input"/>
+            </div>
+
+            <!-- Estatus: siempre "Turnado" al crear, lo asigna el servidor -->
+            <div class="campo">
+              <label class="campo-label">Estatus al crear</label>
+              <div style="
+                padding: 8px 12px;
+                background: var(--guinda-claro);
+                border: 0.5px solid var(--borde);
+                border-radius: var(--radio-sm);
+                font-size: 12.5px;
+                color: var(--guinda);
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+              ">
+                <i class="ti ti-arrow-forward"></i> Turnado (automático)
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ── Sección 4: Documentos Adjuntos ── -->
+        <section class="card-seccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-paperclip" aria-hidden="true"></i> Documentos Adjuntos
+            </span>
+          </div>
+          <div class="form-grid">
+
+            <div class="campo">
+              <label class="campo-label" for="doc1">Documento 1</label>
+              <div class="campo-archivo" id="zona-doc1">
+                <i class="ti ti-file-upload archivo-ico" aria-hidden="true"></i>
+                <span class="archivo-txt" id="txt-doc1">Seleccionar o arrastrar archivo</span>
+                <input type="file" id="doc1" name="doc1" class="archivo-input"
+                       accept=".pdf,.doc,.docx"/>
+              </div>
+              <span class="campo-hint">PDF, DOC, DOCX — máx. 10 MB</span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="doc2">Documento 2</label>
+              <div class="campo-archivo" id="zona-doc2">
+                <i class="ti ti-file-upload archivo-ico" aria-hidden="true"></i>
+                <span class="archivo-txt" id="txt-doc2">Seleccionar o arrastrar archivo</span>
+                <input type="file" id="doc2" name="doc2" class="archivo-input"
+                       accept=".pdf,.doc,.docx"/>
+              </div>
+              <span class="campo-hint">PDF, DOC, DOCX — máx. 10 MB</span>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ── Barra de acciones ── -->
+        <div class="acciones-form">
+          <button type="button" class="btn btn-limpiar" id="btn-limpiar">
+            <i class="ti ti-eraser" aria-hidden="true"></i> Limpiar
+          </button>
+          <div class="acciones-form-der">
+            <button type="button" class="btn btn-historial"
+                    onclick="window.location.href='historial.html'">
+              <i class="ti ti-list" aria-hidden="true"></i> Ver Historial
+            </button>
+            <button type="submit" class="btn btn-guardar" id="btn-guardar">
+              <i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Registro
+            </button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+  </main>
+
+  <!-- ══ MODAL DE CONFIRMACIÓN ══ -->
+  <div id="modal-confirmacion" style="
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+  ">
+    <div style="
+      background: #fff;
+      border-radius: 10px;
+      padding: 36px 40px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 8px 40px rgba(107,15,43,0.18);
+      text-align: center;
+      font-family: 'Source Sans 3', sans-serif;
+    ">
+      <div style="
+        width: 56px; height: 56px;
+        background: #f0f9f0;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 18px;
+      ">
+        <i class="ti ti-circle-check" style="font-size: 28px; color: #2e7d32;"></i>
+      </div>
+      <h2 style="
+        font-family: 'Crimson Pro', serif;
+        color: var(--guinda, #6B0F2B);
+        margin: 0 0 8px;
+        font-size: 1.5rem;
+      ">Registro guardado</h2>
+      <p id="modal-n-control" style="
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #333;
+        margin: 0 0 6px;
+        letter-spacing: 0.5px;
+      "></p>
+      <p id="modal-area" style="
+        font-size: 0.9rem;
+        color: #666;
+        margin: 0 0 28px;
+      "></p>
+      <button onclick="irAHistorial()" style="
+        background: var(--guinda, #6B0F2B);
+        color: #fff;
+        border: none;
+        padding: 12px 32px;
+        border-radius: 6px;
+        font-size: 1rem;
+        font-family: 'Source Sans 3', sans-serif;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#8B1535'"
+         onmouseout="this.style.background='var(--guinda, #6B0F2B)'">
+        <i class="ti ti-list"></i> Ver Historial
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ FOOTER ══ -->
+  <footer class="footer-institucional">
+    <div class="footer-banda-tricolor">
+      <div class="banda guinda"></div>
+      <div class="banda dorada"></div>
+      <div class="banda guinda-oscuro"></div>
+    </div>
+    <div class="footer-contenido">
+      <span>© 2026 Gobierno de México — Secretaría de Bienestar e Inclusión Social</span>
+      <span>Sistema de Correspondencia.</span>
+    </div>
+  </footer>
+
+  <script src="js/captura.js"></script>
+</body>
+</html>
