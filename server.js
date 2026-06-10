@@ -27,6 +27,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// ── Redirigir raíz a login ──
+app.get('/', (req, res) => {
+  res.redirect('/login.html');
+});
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads')),
   filename:    (req, file, cb) => cb(null, `${Date.now()}_${file.originalname.replace(/\s+/g, '_')}`)
@@ -165,12 +170,10 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
       folio_despacho, turnado_a, hora_recibido, descripcion
     } = req.body;
 
-    /* Validar obligatorios */
     if (!f_oficio || !remitente?.trim()) {
       return res.status(400).json({ mensaje: 'F. Oficio y Remitente son obligatorios.' });
     }
 
-    /* N. Control: número consecutivo simple */
     const [{ count }] = await sql`SELECT COUNT(*) AS count FROM oficios`;
     const n_control = String(Number(count) + 1);
 
