@@ -2,7 +2,7 @@
    SBIS — Formulario de Captura (Admin)
    ═══════════════════════════════════════════════════ */
 
-const API = 'http://localhost:3000/api';
+const API = window.location.origin + '/api';
 
 let TOKEN   = localStorage.getItem('sbis_token');
 let USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');

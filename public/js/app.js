@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════
    SBIS — Historial de Oficios (Admin)
    ═══════════════════════════════════════════════════ */
-const API = 'http://localhost:3000/api';
+const API = window.location.origin + '/api';
 
 const BADGE = {
   turnado:    ['b-tur',  'Turnado'],
