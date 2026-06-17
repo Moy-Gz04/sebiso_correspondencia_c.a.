@@ -36,10 +36,21 @@
       border-radius: 8px 8px 0 0;
     }
     .urgente-banner .ti { font-size: 14px; }
-    /* Quitar border-radius superior de t-header cuando hay banner */
-    .tarjeta-urgente .t-header {
-      border-radius: 0 !important;
+    .tarjeta-urgente .t-header { border-radius: 0 !important; }
+
+    /* ── Tarjeta rechazada (esperando corrección) ── */
+    .tarjeta-rechazada {
+      border: 1.5px solid #c62828 !important;
+      box-shadow: 0 0 0 3px rgba(198,40,40,0.08), 0 2px 8px rgba(198,40,40,0.10) !important;
     }
+    .nota-rechazo-box {
+      background:#fdecea; border:1px solid #f5c2c0; border-left:3px solid #c62828;
+      border-radius:6px; padding:12px 14px; font-size:13px; color:#7a1313; line-height:1.5;
+    }
+
+    /* ── Badges nuevos ── */
+    .badge.b-portu { background:#fff3e0; color:#e65100; }
+    .badge.b-rech  { background:#fdecea; color:#c62828; }
 
     /* ── Tarjetas de documentos del área ── */
     .docs-area-grid {
@@ -95,7 +106,7 @@
     }
     .doc-area-card:hover .doc-area-abrir { opacity: 1; }
 
-    /* ── Botón Editar ── */
+    /* ── Botones de acción ── */
     .btn-editar {
       background: var(--dorado, #C8A951);
       color: #fff;
@@ -113,8 +124,25 @@
     }
     .btn-editar:hover { background: #a8882e; }
 
-    /* ══ MODAL DE EDICIÓN ══ */
-    #modal-editar {
+    .btn-turnar {
+      background: var(--guinda, #6B0F2B);
+      color: #fff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'Source Sans 3', sans-serif;
+      transition: background 0.2s;
+    }
+    .btn-turnar:hover { background: #8B1535; }
+
+    /* ══ MODALES (Editar / Turnar / Rechazar) ══ */
+    #modal-editar, #modal-turnar, #modal-rechazar {
       display: none;
       position: fixed;
       inset: 0;
@@ -142,6 +170,7 @@
       align-items: center;
       justify-content: space-between;
     }
+    .modal-header.modal-header-danger { background: #c62828; }
     .modal-header h2 {
       margin: 0;
       font-family: 'Crimson Pro', serif;
@@ -245,6 +274,8 @@
       background: #b08090;
       cursor: not-allowed;
     }
+    .btn-modal-guardar.btn-modal-danger { background: #c62828; }
+    .btn-modal-guardar.btn-modal-danger:hover { background: #b71c1c; }
   </style>
 </head>
 <body>
@@ -359,8 +390,10 @@
       <!-- Filtros -->
       <div class="filtros-barra">
         <button class="chip on" onclick="filtrar(this,'todos')">Todos</button>
+        <button class="chip" onclick="filtrar(this,'por_turnar')">Por Turnar</button>
         <button class="chip" onclick="filtrar(this,'turnado')">Turnado</button>
         <button class="chip" onclick="filtrar(this,'atendido')">Atendido</button>
+        <button class="chip" onclick="filtrar(this,'rechazado')">Rechazado</button>
         <button class="chip" onclick="filtrar(this,'completado')">Completado</button>
         <div class="filtro-spacer"></div>
         <span class="filtro-total">Total: <strong id="tot">0</strong> registros</span>
@@ -488,6 +521,95 @@
         </button>
         <button class="btn-modal-guardar" id="edit-btn-guardar" onclick="guardarEdicion()">
           <i class="ti ti-device-floppy"></i> Guardar cambios
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       MODAL: TURNAR A ÁREA
+  ══════════════════════════════════════ -->
+  <div id="modal-turnar">
+    <div class="modal-box" style="max-width:480px;">
+
+      <div class="modal-header">
+        <h2><i class="ti ti-arrow-forward"></i> Turnar a Área</h2>
+        <button onclick="cerrarTurnar()" title="Cerrar">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-grid">
+
+          <div class="modal-campo col-full">
+            <label>Área <span class="req">*</span></label>
+            <select id="turnar-area">
+              <option value="">— Seleccionar área —</option>
+              <option value="Coordinación Administrativa">Coordinación Administrativa</option>
+              <option value="R. Humanos">R. Humanos</option>
+              <option value="R. Financieros">R. Financieros</option>
+              <option value="Seguimiento de Auditorías">Seguimiento de Auditorías</option>
+              <option value="Informática">Informática</option>
+              <option value="R. Materiales">R. Materiales</option>
+              <option value="Archivo">Archivo</option>
+              <option value="Transparencia">Transparencia</option>
+            </select>
+          </div>
+
+          <div class="modal-campo col-full">
+            <label>Hora</label>
+            <input id="turnar-hora" type="time"/>
+          </div>
+
+        </div>
+      </div>
+
+      <p class="modal-error" id="turnar-error"></p>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" onclick="cerrarTurnar()">
+          <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button class="btn-modal-guardar" id="turnar-btn-guardar" onclick="guardarTurnado()">
+          <i class="ti ti-arrow-forward"></i> Turnar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       MODAL: RECHAZAR / SOLICITAR CORRECCIÓN
+  ══════════════════════════════════════ -->
+  <div id="modal-rechazar">
+    <div class="modal-box" style="max-width:480px;">
+
+      <div class="modal-header modal-header-danger">
+        <h2><i class="ti ti-arrow-back-up"></i> Solicitar corrección</h2>
+        <button onclick="cerrarRechazar()" title="Cerrar">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-grid">
+          <div class="modal-campo col-full">
+            <label>Motivo / Nota de corrección <span class="req">*</span></label>
+            <textarea id="rechazar-nota" rows="4" placeholder="Describe qué debe corregir el área..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <p class="modal-error" id="rechazar-error"></p>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" onclick="cerrarRechazar()">
+          <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button class="btn-modal-guardar btn-modal-danger" id="rechazar-btn-guardar" onclick="guardarRechazo()">
+          <i class="ti ti-arrow-back-up"></i> Rechazar y enviar nota
         </button>
       </div>
 

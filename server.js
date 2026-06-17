@@ -95,7 +95,11 @@ app.post('/api/login', async (req, res) => {
 /* ══ ME ══ */
 app.get('/api/me', verifyToken, (req, res) => res.json({ usuario: req.user }));
 
-/* ══ GET /api/oficios ══ */
+/* ══ GET /api/oficios ══
+   dias_transcurridos ahora se calcula también en estatus 'por_turnar',
+   no solo en 'turnado', para que el contador de urgencia funcione
+   desde que el oficio se captura.
+*/
 app.get('/api/oficios', verifyToken, async (req, res) => {
   try {
     const { estatus } = req.query;
@@ -106,14 +110,14 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
       rows = estatus && estatus !== 'todos'
         ? await sql`
             SELECT *,
-              CASE WHEN estatus = 'turnado'
+              CASE WHEN estatus IN ('turnado', 'por_turnar')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL
               END AS dias_transcurridos
             FROM oficios WHERE estatus = ${estatus} ORDER BY created_at DESC`
         : await sql`
             SELECT *,
-              CASE WHEN estatus = 'turnado'
+              CASE WHEN estatus IN ('turnado', 'por_turnar')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL
               END AS dias_transcurridos
@@ -122,14 +126,14 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
       rows = estatus && estatus !== 'todos'
         ? await sql`
             SELECT *,
-              CASE WHEN estatus = 'turnado'
+              CASE WHEN estatus IN ('turnado', 'por_turnar')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL
               END AS dias_transcurridos
             FROM oficios WHERE turnado_a = ${area} AND estatus = ${estatus} ORDER BY created_at DESC`
         : await sql`
             SELECT *,
-              CASE WHEN estatus = 'turnado'
+              CASE WHEN estatus IN ('turnado', 'por_turnar')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL
               END AS dias_transcurridos
@@ -158,6 +162,8 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
 /* ══ POST /api/oficios — Solo admin ══
    Campos OBLIGATORIOS: f_oficio, remitente
    N. Control: número consecutivo simple (1, 2, 3...)
+   Estatus inicial: 'por_turnar' (ya no se turna ni se adjuntan
+   doc1/doc2 en este paso; eso ocurre después desde Historial).
 */
 app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
   { name: 'doc1', maxCount: 1 },
@@ -167,7 +173,7 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
     const {
       f_sello, f_oficio, dias_entrega, numero, n_referencia,
       remitente, dependencia, instruccion, f_registro,
-      folio_despacho, turnado_a, hora_recibido, descripcion
+      folio_despacho, hora_recibido, descripcion
     } = req.body;
 
     if (!f_oficio || !remitente?.trim()) {
@@ -199,24 +205,31 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
         ${instruccion    || null},
         ${f_registro     || new Date().toISOString().split('T')[0]},
         ${folio_despacho || null},
-        ${turnado_a      || null},
+        ${null},
         ${hora_recibido  || null},
-        'turnado',
+        'por_turnar',
         ${descripcion    || null},
         ${ruta_doc1},
         ${ruta_doc2}
       )
       RETURNING *`;
 
-    console.log(`✅  Oficio creado: N. Control ${n_control} → ${turnado_a || 'sin turnar'}`);
+    console.log(`✅  Oficio creado: N. Control ${n_control} → por_turnar`);
     res.status(201).json(nuevo);
   } catch (err) {
     res.status(500).json({ mensaje: 'Error al guardar: ' + err.message });
   }
 });
 
-/* ══ PUT /api/oficios/:id ══ */
+/* ══ PUT /api/oficios/:id ══
+   Admin puede mover entre cualquier estatus del flujo, incluyendo
+   'rechazado' (con nota_rechazo) y volver a turnar.
+   Área solo puede marcar 'atendido' (incluye reenvío tras rechazo)
+   y subir doc3/doc4.
+*/
 app.put('/api/oficios/:id', verifyToken, upload.fields([
+  { name: 'doc1', maxCount: 1 },
+  { name: 'doc2', maxCount: 1 },
   { name: 'doc3', maxCount: 1 },
   { name: 'doc4', maxCount: 1 }
 ]), async (req, res) => {
@@ -232,12 +245,12 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
     if (req.user.rol === 'admin') {
       const {
         estatus, turnado_a, instruccion, descripcion,
-        obs_area, obs_admin,
+        obs_area, obs_admin, nota_rechazo,
         f_sello, f_oficio, dias_entrega, numero, n_referencia,
         remitente, dependencia, f_registro, folio_despacho, hora_recibido
       } = req.body;
 
-      const estatusValidos = ['turnado', 'atendido', 'completado'];
+      const estatusValidos = ['por_turnar', 'turnado', 'atendido', 'rechazado', 'completado'];
       const nuevoEstatus = estatus && estatusValidos.includes(estatus) ? estatus : null;
 
       const ruta_doc1 = files.doc1?.[0]?.filename ?? null;
@@ -251,6 +264,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           descripcion    = COALESCE(${descripcion    ?? null}, descripcion),
           obs_area       = COALESCE(${obs_area       ?? null}, obs_area),
           obs_admin      = COALESCE(${obs_admin      ?? null}, obs_admin),
+          nota_rechazo   = COALESCE(${nota_rechazo    ?? null}, nota_rechazo),
           f_sello        = COALESCE(${f_sello        ?? null}, f_sello),
           f_oficio       = COALESCE(${f_oficio       ?? null}, f_oficio),
           dias_entrega   = COALESCE(${dias_entrega   ? Number(dias_entrega) : null}, dias_entrega),
@@ -308,8 +322,8 @@ app.listen(PORT, () => {
   console.log('╔══════════════════════════════════════════╗');
   console.log(`║  ✅  Servidor SBIS activo                ║`);
   console.log(`║  🌐  http://localhost:${PORT}              ║`);
-  console.log(`║  🗄️   NeonDB conectado                    ║`);
-  console.log(`║  🔐  JWT Auth habilitado                  ║`);
+  console.log(`║  🗄️   NeonDB conectado                   ║`);
+  console.log(`║  🔐  JWT Auth habilitado                 ║`);
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
 });

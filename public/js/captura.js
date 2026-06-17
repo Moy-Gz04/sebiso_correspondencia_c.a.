@@ -1,5 +1,7 @@
 /* ═══════════════════════════════════════════════════
    SBIS — Formulario de Captura (Admin)
+   Solo captura Datos del Oficio + Descripción.
+   El oficio se crea en estatus "por_turnar".
    ═══════════════════════════════════════════════════ */
 
 const API = window.location.origin + '/api';
@@ -148,10 +150,6 @@ function cerrarSesion() {
   window.location.href = '/login.html';
 }
 
-function irAHistorial() {
-  window.location.href = 'historial.html';
-}
-
 function mostrarFecha() {
   const el = document.getElementById('header-fecha');
   if (!el) return;
@@ -162,8 +160,7 @@ function mostrarFecha() {
 
 function preRellenar() {
   const hoy = new Date().toISOString().split('T')[0];
-  document.getElementById('f_registro').value    = hoy;
-  document.getElementById('hora_recibido').value = new Date().toTimeString().slice(0, 5);
+  document.getElementById('f_registro').value = hoy;
 }
 
 function onDiasChange() {
@@ -181,35 +178,6 @@ function onDiasChange() {
   }
 }
 
-function initArchivos() {
-  ['doc1', 'doc2'].forEach(id => {
-    const input = document.getElementById(id);
-    const zona  = document.getElementById(`zona-${id}`);
-    const txt   = document.getElementById(`txt-${id}`);
-    if (!input) return;
-
-    input.addEventListener('change', () => {
-      if (input.files.length > 0) {
-        txt.textContent = `${input.files[0].name} (${(input.files[0].size / 1024).toFixed(0)} KB)`;
-        zona.classList.add('con-archivo');
-      } else {
-        txt.textContent = 'Seleccionar o arrastrar archivo';
-        zona.classList.remove('con-archivo');
-      }
-    });
-
-    zona.addEventListener('dragover',  e => { e.preventDefault(); zona.classList.add('con-archivo'); });
-    zona.addEventListener('dragleave', () => zona.classList.remove('con-archivo'));
-    zona.addEventListener('drop', e => {
-      e.preventDefault();
-      if (e.dataTransfer.files.length > 0) {
-        input.files = e.dataTransfer.files;
-        input.dispatchEvent(new Event('change'));
-      }
-    });
-  });
-}
-
 /* Solo valida los campos con atributo required (f_oficio y remitente) */
 function validarForm(form) {
   let valido = true;
@@ -223,8 +191,6 @@ function validarForm(form) {
 function limpiarForm() {
   document.getElementById('form-captura').reset();
   document.querySelectorAll('.invalido').forEach(el => el.classList.remove('invalido'));
-  document.querySelectorAll('.campo-archivo').forEach(z => z.classList.remove('con-archivo'));
-  document.querySelectorAll('.archivo-txt').forEach(t => t.textContent = 'Seleccionar o arrastrar archivo');
   preRellenar();
 }
 
@@ -250,17 +216,12 @@ async function enviarForm(e) {
     const campos = [
       'f_sello', 'f_oficio', 'dias_entrega', 'numero', 'n_referencia',
       'remitente', 'dependencia', 'instruccion', 'f_registro',
-      'folio_despacho', 'turnado_a', 'hora_recibido', 'descripcion'
+      'folio_despacho', 'descripcion'
     ];
     campos.forEach(c => {
       const el = document.getElementById(c);
       if (el) fd.append(c, el.value);
     });
-
-    const doc1 = document.getElementById('doc1');
-    const doc2 = document.getElementById('doc2');
-    if (doc1.files[0]) fd.append('doc1', doc1.files[0]);
-    if (doc2.files[0]) fd.append('doc2', doc2.files[0]);
 
     const res = await fetch(`${API}/oficios`, {
       method:  'POST',
@@ -273,14 +234,10 @@ async function enviarForm(e) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.mensaje || 'Error al guardar');
 
-    const area = document.getElementById('turnado_a').value;
-
     /* Modal de confirmación de éxito → al cerrar va a historial */
     await sbisAlert({
       titulo:  `Oficio N° ${data.n_control} registrado`,
-      mensaje: area
-        ? `Turnado correctamente a: ${area}`
-        : 'Registro guardado sin área asignada.',
+      mensaje: 'El oficio quedó en estatus "Por Turnar". Recuerda asignarlo a un área desde el Historial.',
       tipo:    'success',
       btnOk:   'Ver Historial',
       onClose: () => { window.location.href = 'historial.html'; }
@@ -317,7 +274,6 @@ document.addEventListener('DOMContentLoaded', () => {
   inyectarModales();
   mostrarFecha();
   preRellenar();
-  initArchivos();
 
   document.getElementById('dias_entrega').addEventListener('change', onDiasChange);
   document.getElementById('btn-limpiar').addEventListener('click', confirmarLimpiar);

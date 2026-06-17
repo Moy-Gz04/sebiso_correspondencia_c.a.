@@ -1,12 +1,16 @@
 /* ═══════════════════════════════════════════════════
    SBIS — Historial de Oficios (Admin)
+   Flujo: por_turnar → turnado → atendido → completado
+                                    ↳ rechazado (con nota) → atendido
    ═══════════════════════════════════════════════════ */
 const API = window.location.origin + '/api';
 
 const BADGE = {
-  turnado:    ['b-tur',  'Turnado'],
-  atendido:   ['b-ate',  'Atendido'],
-  completado: ['b-comp', 'Completado'],
+  por_turnar: ['b-portu', 'Por Turnar'],
+  turnado:    ['b-tur',   'Turnado'],
+  atendido:   ['b-ate',   'Atendido'],
+  rechazado:  ['b-rech',  'Rechazado'],
+  completado: ['b-comp',  'Completado'],
 };
 
 let DATOS        = [];
@@ -17,15 +21,12 @@ let USUARIO      = null;
 /* ════════════════════════════════════════════════════
    SISTEMA DE MODALES GENÉRICO
    ════════════════════════════════════════════════════ */
-
-/* Inyecta el HTML del sistema de modales una sola vez */
 function inyectarModales() {
   if (document.getElementById('sbis-modal-root')) return;
   const div = document.createElement('div');
   div.id = 'sbis-modal-root';
   div.innerHTML = `
     <style>
-      /* ── Overlay ── */
       .sbis-overlay {
         display: none;
         position: fixed; inset: 0;
@@ -36,8 +37,6 @@ function inyectarModales() {
         padding: 20px;
       }
       .sbis-overlay.visible { display: flex; }
-
-      /* ── Caja ── */
       .sbis-modal {
         background: #fff;
         border-radius: 10px;
@@ -51,8 +50,6 @@ function inyectarModales() {
         from { transform: translateY(-18px); opacity: 0; }
         to   { transform: translateY(0);     opacity: 1; }
       }
-
-      /* ── Icono superior ── */
       .sbis-modal-icon {
         display: flex; align-items: center; justify-content: center;
         padding: 28px 0 16px;
@@ -67,8 +64,6 @@ function inyectarModales() {
       .ico-error    { background: #fce4ec; color: #c62828; }
       .ico-info     { background: #e3f2fd; color: #1565c0; }
       .ico-warning  { background: #fff8e1; color: #f57f17; }
-
-      /* ── Texto ── */
       .sbis-modal-body { padding: 0 28px 20px; text-align: center; }
       .sbis-modal-title {
         font-family: 'Crimson Pro', serif;
@@ -79,8 +74,6 @@ function inyectarModales() {
         font-size: 0.92rem; color: #555;
         line-height: 1.5; margin: 0;
       }
-
-      /* ── Botones ── */
       .sbis-modal-btns {
         padding: 0 20px 22px;
         display: flex; gap: 10px; justify-content: center;
@@ -104,7 +97,6 @@ function inyectarModales() {
       .sbis-btn-success:hover { background: #1b5e20; }
     </style>
 
-    <!-- Modal de confirmación / alerta / éxito / error -->
     <div class="sbis-overlay" id="sbis-overlay">
       <div class="sbis-modal" id="sbis-modal">
         <div class="sbis-modal-icon">
@@ -123,16 +115,12 @@ function inyectarModales() {
   document.body.appendChild(div);
 }
 
-/**
- * Modal de confirmación. Devuelve Promise<boolean>.
- * tipo: 'confirm' | 'danger'
- */
 function sbisConfirm({
   titulo  = '¿Estás seguro?',
   mensaje = '',
   btnOk   = 'Aceptar',
   btnCancel = 'Cancelar',
-  tipo    = 'confirm'           /* 'confirm' | 'danger' */
+  tipo    = 'confirm'
 } = {}) {
   return new Promise(resolve => {
     const overlay = document.getElementById('sbis-overlay');
@@ -165,10 +153,6 @@ function sbisConfirm({
   });
 }
 
-/**
- * Modal de notificación (sin cancelar).
- * tipo: 'success' | 'error' | 'info' | 'warning'
- */
 function sbisAlert({
   titulo  = 'Aviso',
   mensaje = '',
@@ -311,11 +295,26 @@ function construirTarjeta(r, i) {
        <div class="docs-area-grid">${doc3HTML}${doc4HTML}</div>`
     : '';
 
+  /* Nota de rechazo enviada al área (visible también para admin como referencia) */
+  const notaRechazoHTML = (r.estatus === 'rechazado' && r.nota_rechazo)
+    ? `<div class="obs-bloque" style="grid-column:1/-1;margin-bottom:14px;">
+         <span class="obs-label" style="color:#c62828;">
+           <i class="ti ti-alert-triangle"></i> Nota de corrección enviada al área
+         </span>
+         <div class="nota-rechazo-box">${r.nota_rechazo}</div>
+       </div>`
+    : '';
+
   let botonesHTML = '';
-  if (r.estatus === 'atendido') {
+  if (r.estatus === 'por_turnar') {
     botonesHTML = `
-      <button class="btn-accion btn-enviar" onclick="reenviar(${r.id})">
-        <i class="ti ti-refresh"></i> Reenviar
+      <button class="btn-accion btn-turnar" onclick="abrirTurnar(${r.id})">
+        <i class="ti ti-arrow-forward"></i> Turnar a Área
+      </button>`;
+  } else if (r.estatus === 'atendido') {
+    botonesHTML = `
+      <button class="btn-accion btn-enviar" onclick="abrirRechazar(${r.id})">
+        <i class="ti ti-arrow-back-up"></i> Rechazar
       </button>
       <button class="btn-accion btn-finalizar" onclick="finalizar(${r.id})">
         <i class="ti ti-circle-check"></i> Finalizar
@@ -324,20 +323,27 @@ function construirTarjeta(r, i) {
     botonesHTML = `<span style="font-size:11px;color:var(--verde-ok);font-weight:600;">
       <i class="ti ti-circle-check"></i> Completado
     </span>`;
+  } else if (r.estatus === 'rechazado') {
+    botonesHTML = `<span style="font-size:11px;color:#c62828;font-weight:600;">
+      <i class="ti ti-clock"></i> Esperando corrección del área
+    </span>`;
   } else {
     botonesHTML = `<span style="font-size:11px;color:var(--txt2);">
       <i class="ti ti-clock"></i> Pendiente de área
     </span>`;
   }
 
-  /* Días transcurridos desde creación (solo si turnado) */
-  const diasMostrar = r.estatus === 'turnado' ? (r.dias_transcurridos ?? r.dias_entrega ?? 0) : null;
+  /* Días transcurridos desde creación (turnado o por_turnar) */
+  const enConteo = (r.estatus === 'turnado' || r.estatus === 'por_turnar');
+  const diasMostrar = enConteo ? (r.dias_transcurridos ?? r.dias_entrega ?? 0) : null;
 
-  /* Urgente: dias_entrega <= 3 Y sigue en turnado (sin atender aún) */
-  const esUrgente = r.estatus === 'turnado' && r.dias_entrega != null && r.dias_entrega <= 3;
+  /* Urgente: dias_entrega <= 3 y aún no atendido por el área */
+  const esUrgente = enConteo && r.dias_entrega != null && r.dias_entrega <= 3;
+
+  const claseExtra = `${esUrgente ? 'tarjeta-urgente' : ''} ${r.estatus === 'rechazado' ? 'tarjeta-rechazada' : ''}`.trim();
 
   return `
-  <div class="tarjeta ${esUrgente ? 'tarjeta-urgente' : ''}" id="tarjeta-${i}">
+  <div class="tarjeta ${claseExtra}" id="tarjeta-${i}">
     ${esUrgente ? `<div class="urgente-banner"><i class="ti ti-alert-triangle"></i> PRIORIDAD ALTA — ${diasMostrar === 0 ? '¡Vence hoy!' : `Atender en ${diasMostrar} día${diasMostrar !== 1 ? 's' : ''}`}</div>` : ''}
     <div class="t-header" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
       <div class="th-bloque">
@@ -360,7 +366,7 @@ function construirTarjeta(r, i) {
       <div class="th-bloque">
         <span class="th-label">Días</span>
         <span class="th-val" style="${esUrgente ? 'color:#c62828;font-weight:700;' : ''}">
-          ${r.estatus === 'turnado'
+          ${enConteo
             ? (diasMostrar === 0 ? '<span style="color:#c62828;font-weight:700;">¡Hoy!</span>'
               : diasMostrar + ' día' + (diasMostrar !== 1 ? 's' : '') + (esUrgente ? ' 🔴' : ''))
             : '—'}
@@ -412,6 +418,7 @@ function construirTarjeta(r, i) {
       </div>
 
       <div class="t-inferior">
+        ${notaRechazoHTML}
         <div class="obs-bloque">
           <span class="obs-label">Descripción del Asunto</span>
           <div style="
@@ -467,7 +474,6 @@ function filtrar(btn, estatus) {
   document.querySelectorAll('.chip').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
   filtroActual = estatus;
-  /* Limpiar búsqueda al cambiar chip */
   const buscador = document.getElementById('buscador');
   if (buscador) buscador.value = '';
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
@@ -508,33 +514,6 @@ async function guardarObs(id, valor) {
       body: JSON.stringify({ obs_admin: valor })
     });
   } catch (err) { console.error('[guardarObs]', err); }
-}
-
-/* ── Reenviar ── */
-async function reenviar(id) {
-  const ok = await sbisConfirm({
-    titulo:  'Reenviar oficio',
-    mensaje: '¿Reenviar este oficio al área? Volverá a aparecer como pendiente.',
-    btnOk:   'Reenviar',
-    tipo:    'confirm'
-  });
-  if (!ok) return;
-  try {
-    const res = await apiFetch(`${API}/oficios/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ estatus: 'turnado' })
-    });
-    if (res.ok) {
-      await sbisAlert({ titulo: 'Reenviado', mensaje: 'El oficio fue reenviado al área correctamente.', tipo: 'success', btnOk: 'Aceptar' });
-      cargarOficios(filtroActual);
-    } else {
-      const d = await res.json();
-      await sbisAlert({ titulo: 'Error', mensaje: d.mensaje || 'No se pudo reenviar.', tipo: 'error' });
-    }
-  } catch (err) {
-    await sbisAlert({ titulo: 'Error de conexión', mensaje: err.message, tipo: 'error' });
-  }
 }
 
 /* ── Finalizar ── */
@@ -701,6 +680,126 @@ async function guardarEdicion() {
   }
 }
 
+/* ════════════════════════════════════════════════════
+   MODAL: TURNAR A ÁREA  (por_turnar → turnado)
+   ════════════════════════════════════════════════════ */
+let turnandoId = null;
+
+function abrirTurnar(id) {
+  turnandoId = id;
+  document.getElementById('turnar-area').value  = '';
+  document.getElementById('turnar-hora').value  = '';
+  document.getElementById('turnar-error').textContent = '';
+  document.getElementById('modal-turnar').style.display = 'flex';
+}
+
+function cerrarTurnar() {
+  document.getElementById('modal-turnar').style.display = 'none';
+  turnandoId = null;
+}
+
+async function guardarTurnado() {
+  if (!turnandoId) return;
+
+  const area  = document.getElementById('turnar-area').value;
+  const hora  = document.getElementById('turnar-hora').value;
+  const errEl = document.getElementById('turnar-error');
+
+  if (!area) {
+    errEl.textContent = 'Selecciona un área para turnar el oficio.';
+    return;
+  }
+  errEl.textContent = '';
+
+  const btn = document.getElementById('turnar-btn-guardar');
+  btn.disabled    = true;
+  btn.textContent = 'Turnando...';
+
+  try {
+    const res = await apiFetch(`${API}/oficios/${turnandoId}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ estatus: 'turnado', turnado_a: area, hora_recibido: hora || null })
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.mensaje || 'No se pudo turnar el oficio.');
+    }
+    cerrarTurnar();
+    cargarOficios(filtroActual);
+    await sbisAlert({
+      titulo:  'Oficio turnado',
+      mensaje: `Turnado correctamente a: ${area}`,
+      tipo:    'success',
+      btnOk:   'Aceptar'
+    });
+  } catch (err) {
+    errEl.textContent = err.message || 'No se pudo turnar el oficio.';
+  } finally {
+    btn.disabled    = false;
+    btn.innerHTML   = '<i class="ti ti-arrow-forward"></i> Turnar';
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   MODAL: RECHAZAR / SOLICITAR CORRECCIÓN (atendido → rechazado)
+   ════════════════════════════════════════════════════ */
+let rechazandoId = null;
+
+function abrirRechazar(id) {
+  rechazandoId = id;
+  document.getElementById('rechazar-nota').value = '';
+  document.getElementById('rechazar-error').textContent = '';
+  document.getElementById('modal-rechazar').style.display = 'flex';
+}
+
+function cerrarRechazar() {
+  document.getElementById('modal-rechazar').style.display = 'none';
+  rechazandoId = null;
+}
+
+async function guardarRechazo() {
+  if (!rechazandoId) return;
+
+  const nota  = document.getElementById('rechazar-nota').value.trim();
+  const errEl = document.getElementById('rechazar-error');
+
+  if (!nota) {
+    errEl.textContent = 'Describe el motivo de la corrección.';
+    return;
+  }
+  errEl.textContent = '';
+
+  const btn = document.getElementById('rechazar-btn-guardar');
+  btn.disabled  = true;
+  btn.innerHTML = 'Enviando...';
+
+  try {
+    const res = await apiFetch(`${API}/oficios/${rechazandoId}`, {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ estatus: 'rechazado', nota_rechazo: nota })
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.mensaje || 'No se pudo rechazar el oficio.');
+    }
+    cerrarRechazar();
+    cargarOficios(filtroActual);
+    await sbisAlert({
+      titulo:  'Oficio rechazado',
+      mensaje: 'Se notificó al área para que realice las correcciones indicadas.',
+      tipo:    'warning',
+      btnOk:   'Aceptar'
+    });
+  } catch (err) {
+    errEl.textContent = err.message || 'No se pudo rechazar el oficio.';
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '<i class="ti ti-arrow-back-up"></i> Rechazar y enviar nota';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
   inyectarModales();
@@ -709,5 +808,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('modal-editar').addEventListener('click', function(e) {
     if (e.target === this) cerrarEditar();
+  });
+  document.getElementById('modal-turnar').addEventListener('click', function(e) {
+    if (e.target === this) cerrarTurnar();
+  });
+  document.getElementById('modal-rechazar').addEventListener('click', function(e) {
+    if (e.target === this) cerrarRechazar();
   });
 });

@@ -3,138 +3,15 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Documentos — </title>
+  <title>Nuevo Registro — Secretaría de Bienestar e Inclusión Social</title>
   <link rel="stylesheet" href="css/styles.css"/>
+  <link rel="stylesheet" href="css/captura.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
-  <style>
-    .header-area-info {
-      display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
-    }
-    .header-area-nombre { font-size: 0.75rem; font-weight: 700; color: var(--guinda); }
-    .header-area-rol    { font-size: 0.65rem; color: var(--txt2); text-transform: uppercase; letter-spacing: 0.08em; }
-    .btn-cerrar-sesion {
-      font-size: 0.68rem; font-weight: 600; color: var(--txt2);
-      background: none; border: 0.5px solid var(--borde);
-      border-radius: var(--radio-pill); padding: 3px 10px; cursor: pointer;
-      font-family: var(--fuente-cuerpo); transition: all .15s;
-      display: flex; align-items: center; gap: 4px; margin-top: 2px;
-    }
-    .btn-cerrar-sesion:hover { background: var(--guinda-claro); border-color: var(--guinda); color: var(--guinda); }
-
-    .aviso-readonly {
-      background: var(--dorado-claro); border: 0.5px solid var(--dorado);
-      border-left: 3px solid var(--dorado-oscuro); border-radius: var(--radio);
-      padding: 10px 16px; font-size: 0.8rem; color: var(--dorado-oscuro);
-      display: flex; align-items: center; gap: 8px;
-    }
-
-    .area-archivos {
-      background: var(--fondo-par); border: 0.5px solid var(--borde);
-      border-radius: var(--radio); padding: 14px 16px; margin-bottom: 14px;
-    }
-    .area-archivos-titulo {
-      font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
-      text-transform: uppercase; color: var(--dorado-oscuro); margin-bottom: 10px;
-    }
-    .area-archivos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .campo-archivo-area { display: flex; flex-direction: column; gap: 4px; }
-    .campo-archivo-area label {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
-      text-transform: uppercase; color: var(--txt2);
-    }
-    .zona-upload {
-      border: 1.5px dashed var(--borde); border-radius: var(--radio-sm);
-      padding: 10px 12px; display: flex; align-items: center; gap: 8px;
-      cursor: pointer; transition: all .15s; background: var(--blanco);
-      position: relative; overflow: hidden;
-    }
-    .zona-upload:hover { border-color: var(--guinda); background: var(--guinda-claro); }
-    .zona-upload.con-archivo { border-color: var(--verde-ok); border-style: solid; background: var(--verde-claro); }
-    .zona-upload i { font-size: 18px; color: var(--txt2); flex-shrink: 0; }
-    .zona-upload.con-archivo i { color: var(--verde-ok); }
-    .zona-upload-txt { font-size: 11.5px; color: var(--txt2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .zona-upload input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-
-    .doc-area-existente {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--verde-claro); border: 0.5px solid #9dd4b0;
-      border-radius: var(--radio-sm); padding: 8px 12px;
-      font-size: 11.5px; color: var(--verde-ok); font-weight: 600;
-    }
-    .doc-area-existente a { color: var(--verde-ok); text-decoration: none; }
-    .doc-area-existente a:hover { text-decoration: underline; }
-
-    .btn-enviar-area {
-      width: 100%; padding: 11px;
-      background: linear-gradient(135deg, var(--guinda) 0%, var(--guinda-oscuro) 100%);
-      color: #f8eed4; border: none; border-radius: var(--radio-sm);
-      font-size: 0.88rem; font-weight: 700; font-family: var(--fuente-cuerpo);
-      letter-spacing: 0.05em; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 7px;
-      transition: filter .15s, transform .1s;
-      box-shadow: 0 3px 10px rgba(74,10,29,.25);
-    }
-    .btn-enviar-area:hover   { filter: brightness(1.1); transform: translateY(-1px); }
-    .btn-enviar-area:disabled { opacity: .5; cursor: not-allowed; transform: none; }
-
-    .estado-badge {
-      display: flex; align-items: center; gap: 8px;
-      border-radius: var(--radio-sm); padding: 10px 14px;
-      font-size: 0.82rem; font-weight: 600;
-    }
-    .estado-badge.enviado    { background: #e8f0fb; border: 0.5px solid #b5cff0; color: #1a4a8a; }
-    .estado-badge.completado { background: var(--verde-claro); border: 0.5px solid #9dd4b0; color: var(--verde-ok); }
-
-    /* ── Tarjeta urgente (igual que historial) ── */
-    .tarjeta-urgente {
-      border: 1.5px solid #e53935 !important;
-      box-shadow: 0 0 0 3px rgba(229,57,53,0.10), 0 2px 8px rgba(229,57,53,0.12) !important;
-    }
-    .urgente-banner {
-      background: linear-gradient(90deg, #c62828, #e53935);
-      color: #fff;
-      font-family: 'Source Sans 3', sans-serif;
-      font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
-      padding: 7px 18px;
-      display: flex; align-items: center; gap: 7px;
-      border-radius: 8px 8px 0 0;
-    }
-    .urgente-banner .ti { font-size: 14px; }
-    .tarjeta-urgente .t-header { border-radius: 0 !important; }
-
-    .toast-area {
-      position: fixed; top: 80px; right: 20px; z-index: 999;
-      background: var(--verde-ok); color: #fff;
-      border-radius: var(--radio); padding: 12px 18px;
-      font-size: 0.85rem; font-weight: 600;
-      display: flex; align-items: center; gap: 8px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.2);
-      transform: translateX(120%);
-      transition: transform .3s cubic-bezier(.22,1,.36,1);
-    }
-    .toast-area.visible { transform: translateX(0); }
-    .toast-area.error   { background: var(--rojo-elim); }
-
-    .sin-asignaciones {
-      text-align: center; padding: 48px 20px; color: var(--txt2);
-      background: var(--blanco); border-radius: var(--radio); border: 0.5px solid var(--borde);
-    }
-    .sin-asignaciones i { font-size: 2.5rem; color: var(--borde); display: block; margin-bottom: 12px; }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spin { animation: spin .8s linear infinite; display: inline-block; }
-
-    .cargando-msg {
-      padding: 28px; text-align: center; color: var(--txt2);
-      font-size: 0.88rem; display: flex; align-items: center; justify-content: center; gap: 8px;
-    }
-
-    @media (max-width: 600px) { .area-archivos-grid { grid-template-columns: 1fr; } }
-  </style>
 </head>
 <body>
 
+  <!-- ══ HEADER ══ -->
   <header class="header-institucional">
     <div class="header-banda-superior">
       <div class="header-texto">
@@ -142,13 +19,25 @@
         <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
       </div>
       <div class="header-spacer"></div>
-      <div class="header-area-info">
-        <span class="header-area-rol">Área:</span>
-        <span class="header-area-nombre" id="header-area-nombre">—</span>
-        <button class="btn-cerrar-sesion" onclick="cerrarSesion()">
-          <i class="ti ti-logout"></i> Cerrar sesión
-        </button>
-      </div>
+      <div class="header-fecha" id="header-fecha"></div>
+      <button onclick="cerrarSesion()" style="
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.5);
+        color: #fff;
+        padding: 6px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 16px;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='rgba(255,255,255,0.15)'"
+         onmouseout="this.style.background='transparent'">
+        <i class="ti ti-logout"></i> Cerrar sesión
+      </button>
     </div>
     <div class="header-banda-tricolor">
       <div class="banda guinda"></div>
@@ -157,46 +46,168 @@
     </div>
   </header>
 
+  <!-- ══ MENÚ ══ -->
   <nav class="barra-menu">
     <div class="menu-container">
-      <span class="menu-label">Documentos</span>
+      <span class="menu-label">MENÚ</span>
       <ul class="menu-lista">
-        <li><a href="area.html" class="menu-item active">Documentos</a></li>
+        <li><a href="captura.html"  class="menu-item active">Nuevo Registro</a></li>
+        <li><a href="historial.html" class="menu-item">Historial</a></li>
+        <li><a href="#" class="menu-item"> - </a></li>
+        <li><a href="#" class="menu-item"> - </a></li>
       </ul>
     </div>
   </nav>
 
+  <!-- ══ CONTENIDO ══ -->
   <main class="main-contenido">
     <div class="contenido-wrapper">
 
       <div class="seccion-titulo-bloque">
-        <i class="ti ti-inbox titulo-icono"></i>
-        <h1 class="seccion-titulo-h1" id="titulo-area">Documentos</h1>
+        <i class="ti ti-file-plus titulo-icono" aria-hidden="true"></i>
+        <h1 class="seccion-titulo-h1">Nuevo Registro de Oficio</h1>
       </div>
 
-      <div class="aviso-readonly">
-        <i class="ti ti-info-circle"></i>
-        Vista de solo lectura. Adjunta tus documentos y marca como atendido los oficios asignados a tu área.
+      <!-- Toast de notificación -->
+      <div class="toast" id="toast">
+        <i class="ti ti-circle-check toast-ico" aria-hidden="true"></i>
+        <span id="toast-msg">Oficio registrado correctamente.</span>
       </div>
 
-      <div class="filtros-barra">
-        <button class="chip on" onclick="filtrar(this,'todos')">Todos</button>
-        <button class="chip"    onclick="filtrar(this,'turnado')">Por atender</button>
-        <button class="chip"    onclick="filtrar(this,'atendido')">Atendidos</button>
-        <button class="chip"    onclick="filtrar(this,'completado')">Completados</button>
-        <span class="filtro-spacer"></span>
-        <span class="filtro-total">Total: <strong id="tot">0</strong> registros</span>
-      </div>
+      <!-- ════════════════════════════════
+           FORMULARIO
+           ════════════════════════════════ -->
+      <form id="form-captura" novalidate>
 
-      <div class="lista" id="lista">
-        <div class="cargando-msg">
-          <i class="ti ti-loader-2 spin"></i> Cargando asignaciones...
+        <!-- ── Sección 1: Datos del Oficio ── -->
+        <section class="card-seccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-id-badge" aria-hidden="true"></i> Datos del Oficio
+            </span>
+          </div>
+
+          <div class="form-grid">
+
+            <div class="campo">
+              <label class="campo-label" for="n_control">N. Control</label>
+              <input id="n_control" name="n_control" type="text" class="campo-input"
+                     placeholder="Se genera automáticamente" readonly/>
+              <span class="campo-hint">Generado por el sistema al guardar</span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="f_sello">F. Sello</label>
+              <input id="f_sello" name="f_sello" type="date" class="campo-input"/>
+            </div>
+
+            <!-- F. Oficio: OBLIGATORIO -->
+            <div class="campo">
+              <label class="campo-label req" for="f_oficio">F. Oficio</label>
+              <input id="f_oficio" name="f_oficio" type="date" class="campo-input" required/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label req" for="dias_entrega">Días de Entrega</label>
+              <select id="dias_entrega" name="dias_entrega" class="campo-select" required>
+                <option value="">— Seleccionar —</option>
+                <option value="1">1 día  🔴 Urgente</option>
+                <option value="2">2 días 🔴 Urgente</option>
+                <option value="3">3 días 🔴 Urgente</option>
+                <option value="4">4 días</option>
+                <option value="5">5 días</option>
+              </select>
+              <span class="campo-hint" id="dias-hint" style="display:none;color:#c62828;font-weight:600;">
+                ⚠️ Prioridad alta — se marcará en rojo
+              </span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="numero"># (Número de Oficio)</label>
+              <input id="numero" name="numero" type="text" class="campo-input"
+                     placeholder="Ej. J-2026-112"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="n_referencia">N. Referencia</label>
+              <input id="n_referencia" name="n_referencia" type="text"
+                     class="campo-input" placeholder="Referencia del oficio"/>
+            </div>
+
+            <!-- Remitente: OBLIGATORIO -->
+            <div class="campo col-full">
+              <label class="campo-label req" for="remitente">Remitente</label>
+              <input id="remitente" name="remitente" type="text" class="campo-input"
+                     placeholder="Nombre completo del remitente" required/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="dependencia">Dependencia</label>
+              <input id="dependencia" name="dependencia" type="text" class="campo-input"
+                     placeholder="Dependencia de origen"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="instruccion">Instrucción</label>
+              <input id="instruccion" name="instruccion" type="text" class="campo-input"
+                     placeholder="Instrucción recibida"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="f_registro">F. Registro</label>
+              <input id="f_registro" name="f_registro" type="date"
+                     class="campo-input" readonly/>
+              <span class="campo-hint">Fecha actual al guardar</span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="folio_despacho">Folio Despacho</label>
+              <input id="folio_despacho" name="folio_despacho" type="text"
+                     class="campo-input" placeholder="Folio de despacho"/>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ── Sección 2: Descripción del Asunto ── -->
+        <section class="card-seccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-align-left" aria-hidden="true"></i> Descripción del Asunto
+            </span>
+          </div>
+          <div class="form-grid">
+            <div class="campo col-full">
+              <label class="campo-label" for="descripcion">Descripción del Asunto</label>
+              <textarea id="descripcion" name="descripcion" class="campo-textarea"
+                        rows="4" placeholder="Describa detalladamente el asunto del oficio..."></textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Barra de acciones ── -->
+        <div class="acciones-form">
+          <button type="button" class="btn btn-limpiar" id="btn-limpiar">
+            <i class="ti ti-eraser" aria-hidden="true"></i> Limpiar
+          </button>
+          <div class="acciones-form-der">
+            <button type="button" class="btn btn-historial"
+                    onclick="window.location.href='historial.html'">
+              <i class="ti ti-list" aria-hidden="true"></i> Ver Historial
+            </button>
+            <button type="submit" class="btn btn-guardar" id="btn-guardar">
+              <i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Registro
+            </button>
+          </div>
         </div>
-      </div>
 
+      </form>
     </div>
   </main>
 
+  <!-- ══ FOOTER ══ -->
   <footer class="footer-institucional">
     <div class="footer-banda-tricolor">
       <div class="banda guinda"></div>
@@ -209,327 +220,6 @@
     </div>
   </footer>
 
-  <div class="toast-area" id="toast-area">
-    <i class="ti ti-circle-check" id="toast-ico"></i>
-    <span id="toast-txt">Operación exitosa.</span>
-  </div>
-
-  <script>
-  const API = window.location.origin + '/api'; 
-
-  const BADGE = {
-    turnado:    ['b-tur',  'Por atender'],
-    atendido:   ['b-ate',  'Atendido'],
-    completado: ['b-comp', 'Completado'],
-  };
-
-  let TOKEN        = null;
-  let USUARIO      = null;
-  let DATOS        = [];
-  let filtroActual = 'todos';
-
-  function iniciarSesion() {
-    TOKEN   = localStorage.getItem('sbis_token');
-    const u = localStorage.getItem('sbis_usuario');
-    USUARIO = u ? JSON.parse(u) : null;
-    if (!TOKEN || !USUARIO) { window.location.href = '/login.html'; return false; }
-    if (USUARIO.rol === 'admin') { window.location.href = '/historial.html'; return false; }
-    document.getElementById('header-area-nombre').textContent = USUARIO.area;
-    document.getElementById('titulo-area').textContent = `Documentos — ${USUARIO.area}`;
-    return true;
-  }
-
-  function cerrarSesion() {
-    localStorage.removeItem('sbis_token');
-    localStorage.removeItem('sbis_usuario');
-    window.location.href = '/login.html';
-  }
-
-  async function apiFetch(url, opciones = {}) {
-    const res = await fetch(url, {
-      ...opciones,
-      headers: { ...opciones.headers, 'Authorization': `Bearer ${TOKEN}` }
-    });
-    if (res.status === 401) { cerrarSesion(); throw new Error('Sesion expirada'); }
-    return res;
-  }
-
-  async function cargarOficios(estatus = 'todos') {
-    const lista = document.getElementById('lista');
-    lista.innerHTML = `<div class="cargando-msg"><i class="ti ti-loader-2 spin"></i> Cargando...</div>`;
-    try {
-      const url = estatus === 'todos' ? `${API}/oficios` : `${API}/oficios?estatus=${estatus}`;
-      const res = await apiFetch(url);
-      if (!res.ok) throw new Error();
-      DATOS = await res.json();
-      renderLista(DATOS);
-    } catch {
-      lista.innerHTML = `<div class="cargando-msg"><i class="ti ti-alert-circle"></i> No se pudo conectar.</div>`;
-    }
-  }
-
-  function renderLista(lista) {
-    const el = document.getElementById('lista');
-    document.getElementById('tot').textContent = lista.length;
-    if (!lista.length) {
-      el.innerHTML = `<div class="sin-asignaciones">
-        <i class="ti ti-inbox-off"></i>
-        <p>No tienes oficios con este filtro.</p>
-      </div>`;
-      return;
-    }
-    el.innerHTML = lista.map((r, i) => construirTarjeta(r, i)).join('');
-  }
-
-  function construirTarjeta(r, i) {
-    const [cls, lbl] = BADGE[r.estatus] || ['b-tur', 'Por atender'];
-    const completado  = r.estatus === 'completado';
-    const atendido    = r.estatus === 'atendido';
-    const puedeActuar = !completado && !atendido;
-
-    /* Días transcurridos dinámicos (solo si turnado) */
-    const diasMostrar = r.estatus === 'turnado' ? (r.dias_transcurridos ?? r.dias_entrega ?? 0) : null;
-
-    /* Urgente: solo si está en turnado (sin atender) Y dias_entrega <= 3 */
-    const esUrgente = r.estatus === 'turnado' && r.dias_entrega != null && r.dias_entrega <= 3;
-    const urgenteBanner = esUrgente
-      ? `<div class="urgente-banner"><i class="ti ti-alert-triangle"></i> PRIORIDAD ALTA — ${diasMostrar === 0 ? '¡Vence hoy!' : `Atender en ${diasMostrar} día${diasMostrar !== 1 ? 's' : ''}`}</div>`
-      : '';
-
-    /* Docs del admin */
-    const doc1HTML = r.ruta_doc1
-      ? `<a class="btn-doc" href="/uploads/${r.ruta_doc1}" target="_blank">
-           <i class="ti ti-file-type-pdf"></i> ${r.ruta_doc1.replace(/^\d+_/, '')}
-         </a>` : '<span style="font-size:11.5px;color:var(--txt2)">Sin documento 1</span>';
-    const doc2HTML = r.ruta_doc2
-      ? `<a class="btn-doc" href="/uploads/${r.ruta_doc2}" target="_blank">
-           <i class="ti ti-file-type-pdf"></i> ${r.ruta_doc2.replace(/^\d+_/, '')}
-         </a>` : '<span style="font-size:11.5px;color:var(--txt2)">Sin documento 2</span>';
-
-    /* Docs del area ya subidos */
-    const doc3Ex = r.ruta_doc3
-      ? `<div class="doc-area-existente"><i class="ti ti-circle-check"></i>
-           <a href="/uploads/${r.ruta_doc3}" target="_blank">${r.ruta_doc3.replace(/^\d+_/, '')}</a>
-         </div>` : '';
-    const doc4Ex = r.ruta_doc4
-      ? `<div class="doc-area-existente"><i class="ti ti-circle-check"></i>
-           <a href="/uploads/${r.ruta_doc4}" target="_blank">${r.ruta_doc4.replace(/^\d+_/, '')}</a>
-         </div>` : '';
-
-    const zonaSubida = puedeActuar ? `
-      <div class="area-archivos">
-        <p class="area-archivos-titulo"><i class="ti ti-upload"></i> Adjuntar mis documentos</p>
-        <div class="area-archivos-grid">
-          <div class="campo-archivo-area">
-            <label>Mi Documento 1</label>
-            ${doc3Ex || `<div class="zona-upload" id="zona-doc3-${i}">
-              <i class="ti ti-file-upload"></i>
-              <span class="zona-upload-txt" id="txt-doc3-${i}">Seleccionar archivo</span>
-              <input type="file" id="doc3-${i}" accept=".pdf,.doc,.docx"/>
-            </div>`}
-          </div>
-          <div class="campo-archivo-area">
-            <label>Mi Documento 2</label>
-            ${doc4Ex || `<div class="zona-upload" id="zona-doc4-${i}">
-              <i class="ti ti-file-upload"></i>
-              <span class="zona-upload-txt" id="txt-doc4-${i}">Seleccionar archivo</span>
-              <input type="file" id="doc4-${i}" accept=".pdf,.doc,.docx"/>
-            </div>`}
-          </div>
-        </div>
-      </div>` : `
-      <div class="area-archivos">
-        <p class="area-archivos-titulo"><i class="ti ti-paperclip"></i> Documentos adjuntados</p>
-        <div class="area-archivos-grid">
-          <div class="campo-archivo-area"><label>Mi Documento 1</label>
-            ${doc3Ex || '<span style="font-size:11.5px;color:var(--txt2)">No adjuntado</span>'}
-          </div>
-          <div class="campo-archivo-area"><label>Mi Documento 2</label>
-            ${doc4Ex || '<span style="font-size:11.5px;color:var(--txt2)">No adjuntado</span>'}
-          </div>
-        </div>
-      </div>`;
-
-    let accionHTML = '';
-    if (completado) {
-      accionHTML = `<div class="estado-badge completado">
-        <i class="ti ti-circle-check"></i> Completado por administración
-      </div>`;
-    } else if (atendido) {
-      accionHTML = `<div class="estado-badge enviado">
-        <i class="ti ti-clock"></i> En revisión por administración
-      </div>`;
-    } else {
-      accionHTML = `<button class="btn-enviar-area" id="btn-enviar-${i}"
-        onclick="enviarOficio(${r.id}, ${i})">
-        <i class="ti ti-send"></i> Marcar como Atendido
-      </button>`;
-    }
-
-    return `
-    <div class="tarjeta ${esUrgente ? 'tarjeta-urgente' : ''}" id="tarjeta-${i}">
-      ${urgenteBanner}
-      <div class="t-header" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
-        <div class="th-bloque">
-          <span class="th-label">N. Control</span>
-          <span class="th-val mono">${r.n_control}</span>
-        </div>
-        <div class="th-bloque" style="overflow:visible;white-space:normal;word-break:break-word;">
-          <span class="th-label">Remitente / Dependencia</span>
-          <span class="th-val">${r.remitente || '—'}</span>
-          <span class="th-val muted">${r.dependencia || ''}</span>
-        </div>
-        <div class="th-bloque">
-          <span class="th-label">F. Sello</span>
-          <span class="th-val">${formatFecha(r.f_sello)}</span>
-        </div>
-        <div class="th-bloque">
-          <span class="th-label">F. Oficio</span>
-          <span class="th-val">${formatFecha(r.f_oficio)}</span>
-        </div>
-        <div class="th-bloque">
-          <span class="th-label">Días</span>
-          <span class="th-val" style="${esUrgente ? 'color:#c62828;font-weight:700;' : ''}">
-            ${r.estatus === 'turnado'
-              ? (diasMostrar === 0 ? '<span style=\'color:#c62828;font-weight:700;\'>¡Hoy!</span>'
-                : diasMostrar + ' día' + (diasMostrar !== 1 ? 's' : '') + (esUrgente ? ' 🔴' : ''))
-              : '—'}
-          </span>
-        </div>
-        <div class="th-bloque">
-          <span class="th-label">Estatus</span>
-          <span class="badge ${cls}">${lbl}</span>
-        </div>
-        <button class="btn-toggle" aria-label="Expandir">
-          <i class="ti ti-chevron-down"></i>
-        </button>
-      </div>
-
-      <div class="t-body" id="cuerpo-${i}">
-        <div class="t-extra">
-          <div class="t-extra-item">
-            <span class="t-extra-label">N. Referencia</span>
-            <span class="t-extra-val">${r.n_referencia || '—'}</span>
-          </div>
-          <div class="t-extra-item">
-            <span class="t-extra-label">F. Registro</span>
-            <span class="t-extra-val">${formatFecha(r.f_registro)}</span>
-          </div>
-          <div class="t-extra-item">
-            <span class="t-extra-label">Hora Recibido</span>
-            <span class="t-extra-val">${r.hora_recibido || '—'}</span>
-          </div>
-          <div class="t-extra-item">
-            <span class="t-extra-label">Folio Despacho</span>
-            <span class="t-extra-val">${r.folio_despacho || '—'}</span>
-          </div>
-          <div class="t-extra-item t-extra-instruccion">
-            <span class="t-extra-label">Instrucción</span>
-            <span class="t-extra-val">${r.instruccion || '—'}</span>
-          </div>
-        </div>
-
-        <div class="t-docs-bloque" style="margin-bottom:14px">
-          <p class="t-docs-titulo">Documentos recibidos</p>
-          <div class="t-docs">${doc1HTML}${doc2HTML}</div>
-        </div>
-
-        ${zonaSubida}
-
-        <div class="t-inferior">
-          <div class="obs-bloque" style="grid-column:1/-1">
-            <span class="obs-label">Mis Observaciones</span>
-            <textarea class="obs-area"
-              placeholder="Escribe tus observaciones sobre este oficio..."
-              ${!puedeActuar ? 'readonly' : ''}
-              onblur="guardarObs(${r.id}, this.value)"
-            >${r.obs_area || ''}</textarea>
-          </div>
-          <div style="grid-column:1/-1">${accionHTML}</div>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  function toggleTarjeta(i) {
-    const t = document.getElementById(`tarjeta-${i}`);
-    const a = t.classList.toggle('abierta');
-    t.querySelector('.t-header').setAttribute('aria-expanded', a);
-    if (a) initUploadZona(i);
-  }
-
-  function initUploadZona(i) {
-    ['doc3', 'doc4'].forEach(doc => {
-      const input = document.getElementById(`${doc}-${i}`);
-      const zona  = document.getElementById(`zona-${doc}-${i}`);
-      const txt   = document.getElementById(`txt-${doc}-${i}`);
-      if (!input || !zona) return;
-      input.onchange = () => {
-        if (input.files.length) {
-          txt.textContent = `${input.files[0].name} (${(input.files[0].size/1024).toFixed(0)} KB)`;
-          zona.classList.add('con-archivo');
-        }
-      };
-    });
-  }
-
-  async function guardarObs(id, valor) {
-    try {
-      await apiFetch(`${API}/oficios/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ obs_area: valor })
-      });
-    } catch (err) { console.error('[guardarObs]', err); }
-  }
-
-  async function enviarOficio(id, i) {
-    const btn = document.getElementById(`btn-enviar-${i}`);
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Enviando...'; }
-    try {
-      const fd = new FormData();
-      fd.append('estatus', 'atendido');
-      const doc3 = document.getElementById(`doc3-${i}`);
-      const doc4 = document.getElementById(`doc4-${i}`);
-      if (doc3?.files[0]) fd.append('doc3', doc3.files[0]);
-      if (doc4?.files[0]) fd.append('doc4', doc4.files[0]);
-      const res = await apiFetch(`${API}/oficios/${id}`, { method: 'PUT', body: fd });
-      if (!res.ok) throw new Error();
-      mostrarToast('Oficio marcado como atendido. En espera de revision.');
-      setTimeout(() => cargarOficios(filtroActual), 1200);
-    } catch {
-      mostrarToast('Error al enviar. Intenta de nuevo.', 'error');
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-send"></i> Marcar como Atendido'; }
-    }
-  }
-
-  function filtrar(btn, estatus) {
-    document.querySelectorAll('.chip').forEach(b => b.classList.remove('on'));
-    btn.classList.add('on');
-    filtroActual = estatus;
-    cargarOficios(estatus);
-  }
-
-  function mostrarToast(msg, tipo = 'ok') {
-    const el  = document.getElementById('toast-area');
-    const ico = document.getElementById('toast-ico');
-    const txt = document.getElementById('toast-txt');
-    txt.textContent = msg;
-    el.className    = `toast-area visible${tipo === 'error' ? ' error' : ''}`;
-    ico.className   = `ti ${tipo === 'error' ? 'ti-alert-circle' : 'ti-circle-check'}`;
-    setTimeout(() => el.classList.remove('visible'), 3500);
-  }
-
-  function formatFecha(iso) {
-    if (!iso) return '—';
-    const [y, m, d] = iso.split('T')[0].split('-');
-    return `${d}/${m}/${y}`;
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    if (!iniciarSesion()) return;
-    cargarOficios();
-  });
-  </script>
+  <script src="js/captura.js"></script>
 </body>
 </html>
