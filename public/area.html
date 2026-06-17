@@ -3,15 +3,314 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Nuevo Registro — Secretaría de Bienestar e Inclusión Social</title>
+  <title>Bandeja de Oficios — Secretaría de Bienestar e Inclusión Social</title>
   <link rel="stylesheet" href="css/styles.css"/>
-  <link rel="stylesheet" href="css/captura.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+
+  <style>
+    /* ── Tarjeta urgente ── */
+    .tarjeta-urgente {
+      border: 1.5px solid #e53935 !important;
+      box-shadow: 0 0 0 3px rgba(229,57,53,0.10), 0 2px 8px rgba(229,57,53,0.12) !important;
+    }
+    .urgente-banner {
+      background: linear-gradient(90deg, #c62828, #e53935);
+      color: #fff;
+      font-family: 'Source Sans 3', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      padding: 7px 18px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      border-radius: 8px 8px 0 0;
+    }
+    .urgente-banner .ti { font-size: 14px; }
+    .tarjeta-urgente .t-header { border-radius: 0 !important; }
+
+    /* ── Tarjeta rechazada (esperando corrección) ── */
+    .tarjeta-rechazada {
+      border: 1.5px solid #c62828 !important;
+      box-shadow: 0 0 0 3px rgba(198,40,40,0.08), 0 2px 8px rgba(198,40,40,0.10) !important;
+    }
+    .nota-rechazo-box {
+      background:#fdecea; border:1px solid #f5c2c0; border-left:3px solid #c62828;
+      border-radius:6px; padding:12px 14px; font-size:13px; color:#7a1313; line-height:1.5;
+    }
+
+    /* ── Badges ── */
+    .badge.b-tur   { background:#e3f2fd; color:#1565c0; }
+    .badge.b-ate   { background:#fff8e1; color:#a06a00; }
+    .badge.b-rech  { background:#fdecea; color:#c62828; }
+    .badge.b-comp  { background:#e8f5e9; color:#2e7d32; }
+
+    /* ── Documentos del admin (solo lectura) ── */
+    .docs-admin-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .doc-admin-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #fff;
+      border: 1px solid #d8ccd0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+    }
+    .doc-admin-card:hover {
+      border-color: var(--guinda, #6B0F2B);
+      background: #fdf6f8;
+      box-shadow: 0 2px 8px rgba(107,15,43,0.10);
+    }
+    .doc-admin-icon {
+      width: 38px; height: 38px; flex-shrink: 0;
+      background: #fce4ec;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #8c1212;
+      font-size: 20px;
+    }
+    .doc-admin-info {
+      flex: 1;
+      display: flex; flex-direction: column; gap: 2px;
+      overflow: hidden;
+    }
+    .doc-admin-nombre {
+      font-size: 13px; font-weight: 600;
+      color: #222;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-family: 'Source Sans 3', sans-serif;
+    }
+    .doc-admin-meta {
+      font-size: 11px; color: #999;
+      font-family: 'Source Sans 3', sans-serif;
+    }
+    .doc-admin-abrir {
+      flex-shrink: 0;
+      color: var(--guinda, #6B0F2B);
+      font-size: 16px;
+      opacity: 0.5;
+      transition: opacity .15s;
+    }
+    .doc-admin-card:hover .doc-admin-abrir { opacity: 1; }
+
+    /* ── Botones de acción ── */
+    .btn-atender {
+      background: var(--guinda, #6B0F2B);
+      color: #fff;
+      border: none;
+      padding: 7px 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-family: 'Source Sans 3', sans-serif;
+      transition: background 0.2s;
+    }
+    .btn-atender:hover { background: #8B1535; }
+
+    /* ══ MODAL ATENDER ══ */
+    #modal-atender {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.50);
+      z-index: 9999;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      overflow-y: auto;
+    }
+    .modal-box {
+      background: #fff;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 10px 50px rgba(107,15,43,0.20);
+      font-family: 'Source Sans 3', sans-serif;
+      overflow: hidden;
+    }
+    .modal-header {
+      background: var(--guinda, #6B0F2B);
+      color: #fff;
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-family: 'Crimson Pro', serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-header button {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.8);
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .modal-header button:hover { background: rgba(255,255,255,0.15); }
+
+    .modal-body { padding: 28px 28px 0; }
+
+    .modal-campo { margin-bottom: 18px; }
+    .modal-campo label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b6b6b;
+      margin-bottom: 6px;
+    }
+    .modal-campo label .req { color: var(--guinda, #6B0F2B); }
+    .modal-campo textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #d8ccd0;
+      border-radius: 5px;
+      padding: 8px 11px;
+      font-size: 13.5px;
+      font-family: 'Source Sans 3', sans-serif;
+      color: #222;
+      background: #fff;
+      resize: vertical;
+      transition: border-color 0.2s;
+    }
+    .modal-campo textarea:focus { outline: none; border-color: var(--guinda, #6B0F2B); }
+
+    .archivos-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .archivo-drop {
+      border: 1.5px dashed #d8ccd0;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+    }
+    .archivo-drop:hover { border-color: var(--guinda, #6B0F2B); background: #fdf6f8; }
+    .archivo-drop input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    .archivo-drop .ti { font-size: 26px; color: var(--guinda, #6B0F2B); margin-bottom: 6px; display: block; }
+    .archivo-drop-label { font-size: 12.5px; color: #6b6b6b; font-weight: 600; }
+    .archivo-drop-nombre { font-size: 11.5px; color: var(--guinda, #6B0F2B); margin-top: 4px; word-break: break-all; }
+
+    .modal-error {
+      color: #821d11;
+      font-size: 12.5px;
+      font-weight: 600;
+      margin: 4px 28px 0;
+      min-height: 18px;
+    }
+    .modal-footer {
+      padding: 20px 28px 24px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .modal-footer button {
+      padding: 10px 24px;
+      border-radius: 6px;
+      font-size: 13.5px;
+      font-weight: 600;
+      font-family: 'Source Sans 3', sans-serif;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .btn-modal-cancelar { background: #f0f0f0; color: #444; }
+    .btn-modal-cancelar:hover { background: #e0e0e0; }
+    .btn-modal-guardar { background: var(--guinda, #6B0F2B); color: #fff; }
+    .btn-modal-guardar:hover { background: #8B1535; }
+    .btn-modal-guardar:disabled { background: #b08090; cursor: not-allowed; }
+
+    /* ── Sistema de modales genérico (alert/confirm) ── */
+    .sbis-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.48); z-index: 10000;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .sbis-overlay.visible { display: flex; }
+    .sbis-modal {
+      background: #fff; border-radius: 10px;
+      width: 100%; max-width: 400px;
+      box-shadow: 0 12px 48px rgba(107,15,43,0.22);
+      font-family: 'Source Sans 3', sans-serif;
+      overflow: hidden; animation: sbisSlide .18s ease;
+    }
+    @keyframes sbisSlide {
+      from { transform: translateY(-18px); opacity: 0; }
+      to   { transform: translateY(0);     opacity: 1; }
+    }
+    .sbis-modal-icon {
+      display: flex; align-items: center; justify-content: center;
+      padding: 28px 0 16px;
+    }
+    .sbis-modal-icon .ico-circle {
+      width: 58px; height: 58px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 26px;
+    }
+    .ico-confirm  { background: #fff3e0; color: #e65100; }
+    .ico-success  { background: #e8f5e9; color: #2e7d32; }
+    .ico-error    { background: #fce4ec; color: #c62828; }
+    .ico-info     { background: #e3f2fd; color: #1565c0; }
+    .ico-warning  { background: #fff8e1; color: #f57f17; }
+    .sbis-modal-body { padding: 0 28px 20px; text-align: center; }
+    .sbis-modal-title {
+      font-family: 'Crimson Pro', serif; font-size: 1.35rem;
+      font-weight: 700; color: #1a1a1a; margin: 0 0 8px;
+    }
+    .sbis-modal-msg { font-size: 0.92rem; color: #555; line-height: 1.5; margin: 0; }
+    .sbis-modal-btns { padding: 0 20px 22px; display: flex; gap: 10px; justify-content: center; }
+    .sbis-btn {
+      padding: 10px 26px; border-radius: 6px; font-size: 13.5px; font-weight: 600;
+      font-family: 'Source Sans 3', sans-serif; cursor: pointer; border: none;
+      display: inline-flex; align-items: center; gap: 7px;
+      transition: background .18s, transform .1s;
+    }
+    .sbis-btn:active { transform: scale(.97); }
+    .sbis-btn-primary   { background: #6B0F2B; color: #fff; }
+    .sbis-btn-primary:hover { background: #8B1535; }
+    .sbis-btn-danger    { background: #c62828; color: #fff; }
+    .sbis-btn-danger:hover  { background: #b71c1c; }
+    .sbis-btn-secondary { background: #eeeeee; color: #333; }
+    .sbis-btn-secondary:hover { background: #e0e0e0; }
+    .sbis-btn-success   { background: #2e7d32; color: #fff; }
+    .sbis-btn-success:hover { background: #1b5e20; }
+  </style>
 </head>
 <body>
 
-  <!-- ══ HEADER ══ -->
+  <!-- ══════════════════════════════════════
+       ENCABEZADO INSTITUCIONAL
+  ══════════════════════════════════════ -->
   <header class="header-institucional">
     <div class="header-banda-superior">
       <div class="header-texto">
@@ -19,6 +318,7 @@
         <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
       </div>
       <div class="header-spacer"></div>
+      <span id="header-usuario" style="font-size:0.85rem;color:#fff;margin-right:8px;"></span>
       <div class="header-fecha" id="header-fecha"></div>
       <button onclick="cerrarSesion()" style="
         background: transparent;
@@ -46,168 +346,172 @@
     </div>
   </header>
 
-  <!-- ══ MENÚ ══ -->
+  <!-- ══════════════════════════════════════
+       BARRA DE MENÚ
+  ══════════════════════════════════════ -->
   <nav class="barra-menu">
     <div class="menu-container">
       <span class="menu-label">MENÚ</span>
       <ul class="menu-lista">
-        <li><a href="captura.html"  class="menu-item active">Nuevo Registro</a></li>
-        <li><a href="historial.html" class="menu-item">Historial</a></li>
+        <li><a href="area.html" class="menu-item active">Bandeja de Oficios</a></li>
         <li><a href="#" class="menu-item"> - </a></li>
         <li><a href="#" class="menu-item"> - </a></li>
       </ul>
     </div>
   </nav>
 
-  <!-- ══ CONTENIDO ══ -->
+  <!-- ══════════════════════════════════════
+       CONTENIDO PRINCIPAL
+  ══════════════════════════════════════ -->
   <main class="main-contenido">
     <div class="contenido-wrapper">
 
       <div class="seccion-titulo-bloque">
-        <i class="ti ti-file-plus titulo-icono" aria-hidden="true"></i>
-        <h1 class="seccion-titulo-h1">Nuevo Registro de Oficio</h1>
+        <i class="ti ti-inbox titulo-icono" aria-hidden="true"></i>
+        <h1 class="seccion-titulo-h1">Bandeja de Oficios — <span id="area-nombre"></span></h1>
       </div>
 
-      <!-- Toast de notificación -->
-      <div class="toast" id="toast">
-        <i class="ti ti-circle-check toast-ico" aria-hidden="true"></i>
-        <span id="toast-msg">Oficio registrado correctamente.</span>
+      <!-- Buscador -->
+      <div style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 10px 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 4px rgba(107,15,43,0.06);
+      ">
+        <i class="ti ti-search" style="font-size:18px;color:#999;flex-shrink:0;"></i>
+        <input
+          id="buscador"
+          type="text"
+          placeholder="Buscar por N. Control o nombre del remitente..."
+          oninput="buscar(this.value)"
+          style="
+            border: none; outline: none; flex: 1;
+            font-family: 'Source Sans 3', sans-serif;
+            font-size: 14px; color: #333;
+            background: transparent;
+          "
+        />
+        <button
+          id="btn-limpiar-busqueda"
+          onclick="limpiarBusqueda()"
+          title="Limpiar búsqueda"
+          style="
+            display: none;
+            background: #f0e8eb;
+            border: none; border-radius: 50%;
+            width: 26px; height: 26px;
+            cursor: pointer; flex-shrink: 0;
+            align-items: center; justify-content: center;
+            color: var(--guinda, #6B0F2B); font-size: 13px;
+            transition: background .15s;
+          "
+          onmouseover="this.style.background='#e0d0d5'"
+          onmouseout="this.style.background='#f0e8eb'"
+        ><i class="ti ti-x"></i></button>
       </div>
 
-      <!-- ════════════════════════════════
-           FORMULARIO
-           ════════════════════════════════ -->
-      <form id="form-captura" novalidate>
+      <!-- Filtros -->
+      <div class="filtros-barra">
+        <button class="chip on" onclick="filtrar(this,'todos')">Todos</button>
+        <button class="chip" onclick="filtrar(this,'turnado')">Pendientes</button>
+        <button class="chip" onclick="filtrar(this,'rechazado')">Por corregir</button>
+        <button class="chip" onclick="filtrar(this,'atendido')">Atendidos</button>
+        <button class="chip" onclick="filtrar(this,'completado')">Completados</button>
+        <div class="filtro-spacer"></div>
+        <span class="filtro-total">Total: <strong id="tot">0</strong> registros</span>
+      </div>
 
-        <!-- ── Sección 1: Datos del Oficio ── -->
-        <section class="card-seccion">
-          <div class="card-seccion-titulo">
-            <span class="card-titulo-linea"></span>
-            <span class="card-titulo-txt">
-              <i class="ti ti-id-badge" aria-hidden="true"></i> Datos del Oficio
-            </span>
-          </div>
+      <!-- Lista de tarjetas -->
+      <div class="lista" id="lista"></div>
 
-          <div class="form-grid">
+      <!-- Pie -->
+      <div class="pie-tabla">
+        <span id="pie-txt"></span>
+      </div>
 
-            <div class="campo">
-              <label class="campo-label" for="n_control">N. Control</label>
-              <input id="n_control" name="n_control" type="text" class="campo-input"
-                     placeholder="Se genera automáticamente" readonly/>
-              <span class="campo-hint">Generado por el sistema al guardar</span>
-            </div>
-
-            <div class="campo">
-              <label class="campo-label" for="f_sello">F. Sello</label>
-              <input id="f_sello" name="f_sello" type="date" class="campo-input"/>
-            </div>
-
-            <!-- F. Oficio: OBLIGATORIO -->
-            <div class="campo">
-              <label class="campo-label req" for="f_oficio">F. Oficio</label>
-              <input id="f_oficio" name="f_oficio" type="date" class="campo-input" required/>
-            </div>
-
-            <div class="campo">
-              <label class="campo-label req" for="dias_entrega">Días de Entrega</label>
-              <select id="dias_entrega" name="dias_entrega" class="campo-select" required>
-                <option value="">— Seleccionar —</option>
-                <option value="1">1 día  🔴 Urgente</option>
-                <option value="2">2 días 🔴 Urgente</option>
-                <option value="3">3 días 🔴 Urgente</option>
-                <option value="4">4 días</option>
-                <option value="5">5 días</option>
-              </select>
-              <span class="campo-hint" id="dias-hint" style="display:none;color:#c62828;font-weight:600;">
-                ⚠️ Prioridad alta — se marcará en rojo
-              </span>
-            </div>
-
-            <div class="campo">
-              <label class="campo-label" for="numero"># (Número de Oficio)</label>
-              <input id="numero" name="numero" type="text" class="campo-input"
-                     placeholder="Ej. J-2026-112"/>
-            </div>
-
-            <div class="campo">
-              <label class="campo-label" for="n_referencia">N. Referencia</label>
-              <input id="n_referencia" name="n_referencia" type="text"
-                     class="campo-input" placeholder="Referencia del oficio"/>
-            </div>
-
-            <!-- Remitente: OBLIGATORIO -->
-            <div class="campo col-full">
-              <label class="campo-label req" for="remitente">Remitente</label>
-              <input id="remitente" name="remitente" type="text" class="campo-input"
-                     placeholder="Nombre completo del remitente" required/>
-            </div>
-
-            <div class="campo">
-              <label class="campo-label" for="dependencia">Dependencia</label>
-              <input id="dependencia" name="dependencia" type="text" class="campo-input"
-                     placeholder="Dependencia de origen"/>
-            </div>
-
-            <div class="campo">
-              <label class="campo-label" for="instruccion">Instrucción</label>
-              <input id="instruccion" name="instruccion" type="text" class="campo-input"
-                     placeholder="Instrucción recibida"/>
-            </div>
-
-            <div class="campo">
-              <label class="campo-label" for="f_registro">F. Registro</label>
-              <input id="f_registro" name="f_registro" type="date"
-                     class="campo-input" readonly/>
-              <span class="campo-hint">Fecha actual al guardar</span>
-            </div>
-
-            <div class="campo">
-              <label class="campo-label" for="folio_despacho">Folio Despacho</label>
-              <input id="folio_despacho" name="folio_despacho" type="text"
-                     class="campo-input" placeholder="Folio de despacho"/>
-            </div>
-
-          </div>
-        </section>
-
-        <!-- ── Sección 2: Descripción del Asunto ── -->
-        <section class="card-seccion">
-          <div class="card-seccion-titulo">
-            <span class="card-titulo-linea"></span>
-            <span class="card-titulo-txt">
-              <i class="ti ti-align-left" aria-hidden="true"></i> Descripción del Asunto
-            </span>
-          </div>
-          <div class="form-grid">
-            <div class="campo col-full">
-              <label class="campo-label" for="descripcion">Descripción del Asunto</label>
-              <textarea id="descripcion" name="descripcion" class="campo-textarea"
-                        rows="4" placeholder="Describa detalladamente el asunto del oficio..."></textarea>
-            </div>
-          </div>
-        </section>
-
-        <!-- ── Barra de acciones ── -->
-        <div class="acciones-form">
-          <button type="button" class="btn btn-limpiar" id="btn-limpiar">
-            <i class="ti ti-eraser" aria-hidden="true"></i> Limpiar
-          </button>
-          <div class="acciones-form-der">
-            <button type="button" class="btn btn-historial"
-                    onclick="window.location.href='historial.html'">
-              <i class="ti ti-list" aria-hidden="true"></i> Ver Historial
-            </button>
-            <button type="submit" class="btn btn-guardar" id="btn-guardar">
-              <i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Registro
-            </button>
-          </div>
-        </div>
-
-      </form>
     </div>
   </main>
 
-  <!-- ══ FOOTER ══ -->
+  <!-- ══════════════════════════════════════
+       MODAL: ATENDER OFICIO
+  ══════════════════════════════════════ -->
+  <div id="modal-atender">
+    <div class="modal-box">
+
+      <div class="modal-header">
+        <h2><i class="ti ti-circle-check"></i> Atender Oficio</h2>
+        <button onclick="cerrarAtender()" title="Cerrar">
+          <i class="ti ti-x"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="modal-campo">
+          <label>Observaciones del Área</label>
+          <textarea id="atender-obs" rows="3" placeholder="Describe lo realizado o comentarios sobre este oficio..."></textarea>
+        </div>
+
+        <div class="modal-campo">
+          <label>Documentos de Respuesta (PDF / Word, opcional)</label>
+          <div class="archivos-grid">
+            <div class="archivo-drop" id="drop-doc3">
+              <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
+              <i class="ti ti-file-upload"></i>
+              <div class="archivo-drop-label">Documento 1</div>
+              <div class="archivo-drop-nombre" id="nombre-doc3"></div>
+            </div>
+            <div class="archivo-drop" id="drop-doc4">
+              <input type="file" id="atender-doc4" accept=".pdf,.doc,.docx" onchange="mostrarNombreArchivo(this,'nombre-doc4')"/>
+              <i class="ti ti-file-upload"></i>
+              <div class="archivo-drop-label">Documento 2</div>
+              <div class="archivo-drop-nombre" id="nombre-doc4"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <p class="modal-error" id="atender-error"></p>
+
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" onclick="cerrarAtender()">
+          <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button class="btn-modal-guardar" id="atender-btn-guardar" onclick="guardarAtencion()">
+          <i class="ti ti-circle-check"></i> Marcar como Atendido
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       SISTEMA DE MODALES (alert / confirm)
+  ══════════════════════════════════════ -->
+  <div class="sbis-overlay" id="sbis-overlay">
+    <div class="sbis-modal" id="sbis-modal">
+      <div class="sbis-modal-icon">
+        <div class="ico-circle" id="sbis-ico-circle">
+          <i id="sbis-ico" class="ti ti-alert-triangle"></i>
+        </div>
+      </div>
+      <div class="sbis-modal-body">
+        <p class="sbis-modal-title" id="sbis-title">Título</p>
+        <p class="sbis-modal-msg"   id="sbis-msg">Mensaje</p>
+      </div>
+      <div class="sbis-modal-btns" id="sbis-btns"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       PIE DE PÁGINA
+  ══════════════════════════════════════ -->
   <footer class="footer-institucional">
     <div class="footer-banda-tricolor">
       <div class="banda guinda"></div>
@@ -220,6 +524,6 @@
     </div>
   </footer>
 
-  <script src="js/captura.js"></script>
+  <script src="js/area.js"></script>
 </body>
 </html>
