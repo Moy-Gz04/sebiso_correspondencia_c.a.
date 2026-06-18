@@ -161,9 +161,8 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
 
 /* ══ POST /api/oficios — Solo admin ══
    Campos OBLIGATORIOS: f_oficio, remitente
-   N. Control: número consecutivo simple (1, 2, 3...)
-   Estatus inicial: 'por_turnar' (ya no se turna ni se adjuntan
-   doc1/doc2 en este paso; eso ocurre después desde Historial).
+   N. Control: MAX(n_control) + 1 para evitar duplicados al borrar registros
+   Estatus inicial: 'por_turnar'
 */
 app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
   { name: 'doc1', maxCount: 1 },
@@ -180,8 +179,9 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
       return res.status(400).json({ mensaje: 'F. Oficio y Remitente son obligatorios.' });
     }
 
-    const [{ count }] = await sql`SELECT COUNT(*) AS count FROM oficios`;
-    const n_control = String(Number(count) + 1);
+    // ✅ FIX: usar MAX en lugar de COUNT para evitar duplicados al borrar registros
+    const [{ max }] = await sql`SELECT COALESCE(MAX(CAST(n_control AS INTEGER)), 0) AS max FROM oficios`;
+    const n_control = String(max + 1);
 
     const files     = req.files || {};
     const ruta_doc1 = files.doc1?.[0]?.filename ?? null;
