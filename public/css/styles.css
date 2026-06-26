@@ -708,3 +708,15 @@ body {
 
   .footer-contenido { flex-direction: column; text-align: center; padding: 10px 16px; }
 }
+
+/* ═══════════════════════════════════════════════════
+   HEADER — botón cerrar sesión y usuario siempre blancos
+   ═══════════════════════════════════════════════════ */
+.header-banda-superior > button,
+.header-banda-superior > span {
+  color: #b00404 !important;
+}
+
+.header-banda-superior > button i {
+  color: #ce0505 !important;
+}
