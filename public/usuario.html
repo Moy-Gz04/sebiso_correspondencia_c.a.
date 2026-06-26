@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Bandeja de Oficios — Secretaría de Bienestar e Inclusión Social</title>
+  <title>Mi Bandeja — Secretaría de Bienestar e Inclusión Social</title>
   <link rel="stylesheet" href="css/styles.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
@@ -13,46 +13,35 @@
       box-shadow: 0 0 0 3px rgba(229,57,53,0.10), 0 2px 8px rgba(229,57,53,0.12) !important;
     }
     .urgente-banner {
-      background: linear-gradient(90deg, #c62828, #e53935);
-      color: #fff;
-      font-family: 'Source Sans 3', sans-serif;
-      font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
-      padding: 7px 18px;
-      display: flex; align-items: center; gap: 7px;
-      border-radius: 8px 8px 0 0;
+      background: linear-gradient(90deg,#c62828,#e53935); color:#fff;
+      font-family:'Source Sans 3',sans-serif; font-size:12px; font-weight:700;
+      letter-spacing:0.4px; padding:7px 18px;
+      display:flex; align-items:center; gap:7px; border-radius:8px 8px 0 0;
     }
     .tarjeta-rechazada {
-      border: 1.5px solid #c62828 !important;
-      box-shadow: 0 0 0 3px rgba(198,40,40,0.08), 0 2px 8px rgba(198,40,40,0.10) !important;
+      border:1.5px solid #c62828 !important;
+      box-shadow:0 0 0 3px rgba(198,40,40,0.08),0 2px 8px rgba(198,40,40,0.10) !important;
     }
-    /* Badges */
-    .badge.b-tur   { background:#e3f2fd; color:#1565c0; }
-    .badge.b-sub   { background:#ede7f6; color:#4527a0; }
-    .badge.b-ate   { background:#fff8e1; color:#a06a00; }
-    .badge.b-rech  { background:#fdecea; color:#c62828; }
-    .badge.b-comp  { background:#e8f5e9; color:#2e7d32; }
+    .nota-rechazo-box {
+      background:#fdecea; border:1px solid #f5c2c0; border-left:3px solid #c62828;
+      border-radius:6px; padding:12px 14px; font-size:13px; color:#7a1313; line-height:1.5;
+    }
 
-    /* Chip usuario asignado */
-    .chip-usuario-asignado {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: #ede7f6; color: #4527a0;
-      border: 1px solid #c5cae9;
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-size: 12px; font-weight: 600;
-      font-family: 'Source Sans 3', sans-serif;
-      margin: 12px 0 4px;
-    }
+    /* Badges */
+    .badge.b-sub  { background:#ede7f6; color:#4527a0; }
+    .badge.b-ate  { background:#fff8e1; color:#a06a00; }
+    .badge.b-rech { background:#fdecea; color:#c62828; }
+    .badge.b-comp { background:#e8f5e9; color:#2e7d32; }
 
     /* Docs */
-    .docs-admin-grid { display: flex; flex-direction: column; gap: 8px; }
+    .docs-admin-grid { display:flex; flex-direction:column; gap:8px; }
     .doc-admin-card {
-      display: flex; align-items: center; gap: 12px;
-      background: #fff; border: 1px solid #d8ccd0; border-radius: 8px;
-      padding: 10px 14px; cursor: pointer;
-      transition: border-color .15s, box-shadow .15s, background .15s;
+      display:flex; align-items:center; gap:12px;
+      background:#fff; border:1px solid #d8ccd0; border-radius:8px;
+      padding:10px 14px; cursor:pointer;
+      transition:border-color .15s,box-shadow .15s,background .15s;
     }
-    .doc-admin-card:hover { border-color: var(--guinda,#6B0F2B); background:#fdf6f8; box-shadow:0 2px 8px rgba(107,15,43,0.10); }
+    .doc-admin-card:hover { border-color:var(--guinda,#6B0F2B); background:#fdf6f8; box-shadow:0 2px 8px rgba(107,15,43,0.10); }
     .doc-admin-icon { width:38px; height:38px; flex-shrink:0; background:#fce4ec; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#8c1212; font-size:20px; }
     .doc-admin-info { flex:1; display:flex; flex-direction:column; gap:2px; overflow:hidden; }
     .doc-admin-nombre { font-size:13px; font-weight:600; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:'Source Sans 3',sans-serif; }
@@ -60,93 +49,60 @@
     .doc-admin-abrir  { flex-shrink:0; color:var(--guinda,#6B0F2B); font-size:16px; opacity:0.5; transition:opacity .15s; }
     .doc-admin-card:hover .doc-admin-abrir { opacity:1; }
     .obs-caja {
-      background: var(--fondo-par,#faf5f7);
-      border: 0.5px solid var(--borde,#e8d8de);
-      border-radius: 5px; padding: 10px 12px;
-      font-size: 13px; color: #333; line-height: 1.55; min-height: 40px;
-      font-family: 'Source Sans 3', sans-serif;
+      background:var(--fondo-par,#faf5f7); border:0.5px solid var(--borde,#e8d8de);
+      border-radius:5px; padding:10px 12px; font-size:13px; color:#333;
+      line-height:1.55; min-height:40px; font-family:'Source Sans 3',sans-serif;
     }
 
-    /* Botones acción */
-    .btn-subturnar, .btn-reasignar {
-      border: none; padding: 7px 14px; border-radius: 5px;
-      font-size: 12px; font-weight: 600; cursor: pointer;
-      display: flex; align-items: center; gap: 5px;
-      font-family: 'Source Sans 3', sans-serif; transition: background 0.2s;
+    /* Botón atender */
+    .btn-atender {
+      background:var(--guinda,#6B0F2B); color:#fff; border:none;
+      padding:7px 14px; border-radius:5px; font-size:12px; font-weight:600;
+      cursor:pointer; display:flex; align-items:center; gap:5px;
+      font-family:'Source Sans 3',sans-serif; transition:background 0.2s;
     }
-    .btn-subturnar  { background: var(--guinda,#6B0F2B); color:#fff; }
-    .btn-subturnar:hover { background:#8B1535; }
-    .btn-reasignar  { background: #4527a0; color:#fff; }
-    .btn-reasignar:hover { background:#311b92; }
+    .btn-atender:hover { background:#8B1535; }
 
-    /* ══ MODAL SUB-TURNAR ══ */
-    #modal-subturnar {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.50); z-index: 9999;
-      align-items: flex-start; justify-content: center;
-      padding: 40px 16px; overflow-y: auto;
+    /* ══ MODAL ATENDER ══ */
+    #modal-atender {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.50);
+      z-index:9999; align-items:flex-start; justify-content:center;
+      padding:40px 16px; overflow-y:auto;
     }
     .modal-box {
-      background: #fff; border-radius: 10px; width: 100%; max-width: 480px;
-      box-shadow: 0 10px 50px rgba(107,15,43,0.20);
-      font-family: 'Source Sans 3', sans-serif; overflow: hidden;
+      background:#fff; border-radius:10px; width:100%; max-width:600px;
+      box-shadow:0 10px 50px rgba(107,15,43,0.20);
+      font-family:'Source Sans 3',sans-serif; overflow:hidden;
     }
     .modal-header {
-      background: var(--guinda,#6B0F2B); color:#fff;
-      padding: 18px 28px;
-      display: flex; align-items: center; justify-content: space-between;
+      background:var(--guinda,#6B0F2B); color:#fff; padding:18px 28px;
+      display:flex; align-items:center; justify-content:space-between;
     }
-    .modal-header h2 {
-      margin:0; font-family:'Crimson Pro',serif; font-size:1.35rem; font-weight:600;
-      display:flex; align-items:center; gap:10px;
-    }
-    .modal-header button {
-      background:transparent; border:none; color:rgba(255,255,255,0.8);
-      font-size:22px; cursor:pointer; line-height:1; padding:2px 6px;
-      border-radius:4px; transition:background 0.2s;
-    }
+    .modal-header h2 { margin:0; font-family:'Crimson Pro',serif; font-size:1.35rem; font-weight:600; display:flex; align-items:center; gap:10px; }
+    .modal-header button { background:transparent; border:none; color:rgba(255,255,255,0.8); font-size:22px; cursor:pointer; line-height:1; padding:2px 6px; border-radius:4px; transition:background 0.2s; }
     .modal-header button:hover { background:rgba(255,255,255,0.15); }
-    .modal-body { padding: 28px 28px 0; }
-    .modal-campo { margin-bottom: 18px; }
-    .modal-campo label {
-      display:block; font-size:11px; font-weight:700;
-      text-transform:uppercase; letter-spacing:0.5px; color:#6b6b6b; margin-bottom:6px;
-    }
-    .modal-campo select {
-      width:100%; box-sizing:border-box;
-      border:1px solid #d8ccd0; border-radius:5px;
-      padding:9px 11px; font-size:13.5px;
-      font-family:'Source Sans 3',sans-serif; color:#222; background:#fff;
-      transition:border-color 0.2s; appearance:none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%236b6b6b' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-      background-repeat:no-repeat; background-position:right 10px center;
-    }
-    .modal-campo select:focus { outline:none; border-color:var(--guinda,#6B0F2B); }
-    .modal-info-box {
-      background:#f3e5f5; border:1px solid #ce93d8; border-left:3px solid #7b1fa2;
-      border-radius:6px; padding:10px 14px; font-size:12.5px; color:#4a148c;
-      line-height:1.5; margin-bottom:18px;
-      display:flex; align-items:flex-start; gap:8px;
-    }
-    .modal-error {
-      color:#821d11; font-size:12.5px; font-weight:600;
-      margin:4px 28px 0; min-height:18px;
-    }
-    .modal-footer {
-      padding:20px 28px 24px; display:flex; justify-content:flex-end; gap:10px;
-    }
-    .modal-footer button {
-      padding:10px 24px; border-radius:6px; font-size:13.5px; font-weight:600;
-      font-family:'Source Sans 3',sans-serif; cursor:pointer; border:none;
-      display:flex; align-items:center; gap:6px; transition:background 0.2s;
-    }
+    .modal-body { padding:28px 28px 0; }
+    .modal-campo { margin-bottom:18px; }
+    .modal-campo label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#6b6b6b; margin-bottom:6px; }
+    .modal-campo textarea { width:100%; box-sizing:border-box; border:1px solid #d8ccd0; border-radius:5px; padding:8px 11px; font-size:13.5px; font-family:'Source Sans 3',sans-serif; color:#222; background:#fff; resize:vertical; transition:border-color 0.2s; }
+    .modal-campo textarea:focus { outline:none; border-color:var(--guinda,#6B0F2B); }
+    .archivos-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .archivo-drop { border:1.5px dashed #d8ccd0; border-radius:8px; padding:16px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s; position:relative; }
+    .archivo-drop:hover { border-color:var(--guinda,#6B0F2B); background:#fdf6f8; }
+    .archivo-drop input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; }
+    .archivo-drop .ti { font-size:26px; color:var(--guinda,#6B0F2B); margin-bottom:6px; display:block; }
+    .archivo-drop-label  { font-size:12.5px; color:#6b6b6b; font-weight:600; }
+    .archivo-drop-nombre { font-size:11.5px; color:var(--guinda,#6B0F2B); margin-top:4px; word-break:break-all; }
+    .modal-error { color:#821d11; font-size:12.5px; font-weight:600; margin:4px 28px 0; min-height:18px; }
+    .modal-footer { padding:20px 28px 24px; display:flex; justify-content:flex-end; gap:10px; }
+    .modal-footer button { padding:10px 24px; border-radius:6px; font-size:13.5px; font-weight:600; font-family:'Source Sans 3',sans-serif; cursor:pointer; border:none; display:flex; align-items:center; gap:6px; transition:background 0.2s; }
     .btn-modal-cancelar { background:#f0f0f0; color:#444; }
     .btn-modal-cancelar:hover { background:#e0e0e0; }
     .btn-modal-guardar  { background:var(--guinda,#6B0F2B); color:#fff; }
     .btn-modal-guardar:hover { background:#8B1535; }
     .btn-modal-guardar:disabled { background:#b08090; cursor:not-allowed; }
 
-    /* Sistema de modales genérico */
+    /* Modales genéricos */
     .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); z-index:10000; align-items:center; justify-content:center; padding:20px; }
     .sbis-overlay.visible { display:flex; }
     .sbis-modal { background:#fff; border-radius:10px; width:100%; max-width:400px; box-shadow:0 12px 48px rgba(107,15,43,0.22); font-family:'Source Sans 3',sans-serif; overflow:hidden; animation:sbisSlide .18s ease; }
@@ -196,8 +152,7 @@
     <div class="menu-container">
       <span class="menu-label">MENÚ</span>
       <ul class="menu-lista">
-        <li><a href="area.html" class="menu-item active">Bandeja de Oficios</a></li>
-        <li><a href="#" class="menu-item"> - </a></li>
+        <li><a href="usuario.html" class="menu-item active">Mi Bandeja</a></li>
         <li><a href="#" class="menu-item"> - </a></li>
       </ul>
     </div>
@@ -207,8 +162,8 @@
     <div class="contenido-wrapper">
 
       <div class="seccion-titulo-bloque">
-        <i class="ti ti-inbox titulo-icono" aria-hidden="true"></i>
-        <h1 class="seccion-titulo-h1">Bandeja de Oficios — <span id="area-nombre"></span></h1>
+        <i class="ti ti-user-check titulo-icono" aria-hidden="true"></i>
+        <h1 class="seccion-titulo-h1">Mi Bandeja — <span id="area-nombre"></span></h1>
       </div>
 
       <!-- Buscador -->
@@ -216,7 +171,7 @@
         <i class="ti ti-search" style="font-size:18px;color:#999;flex-shrink:0;"></i>
         <input id="buscador" type="text" placeholder="Buscar por N. Control o nombre del remitente..." oninput="buscar(this.value)"
           style="border:none;outline:none;flex:1;font-family:'Source Sans 3',sans-serif;font-size:14px;color:#333;background:transparent;"/>
-        <button id="btn-limpiar-busqueda" onclick="limpiarBusqueda()" title="Limpiar búsqueda"
+        <button id="btn-limpiar-busqueda" onclick="limpiarBusqueda()" title="Limpiar"
           style="display:none;background:#f0e8eb;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;flex-shrink:0;align-items:center;justify-content:center;color:var(--guinda,#6B0F2B);font-size:13px;transition:background .15s;"
           onmouseover="this.style.background='#e0d0d5'" onmouseout="this.style.background='#f0e8eb'">
           <i class="ti ti-x"></i>
@@ -226,8 +181,8 @@
       <!-- Filtros -->
       <div class="filtros-barra">
         <button class="chip on" onclick="filtrar(this,'todos')">Todos</button>
-        <button class="chip" onclick="filtrar(this,'turnado')">Pendientes</button>
-        <button class="chip" onclick="filtrar(this,'sub_turnado')">Sub-turnados</button>
+        <button class="chip" onclick="filtrar(this,'sub_turnado')">Por Atender</button>
+        <button class="chip" onclick="filtrar(this,'rechazado')">Por Corregir</button>
         <button class="chip" onclick="filtrar(this,'atendido')">Atendidos</button>
         <button class="chip" onclick="filtrar(this,'completado')">Completados</button>
         <div class="filtro-spacer"></div>
@@ -243,39 +198,49 @@
     </div>
   </main>
 
-  <!-- ══ MODAL: SUB-TURNAR A USUARIO ══ -->
-  <div id="modal-subturnar">
+  <!-- ══ MODAL: ATENDER OFICIO ══ -->
+  <div id="modal-atender">
     <div class="modal-box">
       <div class="modal-header">
-        <h2><i class="ti ti-user-share"></i> Sub-turnar Oficio</h2>
-        <button onclick="cerrarSubturnar()" title="Cerrar"><i class="ti ti-x"></i></button>
+        <h2><i class="ti ti-circle-check"></i> Atender Oficio</h2>
+        <button onclick="cerrarAtender()" title="Cerrar"><i class="ti ti-x"></i></button>
       </div>
       <div class="modal-body">
-        <div class="modal-info-box">
-          <i class="ti ti-info-circle" style="font-size:16px;flex-shrink:0;margin-top:1px;"></i>
-          Selecciona el usuario de tu área que se encargará de atender este oficio.
-          Recibirá el oficio en su bandeja personal.
+        <div class="modal-campo">
+          <label>Observaciones</label>
+          <textarea id="atender-obs" rows="3" placeholder="Describe lo realizado o comentarios sobre este oficio..."></textarea>
         </div>
         <div class="modal-campo">
-          <label>Usuario Asignado</label>
-          <select id="subturnar-select">
-            <option value="">— Selecciona un usuario —</option>
-          </select>
+          <label>Documentos de Respuesta (PDF / Word, opcional)</label>
+          <div class="archivos-grid">
+            <div class="archivo-drop">
+              <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
+              <i class="ti ti-file-upload"></i>
+              <div class="archivo-drop-label">Documento 1</div>
+              <div class="archivo-drop-nombre" id="nombre-doc3"></div>
+            </div>
+            <div class="archivo-drop">
+              <input type="file" id="atender-doc4" accept=".pdf,.doc,.docx" onchange="mostrarNombreArchivo(this,'nombre-doc4')"/>
+              <i class="ti ti-file-upload"></i>
+              <div class="archivo-drop-label">Documento 2</div>
+              <div class="archivo-drop-nombre" id="nombre-doc4"></div>
+            </div>
+          </div>
         </div>
       </div>
-      <p class="modal-error" id="subturnar-error"></p>
+      <p class="modal-error" id="atender-error"></p>
       <div class="modal-footer">
-        <button class="btn-modal-cancelar" onclick="cerrarSubturnar()">
+        <button class="btn-modal-cancelar" onclick="cerrarAtender()">
           <i class="ti ti-x"></i> Cancelar
         </button>
-        <button class="btn-modal-guardar" id="subturnar-btn-guardar" onclick="guardarSubturnar()">
-          <i class="ti ti-user-share"></i> Confirmar Asignación
+        <button class="btn-modal-guardar" id="atender-btn-guardar" onclick="guardarAtencion()">
+          <i class="ti ti-circle-check"></i> Marcar como Atendido
         </button>
       </div>
     </div>
   </div>
 
-  <!-- Sistema de modales genérico -->
+  <!-- Modales genéricos -->
   <div class="sbis-overlay" id="sbis-overlay">
     <div class="sbis-modal">
       <div class="sbis-modal-icon">
@@ -303,6 +268,6 @@
     </div>
   </footer>
 
-  <script src="js/area.js"></script>
+  <script src="js/usuario.js"></script>
 </body>
 </html>

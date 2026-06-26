@@ -1,16 +1,15 @@
 /* ═══════════════════════════════════════════════════
-   SBIS — Bandeja de Oficios (Área)
-   El usuario de área ve los oficios turnados a su área.
-   Puede sub-turnar a uno de sus usuarios (turnado → sub_turnado).
+   SBIS — Bandeja Personal (Usuario de Área)
+   El usuario solo ve los oficios que su área le asignó.
+   Puede agregar observaciones, subir docs y marcar atendido.
    ═══════════════════════════════════════════════════ */
 const API = window.location.origin + '/api';
 
 const BADGE = {
-  turnado:     ['b-tur',       'Pendiente'],
-  sub_turnado: ['b-sub',       'Sub-turnado'],
-  atendido:    ['b-ate',       'Atendido'],
-  rechazado:   ['b-rech',      'Por Corregir'],
-  completado:  ['b-comp',      'Completado'],
+  sub_turnado: ['b-sub',  'Por Atender'],
+  atendido:    ['b-ate',  'Atendido'],
+  rechazado:   ['b-rech', 'Por Corregir'],
+  completado:  ['b-comp', 'Completado'],
 };
 
 let DATOS        = [];
@@ -27,8 +26,8 @@ function iniciarSesion() {
   USUARIO = u ? JSON.parse(u) : null;
 
   if (!TOKEN || !USUARIO) { window.location.href = '/login.html'; return false; }
-  if (USUARIO.rol === 'admin')         { window.location.href = '/historial.html'; return false; }
-  if (USUARIO.rol === 'usuario_area')  { window.location.href = '/usuario.html';   return false; }
+  if (USUARIO.rol === 'admin')  { window.location.href = '/historial.html'; return false; }
+  if (USUARIO.rol === 'area')   { window.location.href = '/area.html';      return false; }
 
   const elUser = document.getElementById('header-usuario');
   if (elUser) elUser.textContent = `👤 ${USUARIO.username}`;
@@ -53,7 +52,7 @@ async function apiFetch(url, opciones = {}) {
 }
 
 /* ════════════════════════════════════════════════════
-   SISTEMA DE MODALES (alert / confirm)
+   MODALES GENÉRICOS
    ════════════════════════════════════════════════════ */
 function sbisAlert({ titulo = 'Aviso', mensaje = '', btnOk = 'Aceptar', tipo = 'info', onClose = null } = {}) {
   return new Promise(resolve => {
@@ -61,10 +60,10 @@ function sbisAlert({ titulo = 'Aviso', mensaje = '', btnOk = 'Aceptar', tipo = '
     document.getElementById('sbis-title').textContent = titulo;
     document.getElementById('sbis-msg').textContent   = mensaje;
     const MAP = {
-      success: ['ico-success', 'ti-circle-check',  'sbis-btn-success'],
-      error:   ['ico-error',   'ti-alert-circle',  'sbis-btn-danger'],
-      warning: ['ico-warning', 'ti-alert-triangle','sbis-btn-primary'],
-      info:    ['ico-info',    'ti-info-circle',   'sbis-btn-primary'],
+      success: ['ico-success', 'ti-circle-check',   'sbis-btn-success'],
+      error:   ['ico-error',   'ti-alert-circle',   'sbis-btn-danger'],
+      warning: ['ico-warning', 'ti-alert-triangle', 'sbis-btn-primary'],
+      info:    ['ico-info',    'ti-info-circle',    'sbis-btn-primary'],
     };
     const [cls, icoName, btnCls] = MAP[tipo] || MAP.info;
     document.getElementById('sbis-ico-circle').className = `ico-circle ${cls}`;
@@ -81,30 +80,6 @@ function sbisAlert({ titulo = 'Aviso', mensaje = '', btnOk = 'Aceptar', tipo = '
     };
     document.getElementById('sbis-ok').onclick = cerrar;
     overlay.onclick = e => { if (e.target === overlay) cerrar(); };
-  });
-}
-
-function sbisConfirm({ titulo = '¿Estás seguro?', mensaje = '', btnOk = 'Aceptar', btnCancel = 'Cancelar', tipo = 'confirm' } = {}) {
-  return new Promise(resolve => {
-    const overlay = document.getElementById('sbis-overlay');
-    document.getElementById('sbis-title').textContent = titulo;
-    document.getElementById('sbis-msg').textContent   = mensaje;
-    const circle = document.getElementById('sbis-ico-circle');
-    const ico    = document.getElementById('sbis-ico');
-    circle.className = `ico-circle ${tipo === 'danger' ? 'ico-error' : 'ico-warning'}`;
-    ico.className    = `ti ${tipo === 'danger' ? 'ti-trash' : 'ti-alert-triangle'}`;
-    document.getElementById('sbis-btns').innerHTML = `
-      <button class="sbis-btn sbis-btn-secondary" id="sbis-cancel">
-        <i class="ti ti-x"></i> ${btnCancel}
-      </button>
-      <button class="sbis-btn ${tipo === 'danger' ? 'sbis-btn-danger' : 'sbis-btn-primary'}" id="sbis-ok">
-        <i class="ti ${tipo === 'danger' ? 'ti-trash' : 'ti-check'}"></i> ${btnOk}
-      </button>`;
-    overlay.classList.add('visible');
-    const cerrar = (val) => { overlay.classList.remove('visible'); resolve(val); };
-    document.getElementById('sbis-ok').onclick     = () => cerrar(true);
-    document.getElementById('sbis-cancel').onclick = () => cerrar(false);
-    overlay.onclick = e => { if (e.target === overlay) cerrar(false); };
   });
 }
 
@@ -131,9 +106,8 @@ async function cargarOficios(estatus = 'todos') {
 }
 
 function construirTarjeta(r, i) {
-  const [cls, lbl] = BADGE[r.estatus] || ['b-tur', r.estatus];
+  const [cls, lbl] = BADGE[r.estatus] || ['b-sub', r.estatus];
 
-  // Documentos del admin (solo lectura)
   const doc1HTML = r.ruta_doc1
     ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc1}')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
@@ -164,7 +138,7 @@ function construirTarjeta(r, i) {
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
            <span class="doc-admin-nombre">${r.ruta_doc3.replace(/^\d+_/, '')}</span>
-           <span class="doc-admin-meta">Documento de respuesta</span>
+           <span class="doc-admin-meta">Tu documento de respuesta</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
@@ -174,56 +148,45 @@ function construirTarjeta(r, i) {
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
            <span class="doc-admin-nombre">${r.ruta_doc4.replace(/^\d+_/, '')}</span>
-           <span class="doc-admin-meta">Documento de respuesta</span>
+           <span class="doc-admin-meta">Tu documento de respuesta</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
 
   const docsRespuestaHTML = (doc3HTML || doc4HTML)
-    ? `<p class="t-docs-titulo" style="margin-top:14px">Documentos de Respuesta</p>
+    ? `<p class="t-docs-titulo" style="margin-top:14px">Tus Documentos de Respuesta</p>
        <div class="docs-admin-grid">${doc3HTML}${doc4HTML}</div>`
     : '';
 
-  // Chip de usuario asignado
-  const usuarioAsignadoHTML = r.usuario_asignado_nombre
-    ? `<div class="chip-usuario-asignado">
-         <i class="ti ti-user-check"></i>
-         Asignado a: <strong>${r.usuario_asignado_nombre}</strong>
+  const notaRechazoHTML = (r.estatus === 'rechazado' && r.nota_rechazo)
+    ? `<div class="obs-bloque" style="grid-column:1/-1;margin-bottom:14px;">
+         <span class="obs-label" style="color:#c62828;">
+           <i class="ti ti-alert-triangle"></i> Nota de corrección de Administración
+         </span>
+         <div class="nota-rechazo-box">${r.nota_rechazo}</div>
        </div>`
     : '';
 
-  const enConteo    = ['turnado', 'sub_turnado'].includes(r.estatus);
+  const enConteo    = r.estatus === 'sub_turnado';
   const diasMostrar = enConteo ? (r.dias_transcurridos ?? r.dias_entrega ?? 0) : null;
   const esUrgente   = enConteo && r.dias_entrega != null && r.dias_entrega <= 3;
+  const claseExtra  = `${esUrgente ? 'tarjeta-urgente' : ''} ${r.estatus === 'rechazado' ? 'tarjeta-rechazada' : ''}`.trim();
 
-  const claseExtra = `${esUrgente ? 'tarjeta-urgente' : ''} ${r.estatus === 'rechazado' ? 'tarjeta-rechazada' : ''}`.trim();
-
-  // Botones de acción para el área
   let botonesHTML = '';
-  if (r.estatus === 'turnado') {
+  if (r.estatus === 'sub_turnado') {
     botonesHTML = `
-      <button class="btn-accion btn-subturnar" onclick="abrirSubturnar(${r.id})">
-        <i class="ti ti-user-share"></i> Sub-turnar a Usuario
+      <button class="btn-accion btn-atender" onclick="abrirAtender(${r.id})">
+        <i class="ti ti-circle-check"></i> Atender Oficio
       </button>`;
-  } else if (r.estatus === 'sub_turnado') {
+  } else if (r.estatus === 'rechazado') {
     botonesHTML = `
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <span style="font-size:11px;color:var(--txt2);font-weight:600;">
-          <i class="ti ti-clock"></i> En atención por ${r.usuario_asignado_nombre || 'usuario asignado'}
-        </span>
-        <button class="btn-accion btn-reasignar" onclick="abrirSubturnar(${r.id})">
-          <i class="ti ti-user-swap"></i> Reasignar
-        </button>
-      </div>`;
+      <button class="btn-accion btn-atender" onclick="abrirAtender(${r.id})">
+        <i class="ti ti-arrow-back-up"></i> Corregir y Reenviar
+      </button>`;
   } else if (r.estatus === 'atendido') {
     botonesHTML = `<span style="font-size:11px;color:var(--txt2);font-weight:600;">
       <i class="ti ti-clock"></i> Esperando revisión de Administración
     </span>`;
-  } else if (r.estatus === 'rechazado') {
-    botonesHTML = `
-      <button class="btn-accion btn-subturnar" onclick="abrirSubturnar(${r.id})">
-        <i class="ti ti-user-share"></i> Re-asignar para Corrección
-      </button>`;
   } else if (r.estatus === 'completado') {
     botonesHTML = `<span style="font-size:11px;color:var(--verde-ok,#2e7d32);font-weight:600;">
       <i class="ti ti-circle-check"></i> Completado
@@ -266,9 +229,6 @@ function construirTarjeta(r, i) {
     </div>
 
     <div class="t-body" id="cuerpo-${i}">
-
-      ${usuarioAsignadoHTML}
-
       <div class="t-extra">
         <div class="t-extra-item">
           <span class="t-extra-label">N. Referencia</span>
@@ -290,12 +250,13 @@ function construirTarjeta(r, i) {
       </div>
 
       <div class="t-inferior">
+        ${notaRechazoHTML}
         <div class="obs-bloque">
           <span class="obs-label">Descripción del Asunto</span>
           <div class="obs-caja">${r.descripcion || '<span style="color:#aaa;font-style:italic;">Sin descripción</span>'}</div>
         </div>
         <div class="obs-bloque">
-          <span class="obs-label">Observaciones del Área</span>
+          <span class="obs-label">Observaciones</span>
           <div class="obs-caja">${r.obs_area || '<span style="color:#aaa;font-style:italic;">Aún no hay observaciones</span>'}</div>
         </div>
         <div class="acciones-col">
@@ -329,28 +290,26 @@ function filtrar(btn, estatus) {
   filtroActual = estatus;
   const buscador = document.getElementById('buscador');
   if (buscador) buscador.value = '';
-  const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
-  if (btnLimpiar) btnLimpiar.style.display = 'none';
+  const btnL = document.getElementById('btn-limpiar-busqueda');
+  if (btnL) btnL.style.display = 'none';
   cargarOficios(estatus);
 }
 
 function buscar(texto) {
-  const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
-  if (btnLimpiar) btnLimpiar.style.display = texto.trim() ? 'flex' : 'none';
+  const btnL = document.getElementById('btn-limpiar-busqueda');
+  if (btnL) btnL.style.display = texto.trim() ? 'flex' : 'none';
   const q = texto.trim().toLowerCase();
   if (!q) { renderLista(DATOS); return; }
-  const filtrados = DATOS.filter(r =>
+  renderLista(DATOS.filter(r =>
     (r.n_control || '').toLowerCase().includes(q) ||
     (r.remitente || '').toLowerCase().includes(q)
-  );
-  renderLista(filtrados);
+  ));
 }
 
 function limpiarBusqueda() {
-  const buscador = document.getElementById('buscador');
-  if (buscador) buscador.value = '';
-  const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
-  if (btnLimpiar) btnLimpiar.style.display = 'none';
+  document.getElementById('buscador').value = '';
+  const btnL = document.getElementById('btn-limpiar-busqueda');
+  if (btnL) btnL.style.display = 'none';
   renderLista(DATOS);
 }
 
@@ -373,95 +332,66 @@ function mostrarFecha() {
 }
 
 /* ════════════════════════════════════════════════════
-   MODAL: SUB-TURNAR A USUARIO
+   MODAL: ATENDER OFICIO
    ════════════════════════════════════════════════════ */
-let subturnandoId = null;
+let atendiendoId = null;
 
-async function abrirSubturnar(id) {
-  subturnandoId = id;
-
-  // Limpiar estado del modal
-  document.getElementById('subturnar-error').textContent = '';
-  document.getElementById('subturnar-select').innerHTML  =
-    '<option value="">Cargando usuarios...</option>';
-  document.getElementById('modal-subturnar').style.display = 'flex';
-
-  // Cargar usuarios del área
-  try {
-    const res = await apiFetch(`${API}/usuarios/area/${encodeURIComponent(USUARIO.area)}`);
-    if (!res.ok) throw new Error('No se pudieron cargar los usuarios.');
-    const usuarios = await res.json();
-
-    const select = document.getElementById('subturnar-select');
-    if (!usuarios.length) {
-      select.innerHTML = '<option value="">— No hay usuarios registrados en tu área —</option>';
-      return;
-    }
-
-    // Pre-seleccionar el usuario actualmente asignado si existe
-    const oficio = DATOS.find(o => o.id === id);
-    select.innerHTML = '<option value="">— Selecciona un usuario —</option>' +
-      usuarios.map(u =>
-        `<option value="${u.id}" ${oficio?.usuario_asignado_id === u.id ? 'selected' : ''}>
-          ${u.username}
-        </option>`
-      ).join('');
-  } catch (err) {
-    document.getElementById('subturnar-select').innerHTML =
-      '<option value="">— Error al cargar usuarios —</option>';
-    document.getElementById('subturnar-error').textContent = err.message;
-  }
+function abrirAtender(id) {
+  atendiendoId = id;
+  const r = DATOS.find(o => o.id === id);
+  document.getElementById('atender-obs').value        = r?.obs_area || '';
+  document.getElementById('atender-doc3').value       = '';
+  document.getElementById('atender-doc4').value       = '';
+  document.getElementById('nombre-doc3').textContent  = '';
+  document.getElementById('nombre-doc4').textContent  = '';
+  document.getElementById('atender-error').textContent = '';
+  document.getElementById('modal-atender').style.display = 'flex';
 }
 
-function cerrarSubturnar() {
-  document.getElementById('modal-subturnar').style.display = 'none';
-  subturnandoId = null;
+function cerrarAtender() {
+  document.getElementById('modal-atender').style.display = 'none';
+  atendiendoId = null;
 }
 
-async function guardarSubturnar() {
-  if (!subturnandoId) return;
+function mostrarNombreArchivo(input, idDestino) {
+  document.getElementById(idDestino).textContent = input.files?.[0]?.name || '';
+}
 
-  const errEl  = document.getElementById('subturnar-error');
-  const select = document.getElementById('subturnar-select');
+async function guardarAtencion() {
+  if (!atendiendoId) return;
+  const errEl = document.getElementById('atender-error');
   errEl.textContent = '';
-
-  const usuarioId = select.value;
-  if (!usuarioId) {
-    errEl.textContent = 'Debes seleccionar un usuario.';
-    return;
-  }
-
-  const btn = document.getElementById('subturnar-btn-guardar');
-  btn.disabled  = true;
+  const btn = document.getElementById('atender-btn-guardar');
+  btn.disabled = true;
   btn.innerHTML = 'Guardando...';
 
   try {
     const fd = new FormData();
-    fd.append('usuario_asignado_id', usuarioId);
+    fd.append('estatus',  'atendido');
+    fd.append('obs_area', document.getElementById('atender-obs').value || '');
+    const doc3 = document.getElementById('atender-doc3').files?.[0];
+    const doc4 = document.getElementById('atender-doc4').files?.[0];
+    if (doc3) fd.append('doc3', doc3);
+    if (doc4) fd.append('doc4', doc4);
 
-    const res = await apiFetch(`${API}/oficios/${subturnandoId}`, {
-      method: 'PUT',
-      body:   fd
-    });
-
+    const res = await apiFetch(`${API}/oficios/${atendiendoId}`, { method: 'PUT', body: fd });
     if (!res.ok) {
       const d = await res.json();
-      throw new Error(d.mensaje || 'No se pudo sub-turnar el oficio.');
+      throw new Error(d.mensaje || 'No se pudo guardar.');
     }
-
-    cerrarSubturnar();
+    cerrarAtender();
     cargarOficios(filtroActual);
     await sbisAlert({
-      titulo:  'Oficio sub-turnado',
-      mensaje: 'El oficio fue asignado correctamente al usuario seleccionado.',
+      titulo:  'Oficio atendido',
+      mensaje: 'Se notificó a Administración para su revisión.',
       tipo:    'success',
       btnOk:   'Aceptar'
     });
   } catch (err) {
-    errEl.textContent = err.message || 'No se pudo sub-turnar el oficio.';
+    errEl.textContent = err.message || 'No se pudo guardar.';
   } finally {
-    btn.disabled  = false;
-    btn.innerHTML = '<i class="ti ti-user-share"></i> Confirmar Asignación';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-circle-check"></i> Marcar como Atendido';
   }
 }
 
@@ -472,8 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
   mostrarFecha();
   cargarOficios();
-
-  document.getElementById('modal-subturnar').addEventListener('click', function (e) {
-    if (e.target === this) cerrarSubturnar();
+  document.getElementById('modal-atender').addEventListener('click', function (e) {
+    if (e.target === this) cerrarAtender();
   });
 });
