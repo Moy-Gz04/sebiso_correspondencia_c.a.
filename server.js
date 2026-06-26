@@ -124,32 +124,52 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
   try {
     const { estatus } = req.query;
     const { rol, area, id } = req.user;
-
-    const DIAS_SQL = `
-      CASE WHEN estatus IN ('turnado', 'por_turnar', 'sub_turnado')
-        THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
-        ELSE NULL
-      END AS dias_transcurridos`;
-
     let rows;
 
     if (rol === 'admin') {
       rows = estatus && estatus !== 'todos'
-        ? await sql`SELECT *, ${sql.unsafe(DIAS_SQL)} FROM oficios WHERE estatus = ${estatus} ORDER BY created_at DESC`
-        : await sql`SELECT *, ${sql.unsafe(DIAS_SQL)} FROM oficios ORDER BY created_at DESC`;
+        ? await sql`
+            SELECT *,
+              CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+                THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+                ELSE NULL END AS dias_transcurridos
+            FROM oficios WHERE estatus = ${estatus} ORDER BY created_at DESC`
+        : await sql`
+            SELECT *,
+              CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+                THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+                ELSE NULL END AS dias_transcurridos
+            FROM oficios ORDER BY created_at DESC`;
 
     } else if (rol === 'area') {
-      // El área ve todos los oficios de su área excepto los ya completados si quiere filtrar,
-      // pero mostramos todos para que pueda sub-turnar los que están en 'turnado'
       rows = estatus && estatus !== 'todos'
-        ? await sql`SELECT *, ${sql.unsafe(DIAS_SQL)} FROM oficios WHERE turnado_a = ${area} AND estatus = ${estatus} ORDER BY created_at DESC`
-        : await sql`SELECT *, ${sql.unsafe(DIAS_SQL)} FROM oficios WHERE turnado_a = ${area} ORDER BY created_at DESC`;
+        ? await sql`
+            SELECT *,
+              CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+                THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+                ELSE NULL END AS dias_transcurridos
+            FROM oficios WHERE turnado_a = ${area} AND estatus = ${estatus} ORDER BY created_at DESC`
+        : await sql`
+            SELECT *,
+              CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+                THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+                ELSE NULL END AS dias_transcurridos
+            FROM oficios WHERE turnado_a = ${area} ORDER BY created_at DESC`;
 
     } else if (rol === 'usuario_area') {
-      // El usuario solo ve los oficios que le fueron sub-turnados
       rows = estatus && estatus !== 'todos'
-        ? await sql`SELECT *, ${sql.unsafe(DIAS_SQL)} FROM oficios WHERE usuario_asignado_id = ${id} AND estatus = ${estatus} ORDER BY created_at DESC`
-        : await sql`SELECT *, ${sql.unsafe(DIAS_SQL)} FROM oficios WHERE usuario_asignado_id = ${id} ORDER BY created_at DESC`;
+        ? await sql`
+            SELECT *,
+              CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+                THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+                ELSE NULL END AS dias_transcurridos
+            FROM oficios WHERE usuario_asignado_id = ${id} AND estatus = ${estatus} ORDER BY created_at DESC`
+        : await sql`
+            SELECT *,
+              CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+                THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+                ELSE NULL END AS dias_transcurridos
+            FROM oficios WHERE usuario_asignado_id = ${id} ORDER BY created_at DESC`;
 
     } else {
       return res.status(403).json({ mensaje: 'Rol no reconocido.' });
