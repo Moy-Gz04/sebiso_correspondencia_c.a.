@@ -93,6 +93,41 @@ body {
   white-space: nowrap;
 }
 
+/* ── Usuario logueado (texto junto al botón) ── */
+#header-usuario {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--guinda) !important;
+}
+
+/* ── Botón Cerrar sesión — visible sobre header blanco ── */
+.header-banda-superior > button.btn-cerrar-sesion,
+.header-banda-superior > button {
+  background: var(--guinda) !important;
+  border: 1px solid var(--guinda) !important;
+  color: #ffffff !important;
+  padding: 7px 16px;
+  border-radius: var(--radio-sm);
+  cursor: pointer;
+  font-family: var(--fuente-cuerpo);
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 16px;
+  transition: background .15s, box-shadow .15s;
+}
+
+.header-banda-superior > button i {
+  color: #ffffff !important;
+}
+
+.header-banda-superior > button:hover {
+  background: var(--guinda-oscuro) !important;
+  box-shadow: 0 2px 8px rgba(107,15,43,0.25);
+}
+
 /* Banda tricolor */
 .header-banda-tricolor,
 .footer-banda-tricolor {
@@ -707,16 +742,4 @@ body {
   .btn-accion     { flex: 1; min-width: 90px; }
 
   .footer-contenido { flex-direction: column; text-align: center; padding: 10px 16px; }
-}
-
-/* ═══════════════════════════════════════════════════
-   HEADER — botón cerrar sesión y usuario siempre blancos
-   ═══════════════════════════════════════════════════ */
-.header-banda-superior > button,
-.header-banda-superior > span {
-  color: #b00404 !important;
-}
-
-.header-banda-superior > button i {
-  color: #ce0505 !important;
 }
