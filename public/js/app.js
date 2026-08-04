@@ -873,7 +873,7 @@ async function generarPdfSeleccion() {
 
     await sbisAlert({
       titulo:  'PDF generado',
-      mensaje: `Se generó correctamente el PDF con los folios: ${data.folios.join(', ')}.`,
+      mensaje: `Se generó correctamente el PDF con los N. de Control: ${data.folios.join(', ')}.`,
       tipo:    'success',
       btnOk:   'Aceptar'
     });
@@ -911,8 +911,8 @@ function crearBotonPdf(row) {
   a.target = '_blank';
   a.rel = 'noopener';
   a.className = 'btn-ver-pdf';
-  const folios = (row.folios || []).join(', ');
-  a.innerHTML = `<i class="ti ti-eye"></i> Ver PDF Folio ${folios}`;
+  const controles = (row.folios || []).join(', ');
+  a.innerHTML = `<i class="ti ti-eye"></i> Ver PDF N. Control ${controles}`;
   return a;
 }
 

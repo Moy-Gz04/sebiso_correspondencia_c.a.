@@ -421,7 +421,7 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
       referencia: o.numero || '',
       remitente:  o.remitente || '',
       asunto:     o.descripcion || '',
-      folio:      o.folio_despacho || '',
+      control:    o.n_control || '',
     }));
 
     const resp = await fetch(process.env.APPS_SCRIPT_URL, {
@@ -460,8 +460,12 @@ app.get('/api/pdfs-generados', verifyToken, async (req, res) => {
 
 function formatearFechaMX(fecha) {
   if (!fecha) return '';
-  const [y, m, d] = String(fecha).split('T')[0].split('-');
-  return `${d}/${m}/${y}`;
+  // Neon puede devolver un objeto Date de JS (no un string) para columnas DATE.
+  // Se usa UTC para evitar que el huso horario local recorra el día ±1.
+  const d = fecha instanceof Date ? fecha : new Date(fecha);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 }
 
 const PORT = process.env.PORT || 3000;
@@ -469,7 +473,7 @@ app.listen(PORT, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════╗');
   console.log(`║  ✅  Servidor SBIS activo                ║`);
-  console.log(`║  🌐  http://localhost:${PORT}            ║`);
+  console.log(`║  🌐  http://localhost:${PORT}              ║`);
   console.log(`║  🗄️   NeonDB conectado                   ║`);
   console.log(`║  🔐  JWT Auth habilitado                 ║`);
   console.log('╚══════════════════════════════════════════╝');
