@@ -335,17 +335,31 @@ function construirTarjeta(r, i) {
   }
 
   /* Días transcurridos desde creación (turnado o por_turnar) */
-  const enConteo = (r.estatus === 'turnado' || r.estatus === 'por_turnar');
-  const diasMostrar = enConteo ? (r.dias_transcurridos ?? r.dias_entrega ?? 0) : null;
+  const enConteo   = (r.estatus === 'turnado' || r.estatus === 'por_turnar');
+  /* dias_entrega: 0 o null = "No aplica" (sin plazo). Si tiene plazo,
+     se muestran los días RESTANTES (plazo - transcurridos), no los
+     transcurridos — antes se mostraban mal como si fueran lo mismo. */
+  const tienePlazo    = enConteo && r.dias_entrega != null && r.dias_entrega > 0;
+  const diasRestantes = tienePlazo ? (r.dias_entrega - (r.dias_transcurridos ?? 0)) : null;
+  const esUrgente      = tienePlazo && diasRestantes <= 3;
 
-  /* Urgente: dias_entrega <= 3 y aún no atendido por el área */
-  const esUrgente = enConteo && r.dias_entrega != null && r.dias_entrega <= 3;
+  const textoVencimiento = diasRestantes == null ? '—'
+    : diasRestantes < 0
+      ? `<span style="color:#c62828;font-weight:700;">Vencido (${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) !== 1 ? 's' : ''} tarde) 🔴</span>`
+    : diasRestantes === 0
+      ? '<span style="color:#c62828;font-weight:700;">¡Hoy!</span>'
+      : diasRestantes + ' día' + (diasRestantes !== 1 ? 's' : '') + (esUrgente ? ' 🔴' : '');
+
+  const bannerTexto = diasRestantes == null ? ''
+    : diasRestantes < 0 ? `Vencido desde hace ${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) !== 1 ? 's' : ''}`
+    : diasRestantes === 0 ? '¡Vence hoy!'
+    : `Atender en ${diasRestantes} día${diasRestantes !== 1 ? 's' : ''}`;
 
   const claseExtra = `${esUrgente ? 'tarjeta-urgente' : ''} ${r.estatus === 'rechazado' ? 'tarjeta-rechazada' : ''}`.trim();
 
   return `
   <div class="tarjeta ${claseExtra}" id="tarjeta-${i}">
-    ${esUrgente ? `<div class="urgente-banner"><i class="ti ti-alert-triangle"></i> PRIORIDAD ALTA — ${diasMostrar === 0 ? '¡Vence hoy!' : `Atender en ${diasMostrar} día${diasMostrar !== 1 ? 's' : ''}`}</div>` : ''}
+    ${esUrgente ? `<div class="urgente-banner"><i class="ti ti-alert-triangle"></i> PRIORIDAD ALTA — ${bannerTexto}</div>` : ''}
     <div class="t-header-row" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
       <label class="th-check" onclick="event.stopPropagation();" title="Seleccionar para generar PDF">
         <input type="checkbox" data-oficio-id="${r.id}" onchange="toggleSeleccion(${r.id}, this)"/>
@@ -371,10 +385,7 @@ function construirTarjeta(r, i) {
       <div class="th-bloque">
         <span class="th-label">Días</span>
         <span class="th-val" style="${esUrgente ? 'color:#c62828;font-weight:700;' : ''}">
-          ${enConteo
-            ? (diasMostrar === 0 ? '<span style="color:#c62828;font-weight:700;">¡Hoy!</span>'
-              : diasMostrar + ' día' + (diasMostrar !== 1 ? 's' : '') + (esUrgente ? ' 🔴' : ''))
-            : '—'}
+          ${textoVencimiento}
         </span>
       </div>
       <div class="th-bloque">
@@ -402,6 +413,10 @@ function construirTarjeta(r, i) {
         <div class="t-extra-item">
           <span class="t-extra-label">F. Registro</span>
           <span class="t-extra-val">${formatFecha(r.f_registro)}</span>
+        </div>
+        <div class="t-extra-item">
+          <span class="t-extra-label">Registrado el</span>
+          <span class="t-extra-val">${formatFechaHora(r.created_at)}</span>
         </div>
         <div class="t-extra-item">
           <span class="t-extra-label">Hora Recibido</span>
@@ -582,6 +597,16 @@ function formatFecha(iso) {
   if (!iso) return '—';
   const [y, m, d] = iso.split('T')[0].split('-');
   return `${d}/${m}/${y}`;
+}
+
+/* Fecha + hora de un timestamp (ej. created_at), en horario de México */
+function formatFechaHora(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const fecha = d.toLocaleDateString('es-MX', { timeZone: 'America/Mexico_City', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const hora  = d.toLocaleTimeString('es-MX', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${fecha} — ${hora}`;
 }
 
 function mostrarFecha() {

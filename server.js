@@ -305,7 +305,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           nota_rechazo            = COALESCE(${nota_rechazo   ?? null}, nota_rechazo),
           f_sello                 = COALESCE(${f_sello        ?? null}, f_sello),
           f_oficio                = COALESCE(${f_oficio       ?? null}, f_oficio),
-          dias_entrega            = COALESCE(${dias_entrega   ? Number(dias_entrega) : null}, dias_entrega),
+          dias_entrega            = COALESCE(${dias_entrega !== undefined && dias_entrega !== null && dias_entrega !== '' ? Number(dias_entrega) : null}, dias_entrega),
           numero                  = COALESCE(${numero         ?? null}, numero),
           n_referencia            = COALESCE(${n_referencia   ?? null}, n_referencia),
           remitente               = COALESCE(${remitente      ?? null}, remitente),
