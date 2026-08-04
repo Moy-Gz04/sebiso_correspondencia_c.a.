@@ -392,12 +392,84 @@ app.delete('/api/oficios/:id', verifyToken, onlyAdmin, async (req, res) => {
   }
 });
 
+/* ══ POST /api/oficios/generar-pdf ══
+   Recibe hasta 4 IDs de oficios (en el orden de selección del usuario),
+   arma los datos (Fecha, Referencia, Remitente, Asunto, Folio) y se los
+   envía al Apps Script del Sheet, que llena las celdas y devuelve el
+   link del PDF generado (rango A1:Y44 de la hoja "cds").
+══ */
+app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
+  try {
+    const { ids } = req.body;
+
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 4)
+      return res.status(400).json({ mensaje: 'Debes seleccionar entre 1 y 4 registros.' });
+
+    if (!process.env.APPS_SCRIPT_URL)
+      return res.status(500).json({ mensaje: 'APPS_SCRIPT_URL no está configurada en el servidor.' });
+
+    // Se respeta el orden en que el usuario seleccionó los registros
+    const oficios = [];
+    for (const id of ids) {
+      const [row] = await sql`SELECT * FROM oficios WHERE id = ${id}`;
+      if (!row) return res.status(404).json({ mensaje: `Oficio con id ${id} no encontrado.` });
+      oficios.push(row);
+    }
+
+    const registros = oficios.map(o => ({
+      fecha:      formatearFechaMX(o.f_oficio),
+      referencia: o.numero || '',
+      remitente:  o.remitente || '',
+      asunto:     o.descripcion || '',
+      folio:      o.folio_despacho || '',
+    }));
+
+    const resp = await fetch(process.env.APPS_SCRIPT_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ registros }),
+      redirect: 'follow',
+    });
+
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'El Apps Script devolvió un error.');
+
+    // Guardar en historial de PDFs generados
+    const [guardado] = await sql`
+      INSERT INTO pdfs_generados (oficio_ids, folios, url, generado_por)
+      VALUES (${ids}, ${data.folios}, ${data.url}, ${req.user.username})
+      RETURNING *`;
+
+    console.log(`📄  PDF generado — Folios: ${data.folios.join(', ')} → ${data.url}`);
+    res.json(guardado);
+
+  } catch (err) {
+    res.status(500).json({ mensaje: 'Error al generar el PDF: ' + err.message });
+  }
+});
+
+/* ══ GET /api/pdfs-generados ══ Historial de PDFs generados (más recientes primero) ══ */
+app.get('/api/pdfs-generados', verifyToken, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM pdfs_generados ORDER BY created_at DESC LIMIT 50`;
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ mensaje: err.message });
+  }
+});
+
+function formatearFechaMX(fecha) {
+  if (!fecha) return '';
+  const [y, m, d] = String(fecha).split('T')[0].split('-');
+  return `${d}/${m}/${y}`;
+}
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════╗');
   console.log(`║  ✅  Servidor SBIS activo                ║`);
-  console.log(`║  🌐  http://localhost:${PORT}              ║`);
+  console.log(`║  🌐  http://localhost:${PORT}            ║`);
   console.log(`║  🗄️   NeonDB conectado                   ║`);
   console.log(`║  🔐  JWT Auth habilitado                 ║`);
   console.log('╚══════════════════════════════════════════╝');

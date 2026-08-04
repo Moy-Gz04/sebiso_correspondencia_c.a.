@@ -17,6 +17,7 @@ let DATOS        = [];
 let filtroActual = 'todos';
 let TOKEN        = null;
 let USUARIO      = null;
+let SELECCION    = []; // ids de oficios seleccionados, en orden de selección (máx. 4)
 
 /* ════════════════════════════════════════════════════
    SISTEMA DE MODALES GENÉRICO
@@ -346,6 +347,9 @@ function construirTarjeta(r, i) {
   <div class="tarjeta ${claseExtra}" id="tarjeta-${i}">
     ${esUrgente ? `<div class="urgente-banner"><i class="ti ti-alert-triangle"></i> PRIORIDAD ALTA — ${diasMostrar === 0 ? '¡Vence hoy!' : `Atender en ${diasMostrar} día${diasMostrar !== 1 ? 's' : ''}`}</div>` : ''}
     <div class="t-header" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
+      <label class="th-check" onclick="event.stopPropagation();" title="Seleccionar para generar PDF">
+        <input type="checkbox" data-oficio-id="${r.id}" onchange="toggleSeleccion(${r.id}, this)"/>
+      </label>
       <div class="th-bloque">
         <span class="th-label">N. Control</span>
         <span class="th-val mono">${r.n_control}</span>
@@ -461,6 +465,7 @@ function renderLista(lista) {
   document.getElementById('tot').textContent = lista.length;
   document.getElementById('pie-txt').textContent =
     `Mostrando 1–${lista.length} de ${lista.length} registros`;
+  actualizarBarraSeleccion(); // conserva la selección al cambiar de filtro/búsqueda
 }
 
 /* ── Toggle tarjeta ── */
@@ -800,11 +805,130 @@ async function guardarRechazo() {
   }
 }
 
+/* ════════════════════════════════════════════════════
+   SELECCIÓN DE HASTA 4 REGISTROS → GENERAR PDF (Sheets)
+   ════════════════════════════════════════════════════ */
+function toggleSeleccion(id, checkbox) {
+  if (checkbox.checked) {
+    if (SELECCION.length >= 4) {
+      checkbox.checked = false;
+      sbisAlert({
+        titulo:  'Máximo 4 registros',
+        mensaje: 'Solo puedes seleccionar hasta 4 registros para generar el PDF.',
+        tipo:    'warning'
+      });
+      return;
+    }
+    SELECCION.push(id);
+  } else {
+    SELECCION = SELECCION.filter(x => x !== id);
+  }
+  actualizarBarraSeleccion();
+}
+
+function actualizarBarraSeleccion() {
+  const barra   = document.getElementById('barra-seleccion');
+  const count   = document.getElementById('bs-count');
+  const btnGen  = document.getElementById('bs-btn-generar');
+
+  count.textContent = SELECCION.length;
+  btnGen.disabled    = SELECCION.length === 0;
+  barra.classList.toggle('visible', SELECCION.length > 0);
+
+  // Marcar visualmente las tarjetas seleccionadas y deshabilitar checkboxes
+  // cuando ya se alcanzó el máximo, para que no confunda al usuario.
+  document.querySelectorAll('[data-oficio-id]').forEach(cb => {
+    const id = Number(cb.getAttribute('data-oficio-id'));
+    const marcado = SELECCION.includes(id);
+    cb.checked = marcado;
+    cb.disabled = !marcado && SELECCION.length >= 4;
+    const tarjeta = cb.closest('.tarjeta');
+    if (tarjeta) tarjeta.classList.toggle('seleccionada', marcado);
+  });
+}
+
+function limpiarSeleccion() {
+  SELECCION = [];
+  actualizarBarraSeleccion();
+}
+
+async function generarPdfSeleccion() {
+  if (!SELECCION.length) return;
+
+  const btn = document.getElementById('bs-btn-generar');
+  btn.disabled  = true;
+  btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Generando...';
+
+  try {
+    const res = await apiFetch(`${API}/oficios/generar-pdf`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ ids: SELECCION })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.mensaje || 'No se pudo generar el PDF.');
+
+    agregarPdfAlPanel(data);
+    limpiarSeleccion();
+
+    await sbisAlert({
+      titulo:  'PDF generado',
+      mensaje: `Se generó correctamente el PDF con los folios: ${data.folios.join(', ')}.`,
+      tipo:    'success',
+      btnOk:   'Aceptar'
+    });
+  } catch (err) {
+    await sbisAlert({
+      titulo:  'Error al generar PDF',
+      mensaje: err.message || 'Ocurrió un error al generar el PDF.',
+      tipo:    'error'
+    });
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '<i class="ti ti-file-type-pdf"></i> Generar PDF';
+  }
+}
+
+/* ── Panel de PDFs generados (historial persistente) ── */
+async function cargarPdfsGenerados() {
+  try {
+    const res = await apiFetch(`${API}/pdfs-generados`);
+    if (!res.ok) return;
+    const rows = await res.json();
+    const panel = document.getElementById('panel-pdfs');
+    const lista = document.getElementById('panel-pdfs-lista');
+    lista.innerHTML = '';
+    rows.forEach(row => lista.appendChild(crearBotonPdf(row)));
+    panel.classList.toggle('visible', rows.length > 0);
+  } catch (err) {
+    console.error('[cargarPdfsGenerados]', err);
+  }
+}
+
+function crearBotonPdf(row) {
+  const a = document.createElement('a');
+  a.href = row.url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.className = 'btn-ver-pdf';
+  const folios = (row.folios || []).join(', ');
+  a.innerHTML = `<i class="ti ti-eye"></i> Ver PDF Folio ${folios}`;
+  return a;
+}
+
+function agregarPdfAlPanel(row) {
+  const panel = document.getElementById('panel-pdfs');
+  const lista = document.getElementById('panel-pdfs-lista');
+  lista.prepend(crearBotonPdf(row));
+  panel.classList.add('visible');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
   inyectarModales();
   mostrarFecha();
   cargarOficios();
+  cargarPdfsGenerados();
 
   document.getElementById('modal-editar').addEventListener('click', function(e) {
     if (e.target === this) cerrarEditar();

@@ -234,6 +234,123 @@
     }
     .modal-campo textarea { resize: vertical; }
 
+    /* ── Selección de registros para PDF ── */
+    .th-check {
+      display: flex;
+      align-items: flex-start;
+      padding-top: 2px;
+      flex-shrink: 0;
+    }
+    .th-check input[type="checkbox"] {
+      width: 19px;
+      height: 19px;
+      accent-color: var(--guinda, #6B0F2B);
+      cursor: pointer;
+    }
+    .th-check input[type="checkbox"]:disabled {
+      cursor: not-allowed;
+      opacity: 0.35;
+    }
+    .tarjeta.seleccionada {
+      border: 1.5px solid var(--dorado, #C8A951) !important;
+      box-shadow: 0 0 0 3px rgba(200,169,81,0.18), 0 2px 8px rgba(200,169,81,0.15) !important;
+    }
+
+    /* ── Barra flotante de selección ── */
+    #barra-seleccion {
+      display: none;
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 500;
+      background: #1a1a1a;
+      color: #fff;
+      border-radius: 10px;
+      padding: 12px 18px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.30);
+      display: none;
+      align-items: center;
+      gap: 16px;
+      font-family: 'Source Sans 3', sans-serif;
+    }
+    #barra-seleccion.visible { display: flex; }
+    #barra-seleccion .bs-txt { font-size: 13.5px; font-weight: 600; }
+    #barra-seleccion .bs-txt strong { color: var(--dorado, #C8A951); }
+    #barra-seleccion button {
+      border: none;
+      border-radius: 6px;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Source Sans 3', sans-serif;
+      transition: background 0.2s;
+    }
+    #barra-seleccion .bs-generar {
+      background: var(--dorado, #C8A951);
+      color: #1a1a1a;
+    }
+    #barra-seleccion .bs-generar:hover { background: #b8963f; }
+    #barra-seleccion .bs-generar:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    #barra-seleccion .bs-cancelar {
+      background: transparent;
+      color: #ccc;
+      border: 1px solid #444;
+    }
+    #barra-seleccion .bs-cancelar:hover { background: #2a2a2a; }
+
+    /* ── Panel de PDFs generados ── */
+    .panel-pdfs {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 4px rgba(107,15,43,0.06);
+      display: none;
+    }
+    .panel-pdfs.visible { display: block; }
+    .panel-pdfs-titulo {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: #6b6b6b;
+      margin: 0 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .panel-pdfs-lista {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .btn-ver-pdf {
+      background: #fdf6f8;
+      border: 1px solid var(--guinda, #6B0F2B);
+      color: var(--guinda, #6B0F2B);
+      border-radius: 6px;
+      padding: 7px 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Source Sans 3', sans-serif;
+      text-decoration: none;
+      transition: background .15s;
+    }
+    .btn-ver-pdf:hover { background: #f5e5ea; }
+
     .modal-error {
       color: #821d11;
       font-size: 12.5px;
@@ -385,6 +502,12 @@
           onmouseover="this.style.background='#e0d0d5'"
           onmouseout="this.style.background='#f0e8eb'"
         ><i class="ti ti-x"></i></button>
+      </div>
+
+      <!-- Panel de PDFs generados -->
+      <div class="panel-pdfs" id="panel-pdfs">
+        <p class="panel-pdfs-titulo"><i class="ti ti-file-type-pdf"></i> PDFs generados recientemente</p>
+        <div class="panel-pdfs-lista" id="panel-pdfs-lista"></div>
       </div>
 
       <!-- Filtros -->
@@ -630,6 +753,19 @@
       <span>Sistema de Correspondencia.</span>
     </div>
   </footer>
+
+  <!-- ══════════════════════════════════════
+       BARRA FLOTANTE: Selección para PDF
+  ══════════════════════════════════════ -->
+  <div id="barra-seleccion">
+    <span class="bs-txt"><strong id="bs-count">0</strong>/4 registros seleccionados</span>
+    <button class="bs-generar" id="bs-btn-generar" onclick="generarPdfSeleccion()" disabled>
+      <i class="ti ti-file-type-pdf"></i> Generar PDF
+    </button>
+    <button class="bs-cancelar" onclick="limpiarSeleccion()">
+      <i class="ti ti-x"></i> Cancelar selección
+    </button>
+  </div>
 
   <script src="js/app.js"></script>
 </body>
