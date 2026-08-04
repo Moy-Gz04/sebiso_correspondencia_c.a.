@@ -43,7 +43,7 @@ function inyectarModales() {
         border-radius: 10px;
         width: 100%; max-width: 400px;
         box-shadow: 0 12px 48px rgba(107,15,43,0.22);
-        font-family: 'Source Sans 3', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         overflow: hidden;
         animation: sbisSlide .18s ease;
       }
@@ -67,7 +67,7 @@ function inyectarModales() {
       .ico-warning  { background: #fff8e1; color: #f57f17; }
       .sbis-modal-body { padding: 0 28px 20px; text-align: center; }
       .sbis-modal-title {
-        font-family: 'Crimson Pro', serif;
+        font-family: 'Montserrat', sans-serif;
         font-size: 1.35rem; font-weight: 700;
         color: #1a1a1a; margin: 0 0 8px;
       }
@@ -82,7 +82,7 @@ function inyectarModales() {
       .sbis-btn {
         padding: 10px 26px; border-radius: 6px;
         font-size: 13.5px; font-weight: 600;
-        font-family: 'Source Sans 3', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         cursor: pointer; border: none;
         display: inline-flex; align-items: center; gap: 7px;
         transition: background .18s, transform .1s;
@@ -346,10 +346,11 @@ function construirTarjeta(r, i) {
   return `
   <div class="tarjeta ${claseExtra}" id="tarjeta-${i}">
     ${esUrgente ? `<div class="urgente-banner"><i class="ti ti-alert-triangle"></i> PRIORIDAD ALTA — ${diasMostrar === 0 ? '¡Vence hoy!' : `Atender en ${diasMostrar} día${diasMostrar !== 1 ? 's' : ''}`}</div>` : ''}
-    <div class="t-header" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
+    <div class="t-header-row" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
       <label class="th-check" onclick="event.stopPropagation();" title="Seleccionar para generar PDF">
         <input type="checkbox" data-oficio-id="${r.id}" onchange="toggleSeleccion(${r.id}, this)"/>
       </label>
+      <div class="t-header">
       <div class="th-bloque">
         <span class="th-label">N. Control</span>
         <span class="th-val mono">${r.n_control}</span>
@@ -383,6 +384,7 @@ function construirTarjeta(r, i) {
       <button class="btn-toggle" aria-label="Expandir">
         <i class="ti ti-chevron-down"></i>
       </button>
+      </div>
     </div>
 
     <div class="t-body" id="cuerpo-${i}">
@@ -434,7 +436,7 @@ function construirTarjeta(r, i) {
             color: #333;
             line-height: 1.55;
             min-height: 60px;
-            font-family: 'Source Sans 3', sans-serif;
+            font-family: 'Montserrat', sans-serif;
           ">${r.descripcion || '<span style="color:#aaa;font-style:italic;">Sin descripción</span>'}</div>
         </div>
         <div class="obs-bloque">
@@ -906,6 +908,10 @@ async function cargarPdfsGenerados() {
 }
 
 function crearBotonPdf(row) {
+  const wrap = document.createElement('div');
+  wrap.className = 'pdf-item';
+  wrap.dataset.pdfId = row.id;
+
   const a = document.createElement('a');
   a.href = row.url;
   a.target = '_blank';
@@ -913,7 +919,41 @@ function crearBotonPdf(row) {
   a.className = 'btn-ver-pdf';
   const controles = (row.folios || []).join(', ');
   a.innerHTML = `<i class="ti ti-eye"></i> Ver PDF N. Control ${controles}`;
-  return a;
+
+  const btnDel = document.createElement('button');
+  btnDel.className = 'btn-eliminar-pdf';
+  btnDel.title = 'Eliminar este PDF';
+  btnDel.innerHTML = '<i class="ti ti-trash"></i>';
+  btnDel.onclick = () => eliminarPdfGenerado(row.id, wrap);
+
+  wrap.appendChild(a);
+  wrap.appendChild(btnDel);
+  return wrap;
+}
+
+async function eliminarPdfGenerado(id, wrapEl) {
+  const ok = await sbisConfirm({
+    titulo:   'Eliminar PDF',
+    mensaje:  'Se eliminará este PDF del sistema y, si es posible, también el archivo en Drive. Esta acción no se puede deshacer.',
+    btnOk:    'Eliminar',
+    btnCancel:'Cancelar',
+    tipo:     'danger'
+  });
+  if (!ok) return;
+
+  try {
+    const res = await apiFetch(`${API}/pdfs-generados/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.mensaje || 'No se pudo eliminar.');
+    }
+    wrapEl.remove();
+    const lista = document.getElementById('panel-pdfs-lista');
+    const panel = document.getElementById('panel-pdfs');
+    if (!lista.children.length) panel.classList.remove('visible');
+  } catch (err) {
+    await sbisAlert({ titulo: 'Error', mensaje: err.message || 'No se pudo eliminar el PDF.', tipo: 'error' });
+  }
 }
 
 function agregarPdfAlPanel(row) {

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Bandeja de Oficios — Secretaría de Bienestar e Inclusión Social</title>
   <link rel="stylesheet" href="css/styles.css"/>
-  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
   <style>
     .tarjeta-urgente {
@@ -15,7 +15,7 @@
     .urgente-banner {
       background: linear-gradient(90deg, #c62828, #e53935);
       color: #fff;
-      font-family: 'Source Sans 3', sans-serif;
+      font-family: 'Montserrat', sans-serif;
       font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
       padding: 7px 18px;
       display: flex; align-items: center; gap: 7px;
@@ -40,7 +40,7 @@
       border-radius: 20px;
       padding: 4px 12px;
       font-size: 12px; font-weight: 600;
-      font-family: 'Source Sans 3', sans-serif;
+      font-family: 'Montserrat', sans-serif;
       margin: 12px 0 4px;
     }
 
@@ -55,8 +55,8 @@
     .doc-admin-card:hover { border-color: var(--guinda,#6B0F2B); background:#fdf6f8; box-shadow:0 2px 8px rgba(107,15,43,0.10); }
     .doc-admin-icon { width:38px; height:38px; flex-shrink:0; background:#fce4ec; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#8c1212; font-size:20px; }
     .doc-admin-info { flex:1; display:flex; flex-direction:column; gap:2px; overflow:hidden; }
-    .doc-admin-nombre { font-size:13px; font-weight:600; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:'Source Sans 3',sans-serif; }
-    .doc-admin-meta   { font-size:11px; color:#999; font-family:'Source Sans 3',sans-serif; }
+    .doc-admin-nombre { font-size:13px; font-weight:600; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:'Montserrat',sans-serif; }
+    .doc-admin-meta   { font-size:11px; color:#999; font-family:'Montserrat',sans-serif; }
     .doc-admin-abrir  { flex-shrink:0; color:var(--guinda,#6B0F2B); font-size:16px; opacity:0.5; transition:opacity .15s; }
     .doc-admin-card:hover .doc-admin-abrir { opacity:1; }
     .obs-caja {
@@ -64,7 +64,7 @@
       border: 0.5px solid var(--borde,#e8d8de);
       border-radius: 5px; padding: 10px 12px;
       font-size: 13px; color: #333; line-height: 1.55; min-height: 40px;
-      font-family: 'Source Sans 3', sans-serif;
+      font-family: 'Montserrat', sans-serif;
     }
 
     /* Botones acción */
@@ -72,7 +72,7 @@
       border: none; padding: 7px 14px; border-radius: 5px;
       font-size: 12px; font-weight: 600; cursor: pointer;
       display: flex; align-items: center; gap: 5px;
-      font-family: 'Source Sans 3', sans-serif; transition: background 0.2s;
+      font-family: 'Montserrat', sans-serif; transition: background 0.2s;
     }
     .btn-subturnar  { background: var(--guinda,#6B0F2B); color:#fff; }
     .btn-subturnar:hover { background:#8B1535; }
@@ -89,7 +89,7 @@
     .modal-box {
       background: #fff; border-radius: 10px; width: 100%; max-width: 480px;
       box-shadow: 0 10px 50px rgba(107,15,43,0.20);
-      font-family: 'Source Sans 3', sans-serif; overflow: hidden;
+      font-family: 'Montserrat', sans-serif; overflow: hidden;
     }
     .modal-header {
       background: var(--guinda,#6B0F2B); color:#fff;
@@ -97,7 +97,7 @@
       display: flex; align-items: center; justify-content: space-between;
     }
     .modal-header h2 {
-      margin:0; font-family:'Crimson Pro',serif; font-size:1.35rem; font-weight:600;
+      margin:0; font-family:'Montserrat',sans-serif; font-size:1.35rem; font-weight:600;
       display:flex; align-items:center; gap:10px;
     }
     .modal-header button {
@@ -116,7 +116,7 @@
       width:100%; box-sizing:border-box;
       border:1px solid #d8ccd0; border-radius:5px;
       padding:9px 11px; font-size:13.5px;
-      font-family:'Source Sans 3',sans-serif; color:#222; background:#fff;
+      font-family:'Montserrat',sans-serif; color:#222; background:#fff;
       transition:border-color 0.2s; appearance:none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%236b6b6b' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
       background-repeat:no-repeat; background-position:right 10px center;
@@ -137,7 +137,7 @@
     }
     .modal-footer button {
       padding:10px 24px; border-radius:6px; font-size:13.5px; font-weight:600;
-      font-family:'Source Sans 3',sans-serif; cursor:pointer; border:none;
+      font-family:'Montserrat',sans-serif; cursor:pointer; border:none;
       display:flex; align-items:center; gap:6px; transition:background 0.2s;
     }
     .btn-modal-cancelar { background:#f0f0f0; color:#444; }
@@ -149,7 +149,7 @@
     /* Sistema de modales genérico */
     .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); z-index:10000; align-items:center; justify-content:center; padding:20px; }
     .sbis-overlay.visible { display:flex; }
-    .sbis-modal { background:#fff; border-radius:10px; width:100%; max-width:400px; box-shadow:0 12px 48px rgba(107,15,43,0.22); font-family:'Source Sans 3',sans-serif; overflow:hidden; animation:sbisSlide .18s ease; }
+    .sbis-modal { background:#fff; border-radius:10px; width:100%; max-width:400px; box-shadow:0 12px 48px rgba(107,15,43,0.22); font-family:'Montserrat',sans-serif; overflow:hidden; animation:sbisSlide .18s ease; }
     @keyframes sbisSlide { from{transform:translateY(-18px);opacity:0} to{transform:translateY(0);opacity:1} }
     .sbis-modal-icon { display:flex; align-items:center; justify-content:center; padding:28px 0 16px; }
     .sbis-modal-icon .ico-circle { width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; }
@@ -158,10 +158,10 @@
     .ico-info    { background:#e3f2fd; color:#1565c0; }
     .ico-warning { background:#fff8e1; color:#f57f17; }
     .sbis-modal-body { padding:0 28px 20px; text-align:center; }
-    .sbis-modal-title { font-family:'Crimson Pro',serif; font-size:1.35rem; font-weight:700; color:#1a1a1a; margin:0 0 8px; }
+    .sbis-modal-title { font-family:'Montserrat',sans-serif; font-size:1.35rem; font-weight:700; color:#1a1a1a; margin:0 0 8px; }
     .sbis-modal-msg   { font-size:0.92rem; color:#555; line-height:1.5; margin:0; }
     .sbis-modal-btns  { padding:0 20px 22px; display:flex; gap:10px; justify-content:center; }
-    .sbis-btn { padding:10px 26px; border-radius:6px; font-size:13.5px; font-weight:600; font-family:'Source Sans 3',sans-serif; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:7px; transition:background .18s,transform .1s; }
+    .sbis-btn { padding:10px 26px; border-radius:6px; font-size:13.5px; font-weight:600; font-family:'Montserrat',sans-serif; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:7px; transition:background .18s,transform .1s; }
     .sbis-btn:active { transform:scale(.97); }
     .sbis-btn-primary { background:#6B0F2B; color:#fff; }
     .sbis-btn-primary:hover { background:#8B1535; }
@@ -181,7 +181,7 @@
       <div class="header-spacer"></div>
       <span id="header-usuario" style="font-size:0.85rem;color:#fff;margin-right:8px;"></span>
       <div class="header-fecha" id="header-fecha"></div>
-      <button onclick="cerrarSesion()" style="background:transparent;border:1px solid rgba(255,255,255,0.5);color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;font-family:'Source Sans 3',sans-serif;font-size:0.85rem;display:flex;align-items:center;gap:6px;margin-left:16px;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='transparent'">
+      <button onclick="cerrarSesion()" style="background:transparent;border:1px solid rgba(255,255,255,0.5);color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:0.85rem;display:flex;align-items:center;gap:6px;margin-left:16px;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='transparent'">
         <i class="ti ti-logout"></i> Cerrar sesión
       </button>
     </div>
@@ -215,7 +215,7 @@
       <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(107,15,43,0.06);">
         <i class="ti ti-search" style="font-size:18px;color:#999;flex-shrink:0;"></i>
         <input id="buscador" type="text" placeholder="Buscar por N. Control o nombre del remitente..." oninput="buscar(this.value)"
-          style="border:none;outline:none;flex:1;font-family:'Source Sans 3',sans-serif;font-size:14px;color:#333;background:transparent;"/>
+          style="border:none;outline:none;flex:1;font-family:'Montserrat',sans-serif;font-size:14px;color:#333;background:transparent;"/>
         <button id="btn-limpiar-busqueda" onclick="limpiarBusqueda()" title="Limpiar búsqueda"
           style="display:none;background:#f0e8eb;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;flex-shrink:0;align-items:center;justify-content:center;color:var(--guinda,#6B0F2B);font-size:13px;transition:background .15s;"
           onmouseover="this.style.background='#e0d0d5'" onmouseout="this.style.background='#f0e8eb'">

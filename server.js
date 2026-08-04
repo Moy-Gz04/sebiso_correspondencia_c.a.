@@ -436,15 +436,49 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
 
     // Guardar en historial de PDFs generados
     const [guardado] = await sql`
-      INSERT INTO pdfs_generados (oficio_ids, folios, url, generado_por)
-      VALUES (${ids}, ${data.folios}, ${data.url}, ${req.user.username})
+      INSERT INTO pdfs_generados (oficio_ids, folios, url, file_id, generado_por)
+      VALUES (${ids}, ${data.folios}, ${data.url}, ${data.fileId || null}, ${req.user.username})
       RETURNING *`;
 
-    console.log(`📄  PDF generado — Folios: ${data.folios.join(', ')} → ${data.url}`);
+    console.log(`📄  PDF generado — N. Control: ${data.folios.join(', ')} → ${data.url}`);
     res.json(guardado);
 
   } catch (err) {
     res.status(500).json({ mensaje: 'Error al generar el PDF: ' + err.message });
+  }
+});
+
+/* ══ DELETE /api/pdfs-generados/:id ══
+   Elimina el registro del historial y, si es posible, también el
+   archivo real en Drive (a través del mismo Apps Script). Si borrar
+   el archivo de Drive falla (p. ej. ya no existe), igual se quita del
+   sistema para que el usuario pueda limpiar errores sin quedar atorado.
+══ */
+app.delete('/api/pdfs-generados/:id', verifyToken, async (req, res) => {
+  try {
+    const [row] = await sql`SELECT * FROM pdfs_generados WHERE id = ${req.params.id}`;
+    if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    if (row.file_id && process.env.APPS_SCRIPT_URL) {
+      try {
+        const resp = await fetch(process.env.APPS_SCRIPT_URL, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ action: 'eliminar', fileId: row.file_id }),
+          redirect: 'follow',
+        });
+        const data = await resp.json();
+        if (!data.ok) console.warn('⚠️  No se pudo borrar el archivo en Drive:', data.error);
+      } catch (driveErr) {
+        console.warn('⚠️  Error al intentar borrar el archivo en Drive:', driveErr.message);
+      }
+    }
+
+    await sql`DELETE FROM pdfs_generados WHERE id = ${req.params.id}`;
+    console.log(`🗑️   PDF generado (id ${req.params.id}) eliminado del historial.`);
+    res.json({ mensaje: 'Eliminado correctamente.' });
+  } catch (err) {
+    res.status(500).json({ mensaje: err.message });
   }
 });
 
