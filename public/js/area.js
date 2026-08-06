@@ -355,6 +355,7 @@ function buscar(texto) {
   if (!q) { renderLista(DATOS); return; }
   const filtrados = DATOS.filter(r =>
     (r.n_control || '').toLowerCase().includes(q) ||
+    (r.n_referencia || '').toLowerCase().includes(q) ||
     (r.remitente || '').toLowerCase().includes(q)
   );
   renderLista(filtrados);

@@ -513,6 +513,7 @@ function buscar(texto) {
 
   const filtrados = DATOS.filter(r =>
     (r.n_control   || '').toLowerCase().includes(q) ||
+    (r.n_referencia|| '').toLowerCase().includes(q) ||
     (r.turnado_a   || '').toLowerCase().includes(q) ||
     (r.remitente   || '').toLowerCase().includes(q) ||
     (r.dependencia || '').toLowerCase().includes(q)

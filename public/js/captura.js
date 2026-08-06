@@ -278,4 +278,27 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('dias_entrega').addEventListener('change', onDiasChange);
   document.getElementById('btn-limpiar').addEventListener('click', confirmarLimpiar);
   document.getElementById('form-captura').addEventListener('submit', enviarForm);
+
+  // Auto-copiar "# Número de Oficio" → "N. Referencia" mientras se escribe.
+  // Deja de copiar en automático en cuanto el usuario edita N. Referencia
+  // a mano (para no pisarle un valor distinto que haya puesto a propósito).
+  sincronizarNumeroConReferencia();
 });
+
+function sincronizarNumeroConReferencia() {
+  const numero      = document.getElementById('numero');
+  const nReferencia = document.getElementById('n_referencia');
+  if (!numero || !nReferencia) return;
+
+  let ultimoValorSincronizado = '';
+
+  numero.addEventListener('input', () => {
+    // Solo actualiza automáticamente si N. Referencia está vacío o si su
+    // valor actual es el que nosotros mismos pusimos la última vez
+    // (así no se pisa un valor que el usuario haya escrito a propósito).
+    if (nReferencia.value === '' || nReferencia.value === ultimoValorSincronizado) {
+      nReferencia.value = numero.value;
+      ultimoValorSincronizado = numero.value;
+    }
+  });
+}
