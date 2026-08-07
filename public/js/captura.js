@@ -216,7 +216,7 @@ async function enviarForm(e) {
     const campos = [
       'f_sello', 'f_oficio', 'dias_entrega', 'numero', 'n_referencia',
       'remitente', 'dependencia', 'instruccion', 'f_registro',
-      'folio_despacho', 'descripcion'
+      'folio_despacho', 'descripcion', 'turnado_a'
     ];
     campos.forEach(c => {
       const el = document.getElementById(c);
@@ -235,9 +235,12 @@ async function enviarForm(e) {
     if (!res.ok) throw new Error(data.mensaje || 'Error al guardar');
 
     /* Modal de confirmación de éxito → al cerrar va a historial */
+    const yaFueTurnado = !!data.turnado_a;
     await sbisAlert({
       titulo:  `Oficio N° ${data.n_control} registrado`,
-      mensaje: 'El oficio quedó en estatus "Por Turnar". Recuerda asignarlo a un área desde el Historial.',
+      mensaje: yaFueTurnado
+        ? `El oficio quedó turnado directamente a ${data.turnado_a}.`
+        : 'El oficio quedó en estatus "Por Turnar". Recuerda asignarlo a un área desde el Historial.',
       tipo:    'success',
       btnOk:   'Ver Historial',
       onClose: () => { window.location.href = 'historial.html'; }
@@ -266,10 +269,12 @@ async function confirmarLimpiar() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (!TOKEN || USUARIO?.rol !== 'admin') {
+  if (!TOKEN || (USUARIO?.rol !== 'admin' && USUARIO?.rol !== 'area')) {
     window.location.href = '/login.html';
     return;
   }
+  const navBandeja = document.getElementById('nav-bandeja');
+  if (navBandeja && USUARIO?.rol === 'area') navBandeja.style.display = '';
 
   inyectarModales();
   mostrarFecha();
@@ -283,6 +288,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Deja de copiar en automático en cuanto el usuario edita N. Referencia
   // a mano (para no pisarle un valor distinto que haya puesto a propósito).
   sincronizarNumeroConReferencia();
+
+  // No tiene sentido turnarse un oficio a uno mismo
+  if (USUARIO?.rol === 'area' && USUARIO?.area) {
+    const sel = document.getElementById('turnado_a');
+    const opt = sel?.querySelector(`option[value="${CSS.escape(USUARIO.area)}"]`);
+    if (opt) opt.remove();
+  }
 });
 
 function sincronizarNumeroConReferencia() {

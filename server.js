@@ -80,6 +80,29 @@ function onlyAdmin(req, res, next) {
   next();
 }
 
+/* Cualquier "admin de área" (rol 'area') o el admin legado pueden
+   crear/turnar registros — cada área es ahora su propio admin. */
+function onlyAreaOrAdmin(req, res, next) {
+  if (req.user?.rol !== 'admin' && req.user?.rol !== 'area')
+    return res.status(403).json({ mensaje: 'Sin acceso.' });
+  next();
+}
+
+/* Calcula el siguiente N. Control PROPIO de un área: un número
+   secuencial simple (0001, 0002...), independiente por cada área
+   (dos áreas distintas pueden tener ambas un "0001" sin problema —
+   lo único que debe ser único es la combinación área + número). */
+async function siguienteNControl(area) {
+  const [{ max }] = await sql`
+    SELECT COALESCE(MAX(
+      CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS INTEGER)
+    ), 0) AS max
+    FROM oficios
+    WHERE area_origen = ${area}`;
+
+  return String(max + 1).padStart(4, '0');
+}
+
 /* ══ HEALTH CHECK ══ */
 app.get('/api/ping', (req, res) => res.json({ ok: true, ts: new Date() }));
 
@@ -139,13 +162,14 @@ app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
 });
 
 /* ══ GET /api/oficios ══
-   - admin        → todos los oficios
-   - area         → oficios turnados a su área (cualquier estatus)
+   - admin        → todos los oficios (legado)
+   - area         → por defecto, lo que le TURNARON a su área (bandeja).
+                     Con ?origen=mio → lo que ELLA misma creó (su historial propio).
    - usuario_area → solo los oficios que tienen usuario_asignado_id = su id
 ══ */
 app.get('/api/oficios', verifyToken, async (req, res) => {
   try {
-    const { estatus } = req.query;
+    const { estatus, origen } = req.query;
     const { rol, area, id } = req.user;
     let rows;
 
@@ -163,6 +187,22 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
             FROM oficios ORDER BY created_at DESC`;
+
+    } else if (rol === 'area' && origen === 'mio') {
+      // Su propio historial: lo que ELLA creó, sin importar a quién se lo turnó
+      rows = estatus && estatus !== 'todos'
+        ? await sql`
+            SELECT *,
+              CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+                THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+                ELSE NULL END AS dias_transcurridos
+            FROM oficios WHERE area_origen = ${area} AND estatus = ${estatus} ORDER BY created_at DESC`
+        : await sql`
+            SELECT *,
+              CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+                THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+                ELSE NULL END AS dias_transcurridos
+            FROM oficios WHERE area_origen = ${area} ORDER BY created_at DESC`;
 
     } else if (rol === 'area') {
       rows = estatus && estatus !== 'todos'
@@ -212,7 +252,7 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
 
     const { rol, area, id } = req.user;
     if (rol === 'admin') { /* sin restricción */ }
-    else if (rol === 'area' && row.turnado_a !== area)
+    else if (rol === 'area' && row.turnado_a !== area && row.area_origen !== area)
       return res.status(403).json({ mensaje: 'Sin acceso.' });
     else if (rol === 'usuario_area' && row.usuario_asignado_id !== id)
       return res.status(403).json({ mensaje: 'Sin acceso.' });
@@ -223,8 +263,11 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
   }
 });
 
-/* ══ POST /api/oficios — Solo admin ══ */
-app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
+/* ══ POST /api/oficios — Admin legado o cualquier "admin de área" ══
+   Cada área puede crear su propio registro. Si manda "turnado_a", el
+   registro nace directo en estatus 'turnado' (lo crea Y lo turna en un
+   solo paso); si no, nace en 'por_turnar' para turnarlo después. ══ */
+app.post('/api/oficios', verifyToken, onlyAreaOrAdmin, upload.fields([
   { name: 'doc1', maxCount: 1 },
   { name: 'doc2', maxCount: 1 }
 ]), async (req, res) => {
@@ -232,14 +275,18 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
     const {
       f_sello, f_oficio, dias_entrega, numero, n_referencia,
       remitente, dependencia, instruccion, f_registro,
-      folio_despacho, hora_recibido, descripcion
+      folio_despacho, hora_recibido, descripcion, turnado_a
     } = req.body;
 
     if (!f_oficio || !remitente?.trim())
       return res.status(400).json({ mensaje: 'F. Oficio y Remitente son obligatorios.' });
 
-    const [{ max }] = await sql`SELECT COALESCE(MAX(CAST(n_control AS INTEGER)), 0) AS max FROM oficios`;
-    const n_control = String(max + 1);
+    // El área que crea el registro es la que origina el N. Control con
+    // su propio prefijo. El admin legado usa Coordinación como fallback.
+    const areaOrigen = req.user.area || 'Coordinación Administrativa';
+    const n_control   = await siguienteNControl(areaOrigen);
+
+    const estatusInicial = turnado_a ? 'turnado' : 'por_turnar';
 
     const files     = req.files || {};
     const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
@@ -250,7 +297,7 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
         n_control, f_sello, f_oficio, dias_entrega, numero,
         n_referencia, remitente, dependencia, instruccion, f_registro,
         folio_despacho, turnado_a, hora_recibido, estatus, descripcion,
-        ruta_doc1, ruta_doc2
+        ruta_doc1, ruta_doc2, area_origen
       ) VALUES (
         ${n_control},
         ${f_sello        || null},
@@ -263,16 +310,17 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
         ${instruccion    || null},
         ${f_registro     || new Date().toISOString().split('T')[0]},
         ${folio_despacho || null},
-        ${null},
+        ${turnado_a      || null},
         ${hora_recibido  || null},
-        'por_turnar',
+        ${estatusInicial},
         ${descripcion    || null},
         ${ruta_doc1},
-        ${ruta_doc2}
+        ${ruta_doc2},
+        ${areaOrigen}
       )
       RETURNING *`;
 
-    console.log(`✅  Oficio creado: N. Control ${n_control} → por_turnar`);
+    console.log(`✅  Oficio creado por ${areaOrigen}: N. Control ${n_control} → ${estatusInicial}${turnado_a ? ' → ' + turnado_a : ''}`);
     res.status(201).json(nuevo);
   } catch (err) {
     res.status(500).json({ mensaje: 'Error al guardar: ' + err.message });
@@ -281,10 +329,10 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
 
 /* ══ PUT /api/oficios/:id ══
    Flujo de estatus:
-     admin        → por_turnar → turnado → (admin turna a área)
-     area         → turnado → sub_turnado (asigna usuario_asignado_id)
-     usuario_area → sub_turnado / rechazado → atendido
-     admin        → atendido → completado / rechazado
+     área de origen (o admin legado) → crea/edita/turna su propio registro
+     área receptora                  → turnado → sub_turnado (asigna usuario_asignado_id)
+     usuario_area                    → sub_turnado / rechazado → atendido
+     área de origen (o admin legado) → atendido → completado / rechazado
 ══ */
 app.put('/api/oficios/:id', verifyToken, upload.fields([
   { name: 'doc1', maxCount: 1 },
@@ -298,9 +346,11 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
 
     const { rol, area, id } = req.user;
     const files = req.files || {};
+    const esOrigen = rol === 'admin' || (rol === 'area' && oficio.area_origen === area);
 
-    /* ── ADMIN ── */
-    if (rol === 'admin') {
+    /* ── QUIEN ORIGINÓ EL REGISTRO (admin legado, o el área que lo creó):
+         edición completa, incluyendo turnar/re-turnar a cualquier área ── */
+    if (esOrigen) {
       const {
         estatus, turnado_a, instruccion, descripcion,
         obs_area, obs_admin, nota_rechazo,
@@ -314,7 +364,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
       const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
 
-      // Si el admin vuelve a turnar (rechaza y manda de vuelta), limpiar asignación de usuario
+      // Si se vuelve a turnar (rechaza y manda de vuelta), limpiar asignación de usuario
       const limpiarAsignacion = nuevoEstatus === 'turnado' ? true : false;
 
       const [updated] = await sql`
@@ -345,11 +395,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         RETURNING *`;
       return res.json(updated);
 
-    /* ── ÁREA: solo puede sub-turnar (turnado → sub_turnado) ── */
-    } else if (rol === 'area') {
-      if (oficio.turnado_a !== area)
-        return res.status(403).json({ mensaje: 'Sin acceso.' });
-
+    /* ── ÁREA RECEPTORA: solo puede sub-turnar (turnado → sub_turnado) ── */
+    } else if (rol === 'area' && oficio.turnado_a === area) {
       const { usuario_asignado_id, usuario_asignado_nombre } = req.body;
 
       if (!usuario_asignado_id)
@@ -396,7 +443,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       return res.json(updated);
 
     } else {
-      return res.status(403).json({ mensaje: 'Rol no reconocido.' });
+      return res.status(403).json({ mensaje: 'Sin acceso a este registro.' });
     }
 
   } catch (err) {
@@ -404,9 +451,17 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
   }
 });
 
-/* ══ DELETE /api/oficios/:id ══ */
-app.delete('/api/oficios/:id', verifyToken, onlyAdmin, async (req, res) => {
+/* ══ DELETE /api/oficios/:id ══
+   Admin legado, o el área que ORIGINÓ el registro, puede borrarlo. ══ */
+app.delete('/api/oficios/:id', verifyToken, async (req, res) => {
   try {
+    const [row] = await sql`SELECT area_origen FROM oficios WHERE id = ${req.params.id}`;
+    if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    const { rol, area } = req.user;
+    const puedeBorrar = rol === 'admin' || (rol === 'area' && row.area_origen === area);
+    if (!puedeBorrar) return res.status(403).json({ mensaje: 'Sin acceso.' });
+
     await sql`DELETE FROM oficios WHERE id = ${req.params.id}`;
     console.log(`🗑️   Oficio ${req.params.id} eliminado`);
     res.json({ mensaje: 'Eliminado correctamente.' });

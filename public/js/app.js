@@ -204,7 +204,9 @@ function iniciarSesion() {
   USUARIO = u ? JSON.parse(u) : null;
 
   if (!TOKEN || !USUARIO) { window.location.href = '/login.html'; return false; }
-  if (USUARIO.rol !== 'admin') { window.location.href = '/area.html'; return false; }
+  if (USUARIO.rol !== 'admin' && USUARIO.rol !== 'area') { window.location.href = '/area.html'; return false; }
+  const navBandeja = document.getElementById('nav-bandeja');
+  if (navBandeja && USUARIO.rol === 'area') navBandeja.style.display = '';
 
   const elUser = document.getElementById('header-usuario');
   if (elUser) elUser.textContent = `👤 ${USUARIO.username}`;
@@ -234,7 +236,13 @@ async function cargarOficios(estatus = 'todos') {
   </div>`;
 
   try {
-    const url = estatus === 'todos' ? `${API}/oficios` : `${API}/oficios?estatus=${estatus}`;
+    const params = new URLSearchParams();
+    if (estatus !== 'todos') params.set('estatus', estatus);
+    // En Historial, un "área" ve SU PROPIO historial (lo que ella creó),
+    // no lo que otras áreas le turnaron a ella (eso vive en area.html).
+    if (USUARIO?.rol === 'area') params.set('origen', 'mio');
+    const qs  = params.toString();
+    const url = `${API}/oficios${qs ? '?' + qs : ''}`;
     const res = await apiFetch(url);
     if (!res.ok) throw new Error();
     DATOS = await res.json();

@@ -15,7 +15,7 @@
   <header class="header-institucional">
     <div class="header-banda-superior">
       <div class="header-texto">
-        <span class="header-gobierno">GOBIERNO DEL ESTADO DE HIDALGO</span>
+        <span class="header-gobierno">GOBIERNO DE MÉXICO</span>
         <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
       </div>
       <div class="header-spacer"></div>
@@ -53,7 +53,7 @@
       <ul class="menu-lista">
         <li><a href="captura.html"  class="menu-item active">Nuevo Registro</a></li>
         <li><a href="historial.html" class="menu-item">Historial</a></li>
-        <li><a href="#" class="menu-item"> - </a></li>
+        <li><a href="area.html" class="menu-item" id="nav-bandeja" style="display:none;">Bandeja de Oficios</a></li>
         <li><a href="#" class="menu-item"> - </a></li>
       </ul>
     </div>
@@ -188,6 +188,33 @@
           </div>
         </section>
 
+        <!-- ── Sección 2.5: Turnar a ── -->
+        <section class="card-seccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-send" aria-hidden="true"></i> Turnar a
+            </span>
+          </div>
+          <div class="form-grid">
+            <div class="campo col-full">
+              <label class="campo-label" for="turnado_a">Área destino</label>
+              <select id="turnado_a" name="turnado_a" class="campo-select">
+                <option value="">— Guardar sin turnar todavía —</option>
+                <option value="Coordinación Administrativa">Coordinación Administrativa</option>
+                <option value="R. Humanos">R. Humanos</option>
+                <option value="R. Financieros">R. Financieros</option>
+                <option value="Seguimiento de Auditorías">Seguimiento de Auditorías</option>
+                <option value="Informática">Informática</option>
+                <option value="R. Materiales">R. Materiales</option>
+                <option value="Archivo">Archivo</option>
+                <option value="Transparencia">Transparencia</option>
+              </select>
+              <span class="campo-hint">Si eliges un área, el registro se crea y se turna en un solo paso. Si lo dejas sin seleccionar, se guarda como "Por turnar" para turnarlo después desde Historial.</span>
+            </div>
+          </div>
+        </section>
+
         <!-- ── Barra de acciones ── -->
         <div class="acciones-form">
           <button type="button" class="btn btn-limpiar" id="btn-limpiar">
@@ -216,7 +243,7 @@
       <div class="banda guinda-oscuro"></div>
     </div>
     <div class="footer-contenido">
-      <span>© 2026 GOBIERNO DEL ESTADO DE HIDALGO — Secretaría de Bienestar e Inclusión Social</span>
+      <span>© 2026 Gobierno de México — Secretaría de Bienestar e Inclusión Social</span>
       <span>Sistema de Correspondencia.</span>
     </div>
   </footer>
