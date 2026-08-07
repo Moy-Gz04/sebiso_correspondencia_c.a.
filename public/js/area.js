@@ -138,7 +138,7 @@ function construirTarjeta(r, i) {
     ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc1}')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${r.ruta_doc1.replace(/^\d+_/, '')}</span>
+           <span class="doc-admin-nombre">${nombreVisibleDoc(r.ruta_doc1)}</span>
            <span class="doc-admin-meta">Documento recibido</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
@@ -148,7 +148,7 @@ function construirTarjeta(r, i) {
     ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc2}')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${r.ruta_doc2.replace(/^\d+_/, '')}</span>
+           <span class="doc-admin-nombre">${nombreVisibleDoc(r.ruta_doc2)}</span>
            <span class="doc-admin-meta">Documento recibido</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
@@ -163,7 +163,7 @@ function construirTarjeta(r, i) {
     ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc3}')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${r.ruta_doc3.replace(/^\d+_/, '')}</span>
+           <span class="doc-admin-nombre">${nombreVisibleDoc(r.ruta_doc3)}</span>
            <span class="doc-admin-meta">Documento de respuesta</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
@@ -173,7 +173,7 @@ function construirTarjeta(r, i) {
     ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc4}')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${r.ruta_doc4.replace(/^\d+_/, '')}</span>
+           <span class="doc-admin-nombre">${nombreVisibleDoc(r.ruta_doc4)}</span>
            <span class="doc-admin-meta">Documento de respuesta</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
@@ -370,7 +370,17 @@ function limpiarBusqueda() {
 }
 
 function verDoc(ruta) {
-  window.open(`${API.replace('/api', '')}/uploads/${ruta}`, '_blank');
+  if (/^https?:\/\//i.test(ruta)) {
+    window.open(ruta, '_blank');
+  } else {
+    window.open(`${API.replace('/api', '')}/uploads/${ruta}`, '_blank');
+  }
+}
+
+function nombreVisibleDoc(ruta) {
+  if (!ruta) return '';
+  if (/^https?:\/\//i.test(ruta)) return 'Ver documento';
+  return ruta.replace(/^\d+_/, '');
 }
 
 function formatFecha(iso) {

@@ -257,13 +257,13 @@ function construirTarjeta(r, i) {
 
   const doc1HTML = r.ruta_doc1
     ? `<button class="btn-doc" onclick="verDoc('${r.ruta_doc1}')">
-         <i class="ti ti-file-type-pdf"></i> ${r.ruta_doc1.replace(/^\d+_/, '')}
+         <i class="ti ti-file-type-pdf"></i> ${nombreVisibleDoc(r.ruta_doc1)}
        </button>`
     : null;
 
   const doc2HTML = r.ruta_doc2
     ? `<button class="btn-doc" onclick="verDoc('${r.ruta_doc2}')">
-         <i class="ti ti-file-type-pdf"></i> ${r.ruta_doc2.replace(/^\d+_/, '')}
+         <i class="ti ti-file-type-pdf"></i> ${nombreVisibleDoc(r.ruta_doc2)}
        </button>`
     : null;
 
@@ -275,7 +275,7 @@ function construirTarjeta(r, i) {
     ? `<div class="doc-area-card" onclick="verDoc('${r.ruta_doc3}')">
          <div class="doc-area-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-area-info">
-           <span class="doc-area-nombre">${r.ruta_doc3.replace(/^\d+_/, '')}</span>
+           <span class="doc-area-nombre">${nombreVisibleDoc(r.ruta_doc3)}</span>
            <span class="doc-area-meta">Documento del área</span>
          </div>
          <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
@@ -285,7 +285,7 @@ function construirTarjeta(r, i) {
     ? `<div class="doc-area-card" onclick="verDoc('${r.ruta_doc4}')">
          <div class="doc-area-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-area-info">
-           <span class="doc-area-nombre">${r.ruta_doc4.replace(/^\d+_/, '')}</span>
+           <span class="doc-area-nombre">${nombreVisibleDoc(r.ruta_doc4)}</span>
            <span class="doc-area-meta">Documento del área</span>
          </div>
          <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
@@ -591,7 +591,19 @@ async function eliminar(id) {
 }
 
 function verDoc(ruta) {
-  window.open(`${API.replace('/api', '')}/uploads/${ruta}`, '_blank');
+  // Archivos nuevos: ya es un link completo de Drive → se abre directo.
+  // Archivos viejos (antes de la migración a Drive): ruta local heredada.
+  if (/^https?:\/\//i.test(ruta)) {
+    window.open(ruta, '_blank');
+  } else {
+    window.open(`${API.replace('/api', '')}/uploads/${ruta}`, '_blank');
+  }
+}
+
+function nombreVisibleDoc(ruta) {
+  if (!ruta) return '';
+  if (/^https?:\/\//i.test(ruta)) return 'Ver documento';
+  return ruta.replace(/^\d+_/, '');
 }
 
 function formatFecha(iso) {

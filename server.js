@@ -25,22 +25,45 @@ const sql = neon(process.env.DATABASE_URL);
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// NOTA: los archivos subidos por usuarios ya NO se guardan en disco local
+// (Render borra el disco en cada reinicio/redeploy). Ahora se suben a
+// Google Drive vía Apps Script — ver subirArchivoADrive() más abajo.
 
 app.get('/', (req, res) => res.redirect('/login.html'));
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, 'uploads')),
-  filename:    (req, file, cb) => cb(null, `${Date.now()}_${file.originalname.replace(/\s+/g, '_')}`)
-});
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     cb(null, ['.pdf', '.doc', '.docx'].includes(ext));
   }
 });
+
+/* Sube un archivo (buffer en memoria) a la carpeta de Drive dedicada
+   a documentos, a través del mismo Apps Script que ya usamos para los
+   PDFs de Sheets. Devuelve la URL pública del archivo, o null si no
+   había archivo que subir. */
+async function subirArchivoADrive(file) {
+  if (!file) return null;
+  if (!process.env.APPS_SCRIPT_URL) {
+    throw new Error('APPS_SCRIPT_URL no está configurada en el servidor.');
+  }
+  const resp = await fetch(process.env.APPS_SCRIPT_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      action:          'subirDocumento',
+      nombre:          file.originalname,
+      mimeType:        file.mimetype,
+      contenidoBase64: file.buffer.toString('base64'),
+    }),
+    redirect: 'follow',
+  });
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.error || 'No se pudo subir el archivo a Drive.');
+  return data.url;
+}
 
 /* ── JWT ── */
 function verifyToken(req, res, next) {
@@ -219,8 +242,8 @@ app.post('/api/oficios', verifyToken, onlyAdmin, upload.fields([
     const n_control = String(max + 1);
 
     const files     = req.files || {};
-    const ruta_doc1 = files.doc1?.[0]?.filename ?? null;
-    const ruta_doc2 = files.doc2?.[0]?.filename ?? null;
+    const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
+    const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
 
     const [nuevo] = await sql`
       INSERT INTO oficios (
@@ -288,8 +311,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       const estatusValidos = ['por_turnar', 'turnado', 'sub_turnado', 'atendido', 'rechazado', 'completado'];
       const nuevoEstatus = estatus && estatusValidos.includes(estatus) ? estatus : null;
 
-      const ruta_doc1 = files.doc1?.[0]?.filename ?? null;
-      const ruta_doc2 = files.doc2?.[0]?.filename ?? null;
+      const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
+      const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
 
       // Si el admin vuelve a turnar (rechaza y manda de vuelta), limpiar asignación de usuario
       const limpiarAsignacion = nuevoEstatus === 'turnado' ? true : false;
@@ -358,8 +381,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       const { obs_area, estatus: estatusBody } = req.body;
       const nuevoEstatus = estatusBody === 'atendido' ? 'atendido' : null;
 
-      const ruta_doc3 = files.doc3?.[0]?.filename ?? null;
-      const ruta_doc4 = files.doc4?.[0]?.filename ?? null;
+      const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
+      const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;
 
       const [updated] = await sql`
         UPDATE oficios SET
