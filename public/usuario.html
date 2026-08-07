@@ -111,16 +111,19 @@
 
   <header class="header-institucional">
     <div class="header-banda-superior">
+      <div class="header-emblema"><i class="ti ti-building-bank" aria-hidden="true"></i></div>
       <div class="header-texto">
         <span class="header-gobierno">GOBIERNO DEL ESTADO DE HIDALGO</span>
         <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
       </div>
       <div class="header-spacer"></div>
-      <span id="header-usuario" style="font-size:0.85rem;color:#fff;margin-right:8px;"></span>
-      <div class="header-fecha" id="header-fecha"></div>
-      <button onclick="cerrarSesion()" style="background:transparent;border:1px solid rgba(255,255,255,0.5);color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;font-family:'Montserrat',sans-serif;font-size:0.85rem;display:flex;align-items:center;gap:6px;margin-left:16px;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='transparent'">
-        <i class="ti ti-logout"></i> Cerrar sesión
-      </button>
+      <div class="header-derecha">
+        <span id="header-usuario"></span>
+        <div class="header-fecha" id="header-fecha"></div>
+        <button onclick="cerrarSesion()" class="btn-cerrar-sesion">
+          <i class="ti ti-logout"></i> Cerrar sesión
+        </button>
+      </div>
     </div>
     <div class="header-banda-tricolor">
       <div class="banda guinda"></div>
@@ -143,8 +146,11 @@
     <div class="contenido-wrapper">
 
       <div class="seccion-titulo-bloque">
-        <i class="ti ti-user-check titulo-icono" aria-hidden="true"></i>
-        <h1 class="seccion-titulo-h1">Mi Bandeja — <span id="area-nombre"></span></h1>
+        <div class="titulo-icono"><i class="ti ti-user-check" aria-hidden="true"></i></div>
+        <div class="seccion-titulo-txt">
+          <span class="seccion-titulo-eyebrow">Documentos asignados</span>
+          <h1 class="seccion-titulo-h1">Mi Bandeja — <span id="area-nombre"></span></h1>
+        </div>
       </div>
 
       <!-- Buscador -->
