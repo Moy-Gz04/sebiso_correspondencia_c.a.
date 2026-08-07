@@ -7,24 +7,30 @@
 /* ── Variables institucionales ── */
 :root {
   --guinda:         #5F2132;
-  --guinda-oscuro:  #5F2132;
+  --guinda-oscuro:  #3D1420;
   --guinda-claro:   #f9f0f3;
   --guinda-hover:   #f0dde4;
-  --dorado:         #BC945B;
-  --dorado-oscuro:  #9a7d30;
-  --dorado-claro:   #faf4e1;
+  --dorado:         #A9824C;
+  --dorado-oscuro:  #7C5D31;
+  --dorado-claro:   #F6EEDD;
   --verde-ok:       #1a6e35;
   --verde-claro:    #e6f4eb;
   --rojo-elim:      #a32d2d;
-  --borde:          #e0c4cc;
-  --txt:            #150810;
-  --txt2:           #6b3347;
-  --fondo:          #f3eaed;
-  --fondo-par:      #fdf9fa;
+  --borde:          #E4D6C8;
+  --txt:            #201017;
+  --txt2:           #6B5563;
+  --fondo:          #F7F1E8;
+  --fondo-par:      #FFFDF9;
   --blanco:         #ffffff;
+
+  /* Prioridad — discreta, tipo semáforo institucional (no rojo alarma) */
+  --alerta:         #B5533F;
+  --alerta-claro:   #F3E4DE;
+  --alerta-borde:   #E0BDAE;
 
   --fuente-titulo:  'Montserrat', Georgia, sans-serif;
   --fuente-cuerpo:  'Montserrat', 'Segoe UI', sans-serif;
+  --fuente-mono:    'JetBrains Mono', 'Courier New', monospace;
   --radio:          16px;
   --radio-sm:       10px;
   --radio-pill:     999px;
@@ -297,9 +303,11 @@ body {
 .tarjeta {
   background: var(--blanco);
   border: 0.5px solid var(--borde);
+  border-top: 3px solid var(--dorado-claro);
+  border-left: 4px solid transparent;
   border-radius: var(--radio);
   overflow: hidden;
-  transition: box-shadow .15s;
+  transition: box-shadow .15s, border-color .2s;
   animation: fadeUp .3s ease both;
 }
 
@@ -309,6 +317,14 @@ body {
 }
 
 .tarjeta:hover { box-shadow: 0 4px 18px rgba(107,15,43,.11); }
+
+/* ── Prioridad: barra lateral discreta, no un banner que grite ── */
+.tarjeta-urgente {
+  border-left-color: var(--alerta) !important;
+}
+.tarjeta-rechazada {
+  border-left-color: #8a3a2f !important;
+}
 
 /* ── Cabecera de tarjeta ── */
 .t-header {
@@ -362,10 +378,11 @@ body {
 }
 
 .th-val.mono {
-  font-family: 'Courier New', monospace;
-  font-size: 12.5px;
+  font-family: var(--fuente-mono);
+  font-size: 14px;
   color: var(--guinda);
   font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .th-val.muted {
@@ -373,25 +390,66 @@ body {
   color: var(--txt2);
 }
 
-/* ── Badges de estatus ── */
-.badge {
-  display: inline-block;
-  font-size: 10.5px;
+/* ── Etiqueta de prioridad — discreta, no un banner que grite ── */
+.tag-prioridad {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--fuente-mono);
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  padding: 4px 12px;
+  letter-spacing: 0.02em;
+  color: var(--alerta);
+  background: var(--alerta-claro);
+  border: 1px solid var(--alerta-borde);
+  padding: 2px 9px;
+  border-radius: var(--radio-pill);
+  text-transform: none;
+  margin-top: 3px;
+  width: fit-content;
+}
+.tag-prioridad i { font-size: 10px; }
+
+/* ── Sellos de estatus ──
+   Estilo "sello de trámite": doble anillo, ligera rotación, fuente
+   monoespaciada — evoca el sello físico que se estampa en un oficio. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--fuente-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 13px;
   border-radius: var(--radio-pill);
   text-transform: uppercase;
   white-space: nowrap;
-  border: 0.5px solid transparent;
+  border: 1.3px solid transparent;
+  position: relative;
+  transform: rotate(-1.2deg);
 }
 
-.b-tur  { background: var(--guinda-claro); color: var(--guinda);   border-color: var(--borde); }
-.b-ate  { background: #e6f0fb;             color: #1a4a8a;         border-color: #b5cff0; }
-.b-env  { background: #e8f0fb;             color: #1a4a8a;         border-color: #b5cff0; }
-.b-comp { background: #e6f4eb;             color: #1a6e35;         border-color: #9dd4b0; }
-.b-rec  { background: #e8f4f0;             color: #0a5c3a;         border-color: #b8d9cc; }
-.b-pro  { background: #faf0e1;             color: #7a4d00;         border-color: #e5c87a; }
+.badge::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px solid currentColor;
+  border-radius: inherit;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.b-portu { background: #EFE9E0; color: #7A6A57; border-color: #D8CBB4; }
+.b-tur   { background: var(--guinda-claro); color: var(--guinda);   border-color: var(--borde); }
+.b-sub   { background: var(--dorado-claro); color: #8A5F1E;         border-color: #E3C98A; }
+.b-ate   { background: #E3EEF3;             color: #1F5C73;         border-color: #B7D6E1; }
+.b-rech  { background: var(--alerta-claro); color: var(--alerta);   border-color: var(--alerta-borde); }
+.b-comp  { background: var(--verde-claro);  color: var(--verde-ok); border-color: #9dd4b0; }
+
+/* Compatibilidad con nombres anteriores */
+.b-env  { background: #E3EEF3; color: #1F5C73; border-color: #B7D6E1; }
+.b-rec  { background: var(--verde-claro); color: var(--verde-ok); border-color: #9dd4b0; }
+.b-pro  { background: var(--dorado-claro); color: #8A5F1E; border-color: #E3C98A; }
 
 /* ── Botón toggle ── */
 .btn-toggle {

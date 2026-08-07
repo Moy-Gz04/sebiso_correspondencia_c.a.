@@ -307,7 +307,7 @@ function construirTarjeta(r, i) {
   /* Nota de rechazo enviada al área (visible también para admin como referencia) */
   const notaRechazoHTML = (r.estatus === 'rechazado' && r.nota_rechazo)
     ? `<div class="obs-bloque" style="grid-column:1/-1;margin-bottom:14px;">
-         <span class="obs-label" style="color:#c62828;">
+         <span class="obs-label" style="color:var(--alerta);">
            <i class="ti ti-alert-triangle"></i> Nota de corrección enviada al área
          </span>
          <div class="nota-rechazo-box">${r.nota_rechazo}</div>
@@ -333,7 +333,7 @@ function construirTarjeta(r, i) {
       <i class="ti ti-circle-check"></i> Completado
     </span>`;
   } else if (r.estatus === 'rechazado') {
-    botonesHTML = `<span style="font-size:11px;color:#c62828;font-weight:600;">
+    botonesHTML = `<span style="font-size:11px;color:var(--alerta);font-weight:600;">
       <i class="ti ti-clock"></i> Esperando corrección del área
     </span>`;
   } else {
@@ -353,9 +353,9 @@ function construirTarjeta(r, i) {
 
   const textoVencimiento = diasRestantes == null ? '—'
     : diasRestantes < 0
-      ? `<span style="color:#c62828;font-weight:700;">Vencido (${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) !== 1 ? 's' : ''} tarde) 🔴</span>`
+      ? `<span style="color:var(--alerta);font-weight:700;">Vencido (${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) !== 1 ? 's' : ''} tarde) 🔴</span>`
     : diasRestantes === 0
-      ? '<span style="color:#c62828;font-weight:700;">¡Hoy!</span>'
+      ? '<span style="color:var(--alerta);font-weight:700;">¡Hoy!</span>'
       : diasRestantes + ' día' + (diasRestantes !== 1 ? 's' : '') + (esUrgente ? ' 🔴' : '');
 
   const bannerTexto = diasRestantes == null ? ''
@@ -367,7 +367,6 @@ function construirTarjeta(r, i) {
 
   return `
   <div class="tarjeta ${claseExtra}" id="tarjeta-${i}">
-    ${esUrgente ? `<div class="urgente-banner"><i class="ti ti-alert-triangle"></i> PRIORIDAD ALTA — ${bannerTexto}</div>` : ''}
     <div class="t-header-row" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
       <label class="th-check" onclick="event.stopPropagation();" title="Seleccionar para generar PDF">
         <input type="checkbox" data-oficio-id="${r.id}" onchange="toggleSeleccion(${r.id}, this)"/>
@@ -376,6 +375,7 @@ function construirTarjeta(r, i) {
       <div class="th-bloque">
         <span class="th-label">N. Control</span>
         <span class="th-val mono">${r.n_control}</span>
+        ${esUrgente ? `<span class="tag-prioridad"><i class="ti ti-clock"></i> ${bannerTexto}</span>` : ''}
       </div>
       <div class="th-bloque th-remitente">
         <span class="th-label">Remitente / Dependencia</span>
@@ -392,7 +392,7 @@ function construirTarjeta(r, i) {
       </div>
       <div class="th-bloque">
         <span class="th-label">Días</span>
-        <span class="th-val" style="${esUrgente ? 'color:#c62828;font-weight:700;' : ''}">
+        <span class="th-val" style="${esUrgente ? 'color:var(--alerta);font-weight:700;' : ''}">
           ${textoVencimiento}
         </span>
       </div>

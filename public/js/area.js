@@ -199,9 +199,9 @@ function construirTarjeta(r, i) {
 
   const textoVencimiento = diasRestantes == null ? '—'
     : diasRestantes < 0
-      ? `<span style="color:#c62828;font-weight:700;">Vencido (${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) !== 1 ? 's' : ''} tarde) 🔴</span>`
+      ? `<span style="color:var(--alerta);font-weight:700;">Vencido (${Math.abs(diasRestantes)} día${Math.abs(diasRestantes) !== 1 ? 's' : ''} tarde) 🔴</span>`
     : diasRestantes === 0
-      ? '<span style="color:#c62828;font-weight:700;">¡Hoy!</span>'
+      ? '<span style="color:var(--alerta);font-weight:700;">¡Hoy!</span>'
       : diasRestantes + ' día' + (diasRestantes !== 1 ? 's' : '') + (esUrgente ? ' 🔴' : '');
 
   const bannerTexto = diasRestantes == null ? ''
@@ -245,11 +245,11 @@ function construirTarjeta(r, i) {
 
   return `
   <div class="tarjeta ${claseExtra}" id="tarjeta-${i}">
-    ${esUrgente ? `<div class="urgente-banner"><i class="ti ti-alert-triangle"></i> PRIORIDAD ALTA — ${bannerTexto}</div>` : ''}
     <div class="t-header" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
       <div class="th-bloque">
         <span class="th-label">N. Control</span>
         <span class="th-val mono">${r.n_control}</span>
+        ${esUrgente ? `<span class="tag-prioridad"><i class="ti ti-clock"></i> ${bannerTexto}</span>` : ''}
       </div>
       <div class="th-bloque th-remitente">
         <span class="th-label">Remitente / Dependencia</span>
@@ -262,7 +262,7 @@ function construirTarjeta(r, i) {
       </div>
       <div class="th-bloque">
         <span class="th-label">Días</span>
-        <span class="th-val" style="${esUrgente ? 'color:#c62828;font-weight:700;' : ''}">
+        <span class="th-val" style="${esUrgente ? 'color:var(--alerta);font-weight:700;' : ''}">
           ${textoVencimiento}
         </span>
       </div>
