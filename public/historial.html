@@ -123,6 +123,7 @@
       position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.50);
+      backdrop-filter: blur(2px);
       z-index: 9999;
       align-items: flex-start;
       justify-content: center;
@@ -131,22 +132,21 @@
     }
     .modal-box {
       background: #fff;
-      border-radius: 10px;
+      border-radius: 14px;
       width: 100%;
       max-width: 700px;
-      box-shadow: 0 10px 50px rgba(107,15,43,0.20);
       font-family: 'Montserrat', sans-serif;
       overflow: hidden;
     }
     .modal-header {
-      background: var(--guinda, #6B0F2B);
+      background: linear-gradient(135deg, var(--guinda, #6B0F2B) 0%, var(--guinda-oscuro, #3D1420) 100%);
       color: #fff;
       padding: 18px 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .modal-header.modal-header-danger { background: #c62828; }
+    .modal-header.modal-header-danger { background: linear-gradient(135deg, #d64545 0%, #c62828 100%); }
     .modal-header h2 {
       margin: 0;
       font-family: 'Montserrat', sans-serif;
@@ -165,9 +165,9 @@
       line-height: 1;
       padding: 2px 6px;
       border-radius: 4px;
-      transition: background 0.2s;
+      transition: background 0.2s, transform .15s;
     }
-    .modal-header button:hover { background: rgba(255,255,255,0.15); }
+    .modal-header button:hover { background: rgba(255,255,255,0.15); transform: rotate(90deg); }
 
     .modal-body {
       padding: 28px 28px 0;
@@ -194,19 +194,20 @@
       width: 100%;
       box-sizing: border-box;
       border: 1px solid #d8ccd0;
-      border-radius: 5px;
+      border-radius: 7px;
       padding: 8px 11px;
       font-size: 13.5px;
       font-family: 'Montserrat', sans-serif;
       color: #222;
-      background: #fff;
-      transition: border-color 0.2s;
+      background: #fdfaf9;
+      transition: border-color 0.2s, box-shadow .2s;
     }
     .modal-campo input:focus,
     .modal-campo select:focus,
     .modal-campo textarea:focus {
       outline: none;
       border-color: var(--guinda, #6B0F2B);
+      box-shadow: 0 0 0 3px rgba(107,15,43,.09);
     }
     .modal-campo textarea { resize: vertical; }
 
@@ -270,20 +271,21 @@
       z-index: 500;
       background: #1a1a1a;
       color: #fff;
-      border-radius: 10px;
+      border-radius: 14px;
       padding: 12px 18px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.30);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.30), 0 0 0 1px rgba(200,169,81,.15);
       display: none;
       align-items: center;
       gap: 16px;
       font-family: 'Montserrat', sans-serif;
+      animation: pop .25s cubic-bezier(.22,1,.36,1) both;
     }
     #barra-seleccion.visible { display: flex; }
     #barra-seleccion .bs-txt { font-size: 13.5px; font-weight: 600; }
     #barra-seleccion .bs-txt strong { color: var(--dorado, #C8A951); }
     #barra-seleccion button {
       border: none;
-      border-radius: 6px;
+      border-radius: 999px;
       padding: 9px 16px;
       font-size: 13px;
       font-weight: 700;
@@ -292,13 +294,13 @@
       align-items: center;
       gap: 6px;
       font-family: 'Montserrat', sans-serif;
-      transition: background 0.2s;
+      transition: background 0.2s, transform .15s;
     }
     #barra-seleccion .bs-generar {
       background: var(--dorado, #C8A951);
       color: #1a1a1a;
     }
-    #barra-seleccion .bs-generar:hover { background: #b8963f; }
+    #barra-seleccion .bs-generar:hover { background: #b8963f; transform: translateY(-1px); }
     #barra-seleccion .bs-generar:disabled {
       opacity: 0.4;
       cursor: not-allowed;
@@ -309,79 +311,6 @@
       border: 1px solid #444;
     }
     #barra-seleccion .bs-cancelar:hover { background: #2a2a2a; }
-
-    /* ── Panel de PDFs generados ── */
-    .panel-pdfs {
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 14px 16px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 4px rgba(107,15,43,0.06);
-      display: none;
-    }
-    .panel-pdfs.visible { display: block; }
-    .panel-pdfs-titulo {
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      color: #6b6b6b;
-      margin: 0 0 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .panel-pdfs-lista {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .btn-ver-pdf {
-      background: #fdf6f8;
-      border: 1px solid var(--guinda, #6B0F2B);
-      color: var(--guinda, #6B0F2B);
-      border-radius: 6px;
-      padding: 7px 12px;
-      font-size: 12.5px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-family: 'Montserrat', sans-serif;
-      text-decoration: none;
-      transition: background .15s;
-    }
-    .btn-ver-pdf:hover { background: #f5e5ea; }
-
-    .pdf-item {
-      display: inline-flex;
-      align-items: stretch;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .pdf-item .btn-ver-pdf {
-      border-radius: 6px 0 0 6px;
-      border-right: none;
-    }
-    .btn-eliminar-pdf {
-      background: #fdf6f8;
-      border: 1px solid var(--guinda, #6B0F2B);
-      border-left: 1px solid #e0c8d0;
-      border-radius: 0 6px 6px 0;
-      color: #a01414;
-      padding: 7px 10px;
-      cursor: pointer;
-      font-size: 13px;
-      display: inline-flex;
-      align-items: center;
-      transition: background .15s, color .15s;
-    }
-    .btn-eliminar-pdf:hover {
-      background: #c62828;
-      color: #fff;
-    }
 
     .modal-error {
       color: #821d11;
@@ -398,7 +327,7 @@
     }
     .modal-footer button {
       padding: 10px 24px;
-      border-radius: 6px;
+      border-radius: 999px;
       font-size: 13.5px;
       font-weight: 600;
       font-family: 'Montserrat', sans-serif;
@@ -415,7 +344,7 @@
     }
     .btn-modal-cancelar:hover { background: #e0e0e0; }
     .btn-modal-guardar {
-      background: var(--guinda, #6B0F2B);
+      background: linear-gradient(135deg, var(--guinda, #6B0F2B) 0%, var(--guinda-oscuro, #3D1420) 100%);
       color: #fff;
     }
     .btn-modal-guardar:hover { background: #8B1535; }
@@ -423,7 +352,7 @@
       background: #b08090;
       cursor: not-allowed;
     }
-    .btn-modal-guardar.btn-modal-danger { background: #c62828; }
+    .btn-modal-guardar.btn-modal-danger { background: linear-gradient(135deg, #d64545 0%, #c62828 100%); }
     .btn-modal-guardar.btn-modal-danger:hover { background: #b71c1c; }
   </style>
 </head>
@@ -434,7 +363,11 @@
   ══════════════════════════════════════ -->
   <header class="header-institucional">
     <div class="header-banda-superior">
-      <div class="header-emblema"><i class="ti ti-building-bank" aria-hidden="true"></i></div>
+      <!-- Logo institucional: reemplaza img/logo.svg por tu escudo oficial (PNG o SVG) -->
+      <div class="header-emblema">
+        <img src="img/logo.png" alt="Escudo Secretaría de Bienestar e Inclusión Social"
+             onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ti ti-building-bank'}))"/>
+      </div>
       <div class="header-texto">
         <span class="header-gobierno">GOBIERNO DEL ESTADO DE HIDALGO</span>
         <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
@@ -484,52 +417,37 @@
       </div>
 
       <!-- Buscador -->
-      <div style="
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 10px 16px;
-        margin-bottom: 12px;
-        box-shadow: 0 1px 4px rgba(107,15,43,0.06);
-      ">
-        <i class="ti ti-search" style="font-size:18px;color:#999;flex-shrink:0;"></i>
+      <div class="buscador-wrap">
+        <span class="buscador-icono"><i class="ti ti-search"></i></span>
         <input
           id="buscador"
           type="text"
+          class="buscador-input"
           placeholder="Buscar por N. Control, N. Referencia, área turnada o remitente..."
           oninput="buscar(this.value)"
-          style="
-            border: none; outline: none; flex: 1;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 14px; color: #333;
-            background: transparent;
-          "
         />
         <button
           id="btn-limpiar-busqueda"
+          class="buscador-limpiar"
           onclick="limpiarBusqueda()"
           title="Limpiar búsqueda"
-          style="
-            display: none;
-            background: #f0e8eb;
-            border: none; border-radius: 50%;
-            width: 26px; height: 26px;
-            cursor: pointer; flex-shrink: 0;
-            align-items: center; justify-content: center;
-            color: var(--guinda, #6B0F2B); font-size: 13px;
-            transition: background .15s;
-          "
-          onmouseover="this.style.background='#e0d0d5'"
-          onmouseout="this.style.background='#f0e8eb'"
         ><i class="ti ti-x"></i></button>
       </div>
 
       <!-- Panel de PDFs generados -->
       <div class="panel-pdfs" id="panel-pdfs">
-        <p class="panel-pdfs-titulo"><i class="ti ti-file-type-pdf"></i> PDFs generados recientemente</p>
+        <div class="panel-pdfs-header">
+          <p class="panel-pdfs-titulo"><i class="ti ti-file-type-pdf"></i> PDFs generados recientemente</p>
+          <div class="panel-pdfs-acciones">
+            <label class="chk-seleccionar-todo">
+              <input type="checkbox" id="pdf-chk-todos" onchange="togglePdfSeleccionarTodos(this)"/>
+              Seleccionar todos
+            </label>
+            <button class="btn-eliminar-seleccionados" id="btn-eliminar-pdfs-sel" onclick="eliminarPdfsSeleccionados()">
+              <i class="ti ti-trash"></i> Eliminar seleccionados (<span id="pdf-sel-count">0</span>)
+            </button>
+          </div>
+        </div>
         <div class="panel-pdfs-lista" id="panel-pdfs-lista"></div>
       </div>
 
@@ -621,7 +539,7 @@
 
           <div class="modal-campo">
             <label>Días de Entrega</label>
-            <select id="edit-dias" style="width:100%;box-sizing:border-box;border:1px solid #d8ccd0;border-radius:5px;padding:8px 11px;font-size:13.5px;font-family:'Montserrat',sans-serif;color:#222;background:#fff;">
+            <select id="edit-dias" style="width:100%;box-sizing:border-box;border:1px solid #d8ccd0;border-radius:7px;padding:8px 11px;font-size:13.5px;font-family:'Montserrat',sans-serif;color:#222;background:#fff;">
               <option value="">— Sin definir —</option>
               <option value="0">No aplica</option>
               <option value="1">1 día  🔴 Urgente</option>

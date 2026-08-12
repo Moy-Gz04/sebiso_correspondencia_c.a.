@@ -30,11 +30,17 @@ function iniciarSesion() {
   if (USUARIO.rol === 'admin')         { window.location.href = '/historial.html'; return false; }
   if (USUARIO.rol === 'usuario_area')  { window.location.href = '/usuario.html';   return false; }
 
-  const elUser = document.getElementById('header-usuario');
-  if (elUser) elUser.textContent = `👤 ${USUARIO.username}`;
+  pintarUsuarioHeader(USUARIO.username);
   const elArea = document.getElementById('area-nombre');
   if (elArea) elArea.textContent = USUARIO.area || '';
   return true;
+}
+
+/* Icono elegante en vez de emoji para el usuario del header */
+function pintarUsuarioHeader(username) {
+  const elUser = document.getElementById('header-usuario');
+  if (!elUser) return;
+  elUser.innerHTML = `<span class="ico-usuario"><i class="ti ti-user-circle"></i></span><span>${username}</span>`;
 }
 
 function cerrarSesion() {

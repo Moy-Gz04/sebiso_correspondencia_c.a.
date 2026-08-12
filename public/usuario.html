@@ -47,26 +47,26 @@
     /* ══ MODAL ATENDER ══ */
     #modal-atender {
       display:none; position:fixed; inset:0; background:rgba(0,0,0,0.50);
+      backdrop-filter: blur(2px);
       z-index:9999; align-items:flex-start; justify-content:center;
       padding:40px 16px; overflow-y:auto;
     }
     .modal-box {
-      background:#fff; border-radius:10px; width:100%; max-width:600px;
-      box-shadow:0 10px 50px rgba(107,15,43,0.20);
+      background:#fff; border-radius:14px; width:100%; max-width:600px;
       font-family:'Montserrat',sans-serif; overflow:hidden;
     }
     .modal-header {
-      background:var(--guinda,#6B0F2B); color:#fff; padding:18px 28px;
+      background:linear-gradient(135deg, var(--guinda,#6B0F2B) 0%, var(--guinda-oscuro,#3D1420) 100%); color:#fff; padding:18px 28px;
       display:flex; align-items:center; justify-content:space-between;
     }
     .modal-header h2 { margin:0; font-family:'Montserrat',sans-serif; font-size:1.35rem; font-weight:600; display:flex; align-items:center; gap:10px; }
-    .modal-header button { background:transparent; border:none; color:rgba(255,255,255,0.8); font-size:22px; cursor:pointer; line-height:1; padding:2px 6px; border-radius:4px; transition:background 0.2s; }
-    .modal-header button:hover { background:rgba(255,255,255,0.15); }
+    .modal-header button { background:transparent; border:none; color:rgba(255,255,255,0.8); font-size:22px; cursor:pointer; line-height:1; padding:2px 6px; border-radius:4px; transition:background 0.2s, transform .15s; }
+    .modal-header button:hover { background:rgba(255,255,255,0.15); transform: rotate(90deg); }
     .modal-body { padding:28px 28px 0; }
     .modal-campo { margin-bottom:18px; }
     .modal-campo label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:#6b6b6b; margin-bottom:6px; }
-    .modal-campo textarea { width:100%; box-sizing:border-box; border:1px solid #d8ccd0; border-radius:5px; padding:8px 11px; font-size:13.5px; font-family:'Montserrat',sans-serif; color:#222; background:#fff; resize:vertical; transition:border-color 0.2s; }
-    .modal-campo textarea:focus { outline:none; border-color:var(--guinda,#6B0F2B); }
+    .modal-campo textarea { width:100%; box-sizing:border-box; border:1px solid #d8ccd0; border-radius:7px; padding:8px 11px; font-size:13.5px; font-family:'Montserrat',sans-serif; color:#222; background:#fdfaf9; resize:vertical; transition:border-color 0.2s, box-shadow .2s; }
+    .modal-campo textarea:focus { outline:none; border-color:var(--guinda,#6B0F2B); box-shadow:0 0 0 3px rgba(107,15,43,.09); }
     .archivos-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     .archivo-drop { border:1.5px dashed #d8ccd0; border-radius:8px; padding:16px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s; position:relative; }
     .archivo-drop:hover { border-color:var(--guinda,#6B0F2B); background:#fdf6f8; }
@@ -76,20 +76,20 @@
     .archivo-drop-nombre { font-size:11.5px; color:var(--guinda,#6B0F2B); margin-top:4px; word-break:break-all; }
     .modal-error { color:#821d11; font-size:12.5px; font-weight:600; margin:4px 28px 0; min-height:18px; }
     .modal-footer { padding:20px 28px 24px; display:flex; justify-content:flex-end; gap:10px; }
-    .modal-footer button { padding:10px 24px; border-radius:6px; font-size:13.5px; font-weight:600; font-family:'Montserrat',sans-serif; cursor:pointer; border:none; display:flex; align-items:center; gap:6px; transition:background 0.2s; }
+    .modal-footer button { padding:10px 24px; border-radius:999px; font-size:13.5px; font-weight:600; font-family:'Montserrat',sans-serif; cursor:pointer; border:none; display:flex; align-items:center; gap:6px; transition:background 0.2s; }
     .btn-modal-cancelar { background:#f0f0f0; color:#444; }
     .btn-modal-cancelar:hover { background:#e0e0e0; }
-    .btn-modal-guardar  { background:var(--guinda,#6B0F2B); color:#fff; }
+    .btn-modal-guardar  { background:linear-gradient(135deg, var(--guinda,#6B0F2B) 0%, var(--guinda-oscuro,#3D1420) 100%); color:#fff; }
     .btn-modal-guardar:hover { background:#8B1535; }
     .btn-modal-guardar:disabled { background:#b08090; cursor:not-allowed; }
 
     /* Modales genéricos */
-    .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); z-index:10000; align-items:center; justify-content:center; padding:20px; }
+    .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); backdrop-filter: blur(2px); z-index:10000; align-items:center; justify-content:center; padding:20px; }
     .sbis-overlay.visible { display:flex; }
-    .sbis-modal { background:#fff; border-radius:10px; width:100%; max-width:400px; box-shadow:0 12px 48px rgba(107,15,43,0.22); font-family:'Montserrat',sans-serif; overflow:hidden; animation:sbisSlide .18s ease; }
-    @keyframes sbisSlide { from{transform:translateY(-18px);opacity:0} to{transform:translateY(0);opacity:1} }
+    .sbis-modal { background:#fff; border-radius:14px; width:100%; max-width:400px; font-family:'Montserrat',sans-serif; overflow:hidden; animation:sbisSlide .22s cubic-bezier(.22,1,.36,1); }
+    @keyframes sbisSlide { from{transform:translateY(-18px) scale(.97);opacity:0} to{transform:translateY(0) scale(1);opacity:1} }
     .sbis-modal-icon { display:flex; align-items:center; justify-content:center; padding:28px 0 16px; }
-    .sbis-modal-icon .ico-circle { width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; }
+    .sbis-modal-icon .ico-circle { width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
     .ico-success { background:#e8f5e9; color:#2e7d32; }
     .ico-error   { background:#fce4ec; color:#c62828; }
     .ico-info    { background:#e3f2fd; color:#1565c0; }
@@ -98,7 +98,7 @@
     .sbis-modal-title { font-family:'Montserrat',sans-serif; font-size:1.35rem; font-weight:700; color:#1a1a1a; margin:0 0 8px; }
     .sbis-modal-msg   { font-size:0.92rem; color:#555; line-height:1.5; margin:0; }
     .sbis-modal-btns  { padding:0 20px 22px; display:flex; gap:10px; justify-content:center; }
-    .sbis-btn { padding:10px 26px; border-radius:6px; font-size:13.5px; font-weight:600; font-family:'Montserrat',sans-serif; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:7px; transition:background .18s,transform .1s; }
+    .sbis-btn { padding:10px 26px; border-radius:999px; font-size:13.5px; font-weight:600; font-family:'Montserrat',sans-serif; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:7px; transition:background .18s,transform .1s; }
     .sbis-btn:active { transform:scale(.97); }
     .sbis-btn-primary { background:#6B0F2B; color:#fff; }
     .sbis-btn-primary:hover { background:#8B1535; }
@@ -111,7 +111,11 @@
 
   <header class="header-institucional">
     <div class="header-banda-superior">
-      <div class="header-emblema"><i class="ti ti-building-bank" aria-hidden="true"></i></div>
+      <!-- Logo institucional: reemplaza img/logo.svg por tu escudo oficial (PNG o SVG) -->
+      <div class="header-emblema">
+        <img src="img/logo.png" alt="Escudo Secretaría de Bienestar e Inclusión Social"
+             onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ti ti-building-bank'}))"/>
+      </div>
       <div class="header-texto">
         <span class="header-gobierno">GOBIERNO DEL ESTADO DE HIDALGO</span>
         <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
@@ -154,13 +158,10 @@
       </div>
 
       <!-- Buscador -->
-      <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(107,15,43,0.06);">
-        <i class="ti ti-search" style="font-size:18px;color:#999;flex-shrink:0;"></i>
-        <input id="buscador" type="text" placeholder="Buscar por N. Control, N. Referencia o remitente..." oninput="buscar(this.value)"
-          style="border:none;outline:none;flex:1;font-family:'Montserrat',sans-serif;font-size:14px;color:#333;background:transparent;"/>
-        <button id="btn-limpiar-busqueda" onclick="limpiarBusqueda()" title="Limpiar"
-          style="display:none;background:#f0e8eb;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;flex-shrink:0;align-items:center;justify-content:center;color:var(--guinda,#6B0F2B);font-size:13px;transition:background .15s;"
-          onmouseover="this.style.background='#e0d0d5'" onmouseout="this.style.background='#f0e8eb'">
+      <div class="buscador-wrap">
+        <span class="buscador-icono"><i class="ti ti-search"></i></span>
+        <input id="buscador" type="text" class="buscador-input" placeholder="Buscar por N. Control, N. Referencia o remitente..." oninput="buscar(this.value)"/>
+        <button id="btn-limpiar-busqueda" class="buscador-limpiar" onclick="limpiarBusqueda()" title="Limpiar">
           <i class="ti ti-x"></i>
         </button>
       </div>

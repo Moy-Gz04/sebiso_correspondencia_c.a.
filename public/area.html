@@ -3,156 +3,22 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Bandeja de Oficios — Secretaría de Bienestar e Inclusión Social</title>
+  <title>Nuevo Registro — Secretaría de Bienestar e Inclusión Social</title>
   <link rel="stylesheet" href="css/styles.css"/>
+  <link rel="stylesheet" href="css/captura.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
-  <style>
-    /* Prioridad y sellos de estatus: estilos base en styles.css */
-
-    /* Chip usuario asignado */
-    .chip-usuario-asignado {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: #ede7f6; color: #4527a0;
-      border: 1px solid #c5cae9;
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-size: 12px; font-weight: 600;
-      font-family: 'Montserrat', sans-serif;
-      margin: 12px 0 4px;
-    }
-
-    /* Docs */
-    .docs-admin-grid { display: flex; flex-direction: column; gap: 8px; }
-    .doc-admin-card {
-      display: flex; align-items: center; gap: 12px;
-      background: #fff; border: 1px solid #d8ccd0; border-radius: 8px;
-      padding: 10px 14px; cursor: pointer;
-      transition: border-color .15s, box-shadow .15s, background .15s;
-    }
-    .doc-admin-card:hover { border-color: var(--guinda,#6B0F2B); background:#fdf6f8; box-shadow:0 2px 8px rgba(107,15,43,0.10); }
-    .doc-admin-icon { width:38px; height:38px; flex-shrink:0; background:#fce4ec; border-radius:8px; display:flex; align-items:center; justify-content:center; color:#8c1212; font-size:20px; }
-    .doc-admin-info { flex:1; display:flex; flex-direction:column; gap:2px; overflow:hidden; }
-    .doc-admin-nombre { font-size:13px; font-weight:600; color:#222; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:'Montserrat',sans-serif; }
-    .doc-admin-meta   { font-size:11px; color:#999; font-family:'Montserrat',sans-serif; }
-    .doc-admin-abrir  { flex-shrink:0; color:var(--guinda,#6B0F2B); font-size:16px; opacity:0.5; transition:opacity .15s; }
-    .doc-admin-card:hover .doc-admin-abrir { opacity:1; }
-    .obs-caja {
-      background: var(--fondo-par,#faf5f7);
-      border: 0.5px solid var(--borde,#e8d8de);
-      border-radius: 5px; padding: 10px 12px;
-      font-size: 13px; color: #333; line-height: 1.55; min-height: 40px;
-      font-family: 'Montserrat', sans-serif;
-    }
-
-    /* Botones acción */
-    .btn-subturnar, .btn-reasignar {
-      border: none; padding: 7px 14px; border-radius: 5px;
-      font-size: 12px; font-weight: 600; cursor: pointer;
-      display: flex; align-items: center; gap: 5px;
-      font-family: 'Montserrat', sans-serif; transition: background 0.2s;
-    }
-    .btn-subturnar  { background: var(--guinda,#6B0F2B); color:#fff; }
-    .btn-subturnar:hover { background:#8B1535; }
-    .btn-reasignar  { background: #4527a0; color:#fff; }
-    .btn-reasignar:hover { background:#311b92; }
-
-    /* ══ MODAL SUB-TURNAR ══ */
-    #modal-subturnar {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.50); z-index: 9999;
-      align-items: flex-start; justify-content: center;
-      padding: 40px 16px; overflow-y: auto;
-    }
-    .modal-box {
-      background: #fff; border-radius: 10px; width: 100%; max-width: 480px;
-      box-shadow: 0 10px 50px rgba(107,15,43,0.20);
-      font-family: 'Montserrat', sans-serif; overflow: hidden;
-    }
-    .modal-header {
-      background: var(--guinda,#6B0F2B); color:#fff;
-      padding: 18px 28px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .modal-header h2 {
-      margin:0; font-family:'Montserrat',sans-serif; font-size:1.35rem; font-weight:600;
-      display:flex; align-items:center; gap:10px;
-    }
-    .modal-header button {
-      background:transparent; border:none; color:rgba(255,255,255,0.8);
-      font-size:22px; cursor:pointer; line-height:1; padding:2px 6px;
-      border-radius:4px; transition:background 0.2s;
-    }
-    .modal-header button:hover { background:rgba(255,255,255,0.15); }
-    .modal-body { padding: 28px 28px 0; }
-    .modal-campo { margin-bottom: 18px; }
-    .modal-campo label {
-      display:block; font-size:11px; font-weight:700;
-      text-transform:uppercase; letter-spacing:0.5px; color:#6b6b6b; margin-bottom:6px;
-    }
-    .modal-campo select {
-      width:100%; box-sizing:border-box;
-      border:1px solid #d8ccd0; border-radius:5px;
-      padding:9px 11px; font-size:13.5px;
-      font-family:'Montserrat',sans-serif; color:#222; background:#fff;
-      transition:border-color 0.2s; appearance:none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%236b6b6b' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
-      background-repeat:no-repeat; background-position:right 10px center;
-    }
-    .modal-campo select:focus { outline:none; border-color:var(--guinda,#6B0F2B); }
-    .modal-info-box {
-      background:#f3e5f5; border:1px solid #ce93d8; border-left:3px solid #7b1fa2;
-      border-radius:6px; padding:10px 14px; font-size:12.5px; color:#4a148c;
-      line-height:1.5; margin-bottom:18px;
-      display:flex; align-items:flex-start; gap:8px;
-    }
-    .modal-error {
-      color:#821d11; font-size:12.5px; font-weight:600;
-      margin:4px 28px 0; min-height:18px;
-    }
-    .modal-footer {
-      padding:20px 28px 24px; display:flex; justify-content:flex-end; gap:10px;
-    }
-    .modal-footer button {
-      padding:10px 24px; border-radius:6px; font-size:13.5px; font-weight:600;
-      font-family:'Montserrat',sans-serif; cursor:pointer; border:none;
-      display:flex; align-items:center; gap:6px; transition:background 0.2s;
-    }
-    .btn-modal-cancelar { background:#f0f0f0; color:#444; }
-    .btn-modal-cancelar:hover { background:#e0e0e0; }
-    .btn-modal-guardar  { background:var(--guinda,#6B0F2B); color:#fff; }
-    .btn-modal-guardar:hover { background:#8B1535; }
-    .btn-modal-guardar:disabled { background:#b08090; cursor:not-allowed; }
-
-    /* Sistema de modales genérico */
-    .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); z-index:10000; align-items:center; justify-content:center; padding:20px; }
-    .sbis-overlay.visible { display:flex; }
-    .sbis-modal { background:#fff; border-radius:10px; width:100%; max-width:400px; box-shadow:0 12px 48px rgba(107,15,43,0.22); font-family:'Montserrat',sans-serif; overflow:hidden; animation:sbisSlide .18s ease; }
-    @keyframes sbisSlide { from{transform:translateY(-18px);opacity:0} to{transform:translateY(0);opacity:1} }
-    .sbis-modal-icon { display:flex; align-items:center; justify-content:center; padding:28px 0 16px; }
-    .sbis-modal-icon .ico-circle { width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; }
-    .ico-success { background:#e8f5e9; color:#2e7d32; }
-    .ico-error   { background:#fce4ec; color:#c62828; }
-    .ico-info    { background:#e3f2fd; color:#1565c0; }
-    .ico-warning { background:#fff8e1; color:#f57f17; }
-    .sbis-modal-body { padding:0 28px 20px; text-align:center; }
-    .sbis-modal-title { font-family:'Montserrat',sans-serif; font-size:1.35rem; font-weight:700; color:#1a1a1a; margin:0 0 8px; }
-    .sbis-modal-msg   { font-size:0.92rem; color:#555; line-height:1.5; margin:0; }
-    .sbis-modal-btns  { padding:0 20px 22px; display:flex; gap:10px; justify-content:center; }
-    .sbis-btn { padding:10px 26px; border-radius:6px; font-size:13.5px; font-weight:600; font-family:'Montserrat',sans-serif; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:7px; transition:background .18s,transform .1s; }
-    .sbis-btn:active { transform:scale(.97); }
-    .sbis-btn-primary { background:#6B0F2B; color:#fff; }
-    .sbis-btn-primary:hover { background:#8B1535; }
-    .sbis-btn-danger  { background:#c62828; color:#fff; }
-    .sbis-btn-success { background:#2e7d32; color:#fff; }
-    .sbis-btn-secondary { background:#eeeeee; color:#333; }
-  </style>
 </head>
 <body>
 
+  <!-- ══ HEADER ══ -->
   <header class="header-institucional">
     <div class="header-banda-superior">
-      <div class="header-emblema"><i class="ti ti-building-bank" aria-hidden="true"></i></div>
+      <!-- Logo institucional: reemplaza img/logo.svg por tu escudo oficial (PNG o SVG) -->
+      <div class="header-emblema">
+        <img src="img/logo.png" alt="Escudo Secretaría de Bienestar e Inclusión Social"
+             onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ti ti-building-bank'}))"/>
+      </div>
       <div class="header-texto">
         <span class="header-gobierno">GOBIERNO DEL ESTADO DE HIDALGO</span>
         <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
@@ -173,108 +39,204 @@
     </div>
   </header>
 
+  <!-- ══ MENÚ ══ -->
   <nav class="barra-menu">
     <div class="menu-container">
       <span class="menu-label">MENÚ</span>
       <ul class="menu-lista">
         <li><a href="historial.html" class="menu-item">Historial</a></li>
-        <li><a href="captura.html" class="menu-item">Nuevo Registro</a></li>
-        <li><a href="area.html" class="menu-item active">Bandeja de Oficios</a></li>
+        <li><a href="captura.html"  class="menu-item active">Nuevo Registro</a></li>
+        <li><a href="area.html" class="menu-item">Bandeja de Oficios</a></li>
       </ul>
     </div>
   </nav>
 
+  <!-- ══ CONTENIDO ══ -->
   <main class="main-contenido">
     <div class="contenido-wrapper">
 
       <div class="seccion-titulo-bloque">
-        <div class="titulo-icono"><i class="ti ti-inbox" aria-hidden="true"></i></div>
+        <div class="titulo-icono"><i class="ti ti-file-plus" aria-hidden="true"></i></div>
         <div class="seccion-titulo-txt">
-          <span class="seccion-titulo-eyebrow">Correspondencia turnada</span>
-          <h1 class="seccion-titulo-h1">Bandeja de Oficios — <span id="area-nombre"></span></h1>
+          <span class="seccion-titulo-eyebrow">Captura de correspondencia</span>
+          <h1 class="seccion-titulo-h1">Nuevo Registro de Oficio</h1>
         </div>
       </div>
 
-      <!-- Buscador -->
-      <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(107,15,43,0.06);">
-        <i class="ti ti-search" style="font-size:18px;color:#999;flex-shrink:0;"></i>
-        <input id="buscador" type="text" placeholder="Buscar por N. Control, N. Referencia o remitente..." oninput="buscar(this.value)"
-          style="border:none;outline:none;flex:1;font-family:'Montserrat',sans-serif;font-size:14px;color:#333;background:transparent;"/>
-        <button id="btn-limpiar-busqueda" onclick="limpiarBusqueda()" title="Limpiar búsqueda"
-          style="display:none;background:#f0e8eb;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;flex-shrink:0;align-items:center;justify-content:center;color:var(--guinda,#6B0F2B);font-size:13px;transition:background .15s;"
-          onmouseover="this.style.background='#e0d0d5'" onmouseout="this.style.background='#f0e8eb'">
-          <i class="ti ti-x"></i>
-        </button>
+      <!-- Toast de notificación -->
+      <div class="toast" id="toast">
+        <i class="ti ti-circle-check toast-ico" aria-hidden="true"></i>
+        <span id="toast-msg">Oficio registrado correctamente.</span>
       </div>
 
-      <!-- Filtros -->
-      <div class="filtros-barra">
-        <button class="chip on" onclick="filtrar(this,'todos')">Todos</button>
-        <button class="chip" onclick="filtrar(this,'turnado')">Pendientes</button>
-        <button class="chip" onclick="filtrar(this,'sub_turnado')">Sub-turnados</button>
-        <button class="chip" onclick="filtrar(this,'atendido')">Atendidos</button>
-        <button class="chip" onclick="filtrar(this,'completado')">Completados</button>
-        <div class="filtro-spacer"></div>
-        <span class="filtro-total">Total: <strong id="tot">0</strong> registros</span>
-      </div>
+      <!-- ════════════════════════════════
+           FORMULARIO — VENTANA ÚNICA
+           Todo el registro (datos, descripción y turnado)
+           vive dentro de un solo contenedor.
+           ════════════════════════════════ -->
+      <form id="form-captura" class="card-captura-unica" novalidate>
 
-      <div class="lista" id="lista"></div>
+        <!-- ── Datos del Oficio ── -->
+        <div class="captura-subseccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-id-badge" aria-hidden="true"></i> Datos del Oficio
+            </span>
+          </div>
 
-      <div class="pie-tabla">
-        <span id="pie-txt"></span>
-      </div>
+          <div class="form-grid">
 
+            <div class="campo">
+              <label class="campo-label" for="n_control">N. Control</label>
+              <input id="n_control" name="n_control" type="text" class="campo-input"
+                     placeholder="Se genera automáticamente" readonly/>
+              <span class="campo-hint">Generado por el sistema al guardar</span>
+            </div>
+
+            <!-- F. Oficio: OBLIGATORIO -->
+            <div class="campo">
+              <label class="campo-label req" for="f_oficio">F. Oficio</label>
+              <input id="f_oficio" name="f_oficio" type="date" class="campo-input" required/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="f_sello">F. Sello</label>
+              <input id="f_sello" name="f_sello" type="date" class="campo-input"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label req" for="dias_entrega">Días de Entrega</label>
+              <select id="dias_entrega" name="dias_entrega" class="campo-select" required>
+                <option value="">— Seleccionar —</option>
+                <option value="0">No aplica</option>
+                <option value="1">1 día  🔴 Urgente</option>
+                <option value="2">2 días 🔴 Urgente</option>
+                <option value="3">3 días 🔴 Urgente</option>
+                <option value="4">4 días</option>
+                <option value="5">5 días</option>
+              </select>
+              <span class="campo-hint" id="dias-hint" style="display:none;color:#c62828;font-weight:600;">
+                ⚠️ Prioridad alta — se marcará en rojo
+              </span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="numero"># (Número de Oficio)</label>
+              <input id="numero" name="numero" type="text" class="campo-input"
+                     placeholder="Ej. J-2026-112"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="n_referencia">N. Referencia</label>
+              <input id="n_referencia" name="n_referencia" type="text"
+                     class="campo-input" placeholder="Referencia del oficio"/>
+            </div>
+
+            <!-- Remitente: OBLIGATORIO -->
+            <div class="campo col-full">
+              <label class="campo-label req" for="remitente">Remitente</label>
+              <input id="remitente" name="remitente" type="text" class="campo-input"
+                     placeholder="Nombre completo del remitente" required/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="dependencia">Dependencia</label>
+              <input id="dependencia" name="dependencia" type="text" class="campo-input"
+                     placeholder="Dependencia de origen"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="instruccion">Instrucción</label>
+              <input id="instruccion" name="instruccion" type="text" class="campo-input"
+                     placeholder="Instrucción recibida"/>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="f_registro">F. Registro</label>
+              <input id="f_registro" name="f_registro" type="date"
+                     class="campo-input" readonly/>
+              <span class="campo-hint">Fecha actual al guardar</span>
+            </div>
+
+            <div class="campo">
+              <label class="campo-label" for="folio_despacho">Folio Despacho</label>
+              <input id="folio_despacho" name="folio_despacho" type="text"
+                     class="campo-input" placeholder="Folio de despacho"/>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="captura-divisor"></div>
+
+        <!-- ── Descripción del Asunto ── -->
+        <div class="captura-subseccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-align-left" aria-hidden="true"></i> Descripción del Asunto
+            </span>
+          </div>
+          <div class="form-grid">
+            <div class="campo col-full">
+              <label class="campo-label" for="descripcion">Descripción del Asunto</label>
+              <textarea id="descripcion" name="descripcion" class="campo-textarea"
+                        rows="4" placeholder="Describa detalladamente el asunto del oficio..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="captura-divisor"></div>
+
+        <!-- ── Turnar a ── -->
+        <div class="captura-subseccion">
+          <div class="card-seccion-titulo">
+            <span class="card-titulo-linea"></span>
+            <span class="card-titulo-txt">
+              <i class="ti ti-send" aria-hidden="true"></i> Turnar a
+            </span>
+          </div>
+          <div class="form-grid">
+            <div class="campo col-full">
+              <label class="campo-label" for="turnado_a">Área destino</label>
+              <select id="turnado_a" name="turnado_a" class="campo-select">
+                <option value="">— Guardar sin turnar todavía —</option>
+                <option value="Coordinación Administrativa">Coordinación Administrativa</option>
+                <option value="R. Humanos">R. Humanos</option>
+                <option value="R. Financieros">R. Financieros</option>
+                <option value="Seguimiento de Auditorías">Seguimiento de Auditorías</option>
+                <option value="Informática">Informática</option>
+                <option value="R. Materiales">R. Materiales</option>
+                <option value="Archivo">Archivo</option>
+                <option value="Transparencia">Transparencia</option>
+              </select>
+              <span class="campo-hint">Si eliges un área, el registro se crea y se turna en un solo paso. Si lo dejas sin seleccionar, se guarda como "Por turnar" para turnarlo después desde Historial.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Barra de acciones ── -->
+        <div class="acciones-form">
+          <button type="button" class="btn btn-limpiar" id="btn-limpiar">
+            <i class="ti ti-eraser" aria-hidden="true"></i> Limpiar
+          </button>
+          <div class="acciones-form-der">
+            <button type="button" class="btn btn-historial"
+                    onclick="window.location.href='historial.html'">
+              <i class="ti ti-list" aria-hidden="true"></i> Ver Historial
+            </button>
+            <button type="submit" class="btn btn-guardar" id="btn-guardar">
+              <i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar Registro
+            </button>
+          </div>
+        </div>
+
+      </form>
     </div>
   </main>
 
-  <!-- ══ MODAL: SUB-TURNAR A USUARIO ══ -->
-  <div id="modal-subturnar">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h2><i class="ti ti-user-share"></i> Sub-turnar Oficio</h2>
-        <button onclick="cerrarSubturnar()" title="Cerrar"><i class="ti ti-x"></i></button>
-      </div>
-      <div class="modal-body">
-        <div class="modal-info-box">
-          <i class="ti ti-info-circle" style="font-size:16px;flex-shrink:0;margin-top:1px;"></i>
-          Selecciona el usuario de tu área que se encargará de atender este oficio.
-          Recibirá el oficio en su bandeja personal.
-        </div>
-        <div class="modal-campo">
-          <label>Usuario Asignado</label>
-          <select id="subturnar-select">
-            <option value="">— Selecciona un usuario —</option>
-          </select>
-        </div>
-      </div>
-      <p class="modal-error" id="subturnar-error"></p>
-      <div class="modal-footer">
-        <button class="btn-modal-cancelar" onclick="cerrarSubturnar()">
-          <i class="ti ti-x"></i> Cancelar
-        </button>
-        <button class="btn-modal-guardar" id="subturnar-btn-guardar" onclick="guardarSubturnar()">
-          <i class="ti ti-user-share"></i> Confirmar Asignación
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Sistema de modales genérico -->
-  <div class="sbis-overlay" id="sbis-overlay">
-    <div class="sbis-modal">
-      <div class="sbis-modal-icon">
-        <div class="ico-circle" id="sbis-ico-circle">
-          <i id="sbis-ico" class="ti ti-alert-triangle"></i>
-        </div>
-      </div>
-      <div class="sbis-modal-body">
-        <p class="sbis-modal-title" id="sbis-title">Título</p>
-        <p class="sbis-modal-msg"   id="sbis-msg">Mensaje</p>
-      </div>
-      <div class="sbis-modal-btns" id="sbis-btns"></div>
-    </div>
-  </div>
-
+  <!-- ══ FOOTER ══ -->
   <footer class="footer-institucional">
     <div class="footer-banda-tricolor">
       <div class="banda guinda"></div>
@@ -287,6 +249,6 @@
     </div>
   </footer>
 
-  <script src="js/area.js"></script>
+  <script src="js/captura.js"></script>
 </body>
 </html>

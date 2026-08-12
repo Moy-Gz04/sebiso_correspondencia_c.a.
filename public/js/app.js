@@ -18,6 +18,7 @@ let filtroActual = 'todos';
 let TOKEN        = null;
 let USUARIO      = null;
 let SELECCION    = []; // ids de oficios seleccionados, en orden de selección (máx. 4)
+let SELECCION_PDF = []; // ids de PDFs generados seleccionados para eliminación masiva
 
 /* ════════════════════════════════════════════════════
    SISTEMA DE MODALES GENÉRICO
@@ -32,6 +33,7 @@ function inyectarModales() {
         display: none;
         position: fixed; inset: 0;
         background: rgba(0,0,0,0.48);
+        backdrop-filter: blur(2px);
         z-index: 10000;
         align-items: center;
         justify-content: center;
@@ -40,16 +42,15 @@ function inyectarModales() {
       .sbis-overlay.visible { display: flex; }
       .sbis-modal {
         background: #fff;
-        border-radius: 10px;
+        border-radius: 14px;
         width: 100%; max-width: 400px;
-        box-shadow: 0 12px 48px rgba(107,15,43,0.22);
         font-family: 'Montserrat', sans-serif;
         overflow: hidden;
-        animation: sbisSlide .18s ease;
+        animation: sbisSlide .22s cubic-bezier(.22,1,.36,1);
       }
       @keyframes sbisSlide {
-        from { transform: translateY(-18px); opacity: 0; }
-        to   { transform: translateY(0);     opacity: 1; }
+        from { transform: translateY(-18px) scale(.97); opacity: 0; }
+        to   { transform: translateY(0)     scale(1);   opacity: 1; }
       }
       .sbis-modal-icon {
         display: flex; align-items: center; justify-content: center;
@@ -59,6 +60,7 @@ function inyectarModales() {
         width: 58px; height: 58px; border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
         font-size: 26px;
+        box-shadow: 0 4px 12px rgba(0,0,0,.12);
       }
       .ico-confirm  { background: #fff3e0; color: #e65100; }
       .ico-success  { background: #e8f5e9; color: #2e7d32; }
@@ -80,7 +82,7 @@ function inyectarModales() {
         display: flex; gap: 10px; justify-content: center;
       }
       .sbis-btn {
-        padding: 10px 26px; border-radius: 6px;
+        padding: 10px 26px; border-radius: 999px;
         font-size: 13.5px; font-weight: 600;
         font-family: 'Montserrat', sans-serif;
         cursor: pointer; border: none;
@@ -208,9 +210,15 @@ function iniciarSesion() {
   const navBandeja = document.getElementById('nav-bandeja');
   if (navBandeja && USUARIO.rol === 'area') navBandeja.style.display = '';
 
-  const elUser = document.getElementById('header-usuario');
-  if (elUser) elUser.textContent = `👤 ${USUARIO.username}`;
+  pintarUsuarioHeader(USUARIO.username);
   return true;
+}
+
+/* Icono elegante en vez de emoji para el usuario del header */
+function pintarUsuarioHeader(username) {
+  const elUser = document.getElementById('header-usuario');
+  if (!elUser) return;
+  elUser.innerHTML = `<span class="ico-usuario"><i class="ti ti-user-circle"></i></span><span>${username}</span>`;
 }
 
 function cerrarSesion() {
@@ -937,7 +945,11 @@ async function generarPdfSeleccion() {
   }
 }
 
-/* ── Panel de PDFs generados (historial persistente) ── */
+/* ════════════════════════════════════════════════════
+   PANEL DE PDFs GENERADOS (historial persistente)
+   Selección múltiple + eliminación masiva, sin botón
+   de eliminar por cada PDF individual.
+   ════════════════════════════════════════════════════ */
 async function cargarPdfsGenerados() {
   try {
     const res = await apiFetch(`${API}/pdfs-generados`);
@@ -946,8 +958,10 @@ async function cargarPdfsGenerados() {
     const panel = document.getElementById('panel-pdfs');
     const lista = document.getElementById('panel-pdfs-lista');
     lista.innerHTML = '';
+    SELECCION_PDF = [];
     rows.forEach(row => lista.appendChild(crearBotonPdf(row)));
     panel.classList.toggle('visible', rows.length > 0);
+    actualizarPdfBarraSeleccion();
   } catch (err) {
     console.error('[cargarPdfsGenerados]', err);
   }
@@ -958,6 +972,12 @@ function crearBotonPdf(row) {
   wrap.className = 'pdf-item';
   wrap.dataset.pdfId = row.id;
 
+  const chk = document.createElement('input');
+  chk.type = 'checkbox';
+  chk.className = 'pdf-chk';
+  chk.title = 'Seleccionar este PDF';
+  chk.addEventListener('change', () => togglePdfSeleccion(row.id, chk, wrap));
+
   const a = document.createElement('a');
   a.href = row.url;
   a.target = '_blank';
@@ -966,39 +986,94 @@ function crearBotonPdf(row) {
   const controles = (row.folios || []).join(', ');
   a.innerHTML = `<i class="ti ti-eye"></i> Ver PDF N. Control ${controles}`;
 
-  const btnDel = document.createElement('button');
-  btnDel.className = 'btn-eliminar-pdf';
-  btnDel.title = 'Eliminar este PDF';
-  btnDel.innerHTML = '<i class="ti ti-trash"></i>';
-  btnDel.onclick = () => eliminarPdfGenerado(row.id, wrap);
-
+  wrap.appendChild(chk);
   wrap.appendChild(a);
-  wrap.appendChild(btnDel);
   return wrap;
 }
 
-async function eliminarPdfGenerado(id, wrapEl) {
+function togglePdfSeleccion(id, checkbox, wrapEl) {
+  if (checkbox.checked) {
+    if (!SELECCION_PDF.includes(id)) SELECCION_PDF.push(id);
+  } else {
+    SELECCION_PDF = SELECCION_PDF.filter(x => x !== id);
+  }
+  wrapEl.classList.toggle('seleccionado', checkbox.checked);
+  actualizarPdfBarraSeleccion();
+}
+
+function togglePdfSeleccionarTodos(checkboxTodos) {
+  const marcar = checkboxTodos.checked;
+  document.querySelectorAll('#panel-pdfs-lista .pdf-item').forEach(wrap => {
+    const chk = wrap.querySelector('.pdf-chk');
+    const id  = Number(wrap.dataset.pdfId);
+    chk.checked = marcar;
+    wrap.classList.toggle('seleccionado', marcar);
+    if (marcar) {
+      if (!SELECCION_PDF.includes(id)) SELECCION_PDF.push(id);
+    }
+  });
+  if (!marcar) SELECCION_PDF = [];
+  actualizarPdfBarraSeleccion();
+}
+
+function actualizarPdfBarraSeleccion() {
+  const btn   = document.getElementById('btn-eliminar-pdfs-sel');
+  const count = document.getElementById('pdf-sel-count');
+  const chkTodos = document.getElementById('pdf-chk-todos');
+  if (!btn || !count) return;
+
+  count.textContent = SELECCION_PDF.length;
+  btn.classList.toggle('visible', SELECCION_PDF.length > 0);
+
+  const total = document.querySelectorAll('#panel-pdfs-lista .pdf-item').length;
+  if (chkTodos) {
+    chkTodos.checked = total > 0 && SELECCION_PDF.length === total;
+    chkTodos.indeterminate = SELECCION_PDF.length > 0 && SELECCION_PDF.length < total;
+  }
+}
+
+async function eliminarPdfsSeleccionados() {
+  if (!SELECCION_PDF.length) return;
+
   const ok = await sbisConfirm({
-    titulo:   'Eliminar PDF',
-    mensaje:  'Se eliminará este PDF del sistema y, si es posible, también el archivo en Drive. Esta acción no se puede deshacer.',
+    titulo:   `Eliminar ${SELECCION_PDF.length} PDF${SELECCION_PDF.length !== 1 ? 's' : ''}`,
+    mensaje:  'Se eliminarán del sistema y, si es posible, también los archivos en Drive. Esta acción no se puede deshacer.',
     btnOk:    'Eliminar',
     btnCancel:'Cancelar',
     tipo:     'danger'
   });
   if (!ok) return;
 
+  const btn = document.getElementById('btn-eliminar-pdfs-sel');
+  btn.disabled  = true;
+  const idsAEliminar = [...SELECCION_PDF];
+
   try {
-    const res = await apiFetch(`${API}/pdfs-generados/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const d = await res.json();
-      throw new Error(d.mensaje || 'No se pudo eliminar.');
-    }
-    wrapEl.remove();
+    const resultados = await Promise.allSettled(
+      idsAEliminar.map(id => apiFetch(`${API}/pdfs-generados/${id}`, { method: 'DELETE' }))
+    );
+    const fallidos = resultados.filter(r => r.status === 'rejected' || (r.value && !r.value.ok)).length;
+
+    idsAEliminar.forEach(id => {
+      const wrap = document.querySelector(`#panel-pdfs-lista .pdf-item[data-pdf-id="${id}"]`);
+      if (wrap) wrap.remove();
+    });
+    SELECCION_PDF = [];
+
     const lista = document.getElementById('panel-pdfs-lista');
     const panel = document.getElementById('panel-pdfs');
     if (!lista.children.length) panel.classList.remove('visible');
+    actualizarPdfBarraSeleccion();
+
+    if (fallidos > 0) {
+      await sbisAlert({ titulo: 'Eliminación parcial', mensaje: `${fallidos} PDF(s) no se pudieron eliminar.`, tipo: 'warning' });
+    } else {
+      await sbisAlert({ titulo: 'PDFs eliminados', mensaje: 'Los PDFs seleccionados se eliminaron correctamente.', tipo: 'success' });
+    }
   } catch (err) {
-    await sbisAlert({ titulo: 'Error', mensaje: err.message || 'No se pudo eliminar el PDF.', tipo: 'error' });
+    await sbisAlert({ titulo: 'Error', mensaje: err.message || 'No se pudieron eliminar los PDFs.', tipo: 'error' });
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -1007,6 +1082,7 @@ function agregarPdfAlPanel(row) {
   const lista = document.getElementById('panel-pdfs-lista');
   lista.prepend(crearBotonPdf(row));
   panel.classList.add('visible');
+  actualizarPdfBarraSeleccion();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

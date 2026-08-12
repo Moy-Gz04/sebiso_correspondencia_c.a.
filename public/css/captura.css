@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════
-   SBIS — Formulario de Captura
+   SBIS — Formulario de Captura (ventana única)
    ═══════════════════════════════════════════════════ */
 
 /* ── Toast ── */
@@ -14,7 +14,7 @@
   font-size: 14px;
   font-weight: 500;
   animation: slideIn .3s ease;
-  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  box-shadow: var(--sombra-media);
 }
 .toast.error   { background: var(--rojo-elim); }
 .toast.visible { display: flex; }
@@ -25,25 +25,41 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Card de sección ── */
-.card-seccion {
-  background: var(--blanco);
-  border: 0.5px solid var(--borde);
+/* ═══════════════════════════════════════════════════
+   VENTANA ÚNICA DE CAPTURA
+   Todo el formulario vive en un solo contenedor con
+   profundidad 3D; las secciones internas se separan con
+   un simple divisor decorativo, no con tarjetas propias.
+   ═══════════════════════════════════════════════════ */
+.card-captura-unica {
+  background: linear-gradient(180deg, #ffffff 0%, var(--fondo-par) 100%);
+  border: 1px solid var(--borde);
   border-radius: var(--radio);
-  border-top: 3px solid var(--guinda);
-  padding: 24px 28px 28px;
-  box-shadow: 0 2px 10px rgba(107,15,43,.07);
-  animation: fadeUp .3s ease both;
+  border-top: 4px solid var(--guinda);
+  padding: 30px 32px 32px;
+  box-shadow: var(--sombra-media), 0 1px 0 rgba(255,255,255,.6) inset;
+  animation: fadeUp .35s ease both;
+  transition: box-shadow .25s;
 }
+.card-captura-unica:hover { box-shadow: var(--sombra-fuerte), 0 1px 0 rgba(255,255,255,.6) inset; }
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(7px); }
-  to   { opacity: 1; transform: translateY(0); }
+.captura-subseccion { padding: 4px 0 6px; }
+.captura-subseccion:first-child { padding-top: 0; }
+
+.captura-divisor {
+  height: 1px;
+  margin: 22px 0 24px;
+  background: linear-gradient(90deg, var(--borde) 0%, transparent 85%);
+  position: relative;
 }
-
-.card-seccion:nth-child(2) { animation-delay: .05s; }
-.card-seccion:nth-child(3) { animation-delay: .10s; }
-.card-seccion:nth-child(4) { animation-delay: .15s; }
+.captura-divisor::before {
+  content: '';
+  position: absolute;
+  left: 0; top: -1.5px;
+  width: 46px; height: 4px;
+  border-radius: 4px;
+  background: var(--dorado);
+}
 
 .card-seccion-titulo {
   display: flex;
@@ -212,6 +228,7 @@
   align-items: center;
   gap: 14px;
   padding: 22px 0 0;
+  margin-top: 6px;
   border-top: 1.5px solid var(--borde);
 }
 
@@ -231,11 +248,11 @@
   align-items: center;
   gap: 8px;
   transition: filter .15s, transform .12s, box-shadow .15s;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.10), 0 8px 18px rgba(0,0,0,0.06);
 }
 
 .btn:active { transform: scale(0.97); }
-.btn:hover  { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.16); }
+.btn:hover  { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.16); }
 
 .btn-limpiar {
   background: var(--borde);
@@ -278,6 +295,7 @@
 
 /* ── Responsivo ── */
 @media (max-width: 700px) {
+  .card-captura-unica    { padding: 22px 18px 26px; }
   .form-grid             { grid-template-columns: 1fr; }
   .col-full              { grid-column: span 1; }
   .acciones-form         { flex-direction: column; align-items: stretch; }

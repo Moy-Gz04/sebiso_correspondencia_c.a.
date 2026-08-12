@@ -10,7 +10,8 @@ let TOKEN   = localStorage.getItem('sbis_token');
 let USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');
 
 /* ════════════════════════════════════════════════════
-   SISTEMA DE MODALES (mismo que app.js)
+   SISTEMA DE MODALES (mismo que app.js) — tipografía
+   institucional Montserrat en todas las ventanas emergentes.
    ════════════════════════════════════════════════════ */
 function inyectarModales() {
   if (document.getElementById('sbis-modal-root')) return;
@@ -20,20 +21,21 @@ function inyectarModales() {
     <style>
       .sbis-overlay {
         display: none; position: fixed; inset: 0;
-        background: rgba(0,0,0,0.48); z-index: 10000;
+        background: rgba(0,0,0,0.48);
+        backdrop-filter: blur(2px);
+        z-index: 10000;
         align-items: center; justify-content: center; padding: 20px;
       }
       .sbis-overlay.visible { display: flex; }
       .sbis-modal {
-        background: #fff; border-radius: 10px;
+        background: #fff; border-radius: 14px;
         width: 100%; max-width: 400px;
-        box-shadow: 0 12px 48px rgba(107,15,43,0.22);
-        font-family: 'Source Sans 3', sans-serif;
-        overflow: hidden; animation: sbisSlide .18s ease;
+        font-family: 'Montserrat', sans-serif;
+        overflow: hidden; animation: sbisSlide .22s cubic-bezier(.22,1,.36,1);
       }
       @keyframes sbisSlide {
-        from { transform: translateY(-18px); opacity: 0; }
-        to   { transform: translateY(0);     opacity: 1; }
+        from { transform: translateY(-18px) scale(.97); opacity: 0; }
+        to   { transform: translateY(0)     scale(1);   opacity: 1; }
       }
       .sbis-modal-icon {
         display: flex; align-items: center; justify-content: center;
@@ -42,6 +44,7 @@ function inyectarModales() {
       .sbis-modal-icon .ico-circle {
         width: 58px; height: 58px; border-radius: 50%;
         display: flex; align-items: center; justify-content: center; font-size: 26px;
+        box-shadow: 0 4px 12px rgba(0,0,0,.12);
       }
       .ico-confirm  { background: #fff3e0; color: #e65100; }
       .ico-success  { background: #e8f5e9; color: #2e7d32; }
@@ -50,14 +53,14 @@ function inyectarModales() {
       .ico-warning  { background: #fff8e1; color: #f57f17; }
       .sbis-modal-body { padding: 0 28px 20px; text-align: center; }
       .sbis-modal-title {
-        font-family: 'Crimson Pro', serif; font-size: 1.35rem;
+        font-family: 'Montserrat', sans-serif; font-size: 1.35rem;
         font-weight: 700; color: #1a1a1a; margin: 0 0 8px;
       }
       .sbis-modal-msg { font-size: 0.92rem; color: #555; line-height: 1.5; margin: 0; }
       .sbis-modal-btns { padding: 0 20px 22px; display: flex; gap: 10px; justify-content: center; }
       .sbis-btn {
-        padding: 10px 26px; border-radius: 6px; font-size: 13.5px; font-weight: 600;
-        font-family: 'Source Sans 3', sans-serif; cursor: pointer; border: none;
+        padding: 10px 26px; border-radius: 999px; font-size: 13.5px; font-weight: 600;
+        font-family: 'Montserrat', sans-serif; cursor: pointer; border: none;
         display: inline-flex; align-items: center; gap: 7px;
         transition: background .18s, transform .1s;
       }
@@ -148,6 +151,13 @@ function cerrarSesion() {
   localStorage.removeItem('sbis_token');
   localStorage.removeItem('sbis_usuario');
   window.location.href = '/login.html';
+}
+
+/* Icono elegante en vez de emoji para el usuario del header */
+function pintarUsuarioHeader(username) {
+  const elUser = document.getElementById('header-usuario');
+  if (!elUser) return;
+  elUser.innerHTML = `<span class="ico-usuario"><i class="ti ti-user-circle"></i></span><span>${username}</span>`;
 }
 
 function mostrarFecha() {
@@ -277,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (navBandeja && USUARIO?.rol === 'area') navBandeja.style.display = '';
 
   inyectarModales();
+  pintarUsuarioHeader(USUARIO?.username || '');
   mostrarFecha();
   preRellenar();
 
