@@ -227,9 +227,11 @@ body {
   white-space: nowrap;
 }
 
-/* ── Botón Cerrar sesión — elegante, con brillo y elevación ── */
-.header-banda-superior > button.btn-cerrar-sesion,
-.header-banda-superior > button {
+/* ── Botón Cerrar sesión — elegante, con brillo y elevación ──
+   (selector directo sobre la clase: el botón vive dentro de
+   .header-derecha, no como hijo directo de .header-banda-superior,
+   así que se ancla a .btn-cerrar-sesion para no depender del anidado) */
+.btn-cerrar-sesion {
   background: linear-gradient(135deg, var(--guinda) 0%, var(--guinda-oscuro) 100%) !important;
   border: 1px solid rgba(200,169,81,.45) !important;
   color: #ffffff !important;
@@ -252,12 +254,12 @@ body {
     inset 0 1px 0 rgba(255,255,255,.14);
 }
 
-.header-banda-superior > button i {
+.btn-cerrar-sesion i {
   color: var(--dorado-claro) !important;
   font-size: 15px;
 }
 
-.header-banda-superior > button::before {
+.btn-cerrar-sesion::before {
   content: '';
   position: absolute;
   top: 0; left: -60%;
@@ -267,7 +269,7 @@ body {
   transition: left .5s ease;
 }
 
-.header-banda-superior > button:hover {
+.btn-cerrar-sesion:hover {
   filter: brightness(1.08);
   box-shadow:
     0 4px 10px rgba(95,33,50,.28),
@@ -275,8 +277,8 @@ body {
     inset 0 1px 0 rgba(255,255,255,.18);
   transform: translateY(-2px);
 }
-.header-banda-superior > button:hover::before { left: 130%; }
-.header-banda-superior > button:active { transform: translateY(0); }
+.btn-cerrar-sesion:hover::before { left: 130%; }
+.btn-cerrar-sesion:active { transform: translateY(0); }
 
 /* Banda tricolor */
 .header-banda-tricolor,
