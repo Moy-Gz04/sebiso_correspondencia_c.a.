@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 import { neon }          from '@neondatabase/serverless';
 import dotenv            from 'dotenv';
 import bcrypt            from 'bcryptjs';
-import jwt               from 'jsonwebtoken';
+import jwt                from 'jsonwebtoken';
 
 dotenv.config();
 
@@ -475,6 +475,8 @@ app.delete('/api/oficios/:id', verifyToken, async (req, res) => {
    arma los datos (Fecha, Referencia, Remitente, Asunto, Folio) y se los
    envía al Apps Script del Sheet, que llena las celdas y devuelve el
    link del PDF generado (rango A1:Y44 de la hoja "cds").
+   El PDF generado queda etiquetado con el ÁREA de quien lo generó, para
+   que cada área solo vea (y pueda borrar) los PDFs que ella misma creó.
 ══ */
 app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
   try {
@@ -512,13 +514,13 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'El Apps Script devolvió un error.');
 
-    // Guardar en historial de PDFs generados
+    // Guardar en historial de PDFs generados, etiquetado con el área de quien lo generó
     const [guardado] = await sql`
-      INSERT INTO pdfs_generados (oficio_ids, folios, url, file_id, generado_por)
-      VALUES (${ids}, ${data.folios}, ${data.url}, ${data.fileId || null}, ${req.user.username})
+      INSERT INTO pdfs_generados (oficio_ids, folios, url, file_id, generado_por, area)
+      VALUES (${ids}, ${data.folios}, ${data.url}, ${data.fileId || null}, ${req.user.username}, ${req.user.area || null})
       RETURNING *`;
 
-    console.log(`📄  PDF generado — N. Control: ${data.folios.join(', ')} → ${data.url}`);
+    console.log(`📄  PDF generado por ${req.user.username} (${req.user.area || 'sin área'}) — N. Control: ${data.folios.join(', ')} → ${data.url}`);
     res.json(guardado);
 
   } catch (err) {
@@ -531,11 +533,16 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
    archivo real en Drive (a través del mismo Apps Script). Si borrar
    el archivo de Drive falla (p. ej. ya no existe), igual se quita del
    sistema para que el usuario pueda limpiar errores sin quedar atorado.
+   Solo el admin legado o la misma área que generó el PDF pueden borrarlo.
 ══ */
 app.delete('/api/pdfs-generados/:id', verifyToken, async (req, res) => {
   try {
     const [row] = await sql`SELECT * FROM pdfs_generados WHERE id = ${req.params.id}`;
     if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    const { rol, area } = req.user;
+    const puedeBorrar = rol === 'admin' || (row.area != null && row.area === area);
+    if (!puedeBorrar) return res.status(403).json({ mensaje: 'Sin acceso.' });
 
     if (row.file_id && process.env.APPS_SCRIPT_URL) {
       try {
@@ -560,10 +567,21 @@ app.delete('/api/pdfs-generados/:id', verifyToken, async (req, res) => {
   }
 });
 
-/* ══ GET /api/pdfs-generados ══ Historial de PDFs generados (más recientes primero) ══ */
+/* ══ GET /api/pdfs-generados ══
+   Historial de PDFs generados (más recientes primero).
+   - admin → ve todos los PDFs generados por cualquier área (supervisión).
+   - area / usuario_area → solo ve los PDFs generados por SU PROPIA área.
+   Los PDFs generados antes de esta actualización no tienen área asignada
+   (area IS NULL); solo el admin los sigue viendo, para no exponerlos a
+   la primera área que entre. Si algún área necesita rescatar uno de esos
+   PDFs viejos, un admin puede reasignarle el área desde la base de datos.
+══ */
 app.get('/api/pdfs-generados', verifyToken, async (req, res) => {
   try {
-    const rows = await sql`SELECT * FROM pdfs_generados ORDER BY created_at DESC LIMIT 50`;
+    const { rol, area } = req.user;
+    const rows = rol === 'admin'
+      ? await sql`SELECT * FROM pdfs_generados ORDER BY created_at DESC LIMIT 50`
+      : await sql`SELECT * FROM pdfs_generados WHERE area = ${area} ORDER BY created_at DESC LIMIT 50`;
     res.json(rows);
   } catch (err) {
     res.status(500).json({ mensaje: err.message });
