@@ -80,11 +80,22 @@ function onlyAdmin(req, res, next) {
   next();
 }
 
-/* Cualquier "admin de área" (rol 'area') o el admin legado pueden
-   crear/turnar registros — cada área es ahora su propio admin. */
-function onlyAreaOrAdmin(req, res, next) {
-  if (req.user?.rol !== 'admin' && req.user?.rol !== 'area')
-    return res.status(403).json({ mensaje: 'Sin acceso.' });
+/* Área que concentra la administración de correspondencia. Solo esta
+   área (y el admin legado) puede crear Nuevos Registros y consultar
+   el Historial; el resto de las áreas trabaja exclusivamente desde su
+   Bandeja de Oficios. */
+const AREA_CON_GESTION_COMPLETA = 'Coordinación Administrativa';
+function tieneGestionCompleta(user) {
+  return user?.rol === 'admin' ||
+    (user?.rol === 'area' && user?.area === AREA_CON_GESTION_COMPLETA);
+}
+
+/* Solo Coordinación Administrativa (o el admin legado) puede crear
+   registros nuevos. Las demás áreas ya no tienen esta capacidad: solo
+   gestionan lo que se les turna, desde su Bandeja de Oficios. */
+function onlyCoordOrAdmin(req, res, next) {
+  if (!tieneGestionCompleta(req.user))
+    return res.status(403).json({ mensaje: 'Solo Coordinación Administrativa puede crear Nuevos Registros.' });
   next();
 }
 
@@ -164,7 +175,11 @@ app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
 /* ══ GET /api/oficios ══
    - admin        → todos los oficios (legado)
    - area         → por defecto, lo que le TURNARON a su área (bandeja).
-                     Con ?origen=mio → lo que ELLA misma creó (su historial propio).
+                     Con ?origen=mio → lo que ELLA misma creó (su historial
+                     propio). Este historial propio es exclusivo de
+                     Coordinación Administrativa (o el admin legado): las
+                     demás áreas ya no crean registros, así que no tienen
+                     nada que consultar ahí.
    - usuario_area → solo los oficios que tienen usuario_asignado_id = su id
 ══ */
 app.get('/api/oficios', verifyToken, async (req, res) => {
@@ -189,7 +204,13 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
             FROM oficios ORDER BY created_at DESC`;
 
     } else if (rol === 'area' && origen === 'mio') {
-      // Su propio historial: lo que ELLA creó, sin importar a quién se lo turnó
+      // Su propio historial: lo que ELLA creó. Reservado a Coordinación
+      // Administrativa; cualquier otra área que intente consultarlo
+      // (por ejemplo llamando la API directamente) recibe 403, ya que
+      // esa opción no le corresponde.
+      if (area !== AREA_CON_GESTION_COMPLETA)
+        return res.status(403).json({ mensaje: 'Sin acceso al Historial.' });
+
       rows = estatus && estatus !== 'todos'
         ? await sql`
             SELECT *,
@@ -263,11 +284,13 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
   }
 });
 
-/* ══ POST /api/oficios — Admin legado o cualquier "admin de área" ══
-   Cada área puede crear su propio registro. Si manda "turnado_a", el
+/* ══ POST /api/oficios — Exclusivo de Coordinación Administrativa (o el
+   admin legado) ══
+   Solo Coordinación Administrativa puede dar de alta nuevos registros;
+   las demás áreas ya no tienen esta capacidad. Si manda "turnado_a", el
    registro nace directo en estatus 'turnado' (lo crea Y lo turna en un
    solo paso); si no, nace en 'por_turnar' para turnarlo después. ══ */
-app.post('/api/oficios', verifyToken, onlyAreaOrAdmin, upload.fields([
+app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
   { name: 'doc1', maxCount: 1 },
   { name: 'doc2', maxCount: 1 }
 ]), async (req, res) => {

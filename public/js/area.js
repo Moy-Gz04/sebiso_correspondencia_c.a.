@@ -13,6 +13,16 @@ const BADGE = {
   completado:  ['b-comp',      'Completado'],
 };
 
+/* Solo Coordinación Administrativa (o el admin legado) puede crear
+   Nuevos Registros y consultar el Historial. Para las demás áreas,
+   esas opciones de menú quedan ocultas y sus páginas son inaccesibles
+   (ver historial.html/js/app.js y captura.html/js/captura.js). */
+const AREA_CON_GESTION_COMPLETA = 'Coordinación Administrativa';
+function tieneGestionCompleta(usuario) {
+  return usuario?.rol === 'admin' ||
+    (usuario?.rol === 'area' && usuario?.area === AREA_CON_GESTION_COMPLETA);
+}
+
 let DATOS        = [];
 let filtroActual = 'todos';
 let TOKEN        = null;
@@ -31,9 +41,18 @@ function iniciarSesion() {
   if (USUARIO.rol === 'usuario_area')  { window.location.href = '/usuario.html';   return false; }
 
   pintarUsuarioHeader(USUARIO.username);
+  aplicarMenuSegunPermiso();
   const elArea = document.getElementById('area-nombre');
   if (elArea) elArea.textContent = USUARIO.area || '';
   return true;
+}
+
+/* Oculta del menú las opciones de Historial y Nuevo Registro para
+   cualquier usuario que no sea Coordinación Administrativa (ni el
+   admin legado), dejando visible únicamente Bandeja de Oficios. */
+function aplicarMenuSegunPermiso() {
+  if (tieneGestionCompleta(USUARIO)) return;
+  document.querySelectorAll('.menu-solo-gestion').forEach(el => el.remove());
 }
 
 /* Icono elegante en vez de emoji para el usuario del header */
@@ -354,6 +373,8 @@ function filtrar(btn, estatus) {
   cargarOficios(estatus);
 }
 
+/* Búsqueda en tiempo real sobre los datos ya cargados: N. Control,
+   N. Referencia, remitente y también el Asunto (descripción). */
 function buscar(texto) {
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = texto.trim() ? 'flex' : 'none';
@@ -362,7 +383,8 @@ function buscar(texto) {
   const filtrados = DATOS.filter(r =>
     (r.n_control || '').toLowerCase().includes(q) ||
     (r.n_referencia || '').toLowerCase().includes(q) ||
-    (r.remitente || '').toLowerCase().includes(q)
+    (r.remitente || '').toLowerCase().includes(q) ||
+    (r.descripcion || '').toLowerCase().includes(q)
   );
   renderLista(filtrados);
 }

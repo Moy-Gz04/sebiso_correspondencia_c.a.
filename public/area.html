@@ -182,8 +182,8 @@
     <div class="menu-container">
       <span class="menu-label">MENÚ</span>
       <ul class="menu-lista">
-        <li><a href="historial.html" class="menu-item">Historial</a></li>
-        <li><a href="captura.html" class="menu-item">Nuevo Registro</a></li>
+        <li class="menu-solo-gestion"><a href="historial.html" class="menu-item">Historial</a></li>
+        <li class="menu-solo-gestion"><a href="captura.html" class="menu-item">Nuevo Registro</a></li>
         <li><a href="area.html" class="menu-item active">Bandeja de Oficios</a></li>
       </ul>
     </div>
@@ -203,7 +203,7 @@
       <!-- Buscador -->
       <div class="buscador-wrap">
         <span class="buscador-icono"><i class="ti ti-search"></i></span>
-        <input id="buscador" type="text" class="buscador-input" placeholder="Buscar por N. Control, N. Referencia o remitente..." oninput="buscar(this.value)"/>
+        <input id="buscador" type="text" class="buscador-input" placeholder="Buscar por N. Control, N. Referencia, remitente o asunto..." oninput="buscar(this.value)"/>
         <button id="btn-limpiar-busqueda" class="buscador-limpiar" onclick="limpiarBusqueda()" title="Limpiar búsqueda">
           <i class="ti ti-x"></i>
         </button>

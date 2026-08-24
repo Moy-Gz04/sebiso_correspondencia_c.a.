@@ -13,6 +13,15 @@ const BADGE = {
   completado: ['b-comp',  'Completado'],
 };
 
+/* Solo Coordinación Administrativa (o el admin legado) tiene acceso a
+   Historial y a Nuevo Registro. El resto de las áreas se maneja
+   exclusivamente desde Bandeja de Oficios (área.html). */
+const AREA_CON_GESTION_COMPLETA = 'Coordinación Administrativa';
+function tieneGestionCompleta(usuario) {
+  return usuario?.rol === 'admin' ||
+    (usuario?.rol === 'area' && usuario?.area === AREA_CON_GESTION_COMPLETA);
+}
+
 let DATOS        = [];
 let filtroActual = 'todos';
 let TOKEN        = null;
@@ -207,6 +216,12 @@ function iniciarSesion() {
 
   if (!TOKEN || !USUARIO) { window.location.href = '/login.html'; return false; }
   if (USUARIO.rol !== 'admin' && USUARIO.rol !== 'area') { window.location.href = '/area.html'; return false; }
+
+  /* Historial es exclusivo de Coordinación Administrativa (y del admin
+     legado). Cualquier otra área que intente entrar directo por URL
+     es redirigida a su Bandeja de Oficios: aquí no tiene nada que ver. */
+  if (!tieneGestionCompleta(USUARIO)) { window.location.href = '/area.html'; return false; }
+
   const navBandeja = document.getElementById('nav-bandeja');
   if (navBandeja && USUARIO.rol === 'area') navBandeja.style.display = '';
 
@@ -519,7 +534,9 @@ function filtrar(btn, estatus) {
   cargarOficios(estatus);
 }
 
-/* ── Búsqueda en tiempo real (filtra sobre DATOS ya cargados) ── */
+/* ── Búsqueda en tiempo real (filtra sobre DATOS ya cargados) ──
+   Incluye N. Control, N. Referencia, área turnada, remitente,
+   dependencia y también el Asunto (descripción). */
 function buscar(texto) {
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = texto.trim() ? 'flex' : 'none';
@@ -532,7 +549,8 @@ function buscar(texto) {
     (r.n_referencia|| '').toLowerCase().includes(q) ||
     (r.turnado_a   || '').toLowerCase().includes(q) ||
     (r.remitente   || '').toLowerCase().includes(q) ||
-    (r.dependencia || '').toLowerCase().includes(q)
+    (r.dependencia || '').toLowerCase().includes(q) ||
+    (r.descripcion || '').toLowerCase().includes(q)
   );
   renderLista(filtrados);
 }

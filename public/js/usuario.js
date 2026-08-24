@@ -315,6 +315,8 @@ function filtrar(btn, estatus) {
   cargarOficios(estatus);
 }
 
+/* Búsqueda en tiempo real: N. Control, N. Referencia, remitente y
+   también el Asunto (descripción). */
 function buscar(texto) {
   const btnL = document.getElementById('btn-limpiar-busqueda');
   if (btnL) btnL.style.display = texto.trim() ? 'flex' : 'none';
@@ -323,7 +325,8 @@ function buscar(texto) {
   renderLista(DATOS.filter(r =>
     (r.n_control || '').toLowerCase().includes(q) ||
     (r.n_referencia || '').toLowerCase().includes(q) ||
-    (r.remitente || '').toLowerCase().includes(q)
+    (r.remitente || '').toLowerCase().includes(q) ||
+    (r.descripcion || '').toLowerCase().includes(q)
   ));
 }
 

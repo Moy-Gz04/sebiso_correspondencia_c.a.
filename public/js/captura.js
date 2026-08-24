@@ -2,12 +2,22 @@
    SBIS — Formulario de Captura (Admin)
    Solo captura Datos del Oficio + Descripción.
    El oficio se crea en estatus "por_turnar".
+
+   Acceso: exclusivo de Coordinación Administrativa (o el admin
+   legado). Cualquier otra área es redirigida a su Bandeja de Oficios,
+   donde ya no verá el botón "Nuevo Registro" en el menú.
    ═══════════════════════════════════════════════════ */
 
 const API = window.location.origin + '/api';
 
 let TOKEN   = localStorage.getItem('sbis_token');
 let USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');
+
+const AREA_CON_GESTION_COMPLETA = 'Coordinación Administrativa';
+function tieneGestionCompleta(usuario) {
+  return usuario?.rol === 'admin' ||
+    (usuario?.rol === 'area' && usuario?.area === AREA_CON_GESTION_COMPLETA);
+}
 
 /* ════════════════════════════════════════════════════
    SISTEMA DE MODALES (mismo que app.js) — tipografía
@@ -283,6 +293,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = '/login.html';
     return;
   }
+
+  /* Nuevo Registro es exclusivo de Coordinación Administrativa (y del
+     admin legado). Cualquier otra área que entre directo por URL es
+     redirigida a su Bandeja de Oficios: no tiene permiso para crear. */
+  if (!tieneGestionCompleta(USUARIO)) {
+    window.location.href = '/area.html';
+    return;
+  }
+
   const navBandeja = document.getElementById('nav-bandeja');
   if (navBandeja && USUARIO?.rol === 'area') navBandeja.style.display = '';
 
