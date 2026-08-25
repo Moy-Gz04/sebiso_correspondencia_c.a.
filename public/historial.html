@@ -24,6 +24,18 @@
       border-radius:6px; padding:12px 14px; font-size:13px; color:#7a1313; line-height:1.5;
     }
 
+    /* Historial muestra 4 bloques en la zona inferior de la tarjeta
+       (Descripción, Observaciones del Área, Observaciones Administración
+       y Acciones), no 3 como en Bandeja de Oficios / Mi Bandeja — se
+       amplía la cuadrícula solo aquí para que Acciones no se caiga a
+       una fila aparte. */
+    .t-inferior {
+      grid-template-columns: 1fr 1fr 1fr auto;
+    }
+    @media (max-width: 768px) {
+      .t-inferior { grid-template-columns: 1fr; }
+    }
+
     /* ── Badges nuevos ── */
     .badge.b-portu { background:#fff3e0; color:#e65100; }
     .badge.b-rech  { background:#fdecea; color:#c62828; }
