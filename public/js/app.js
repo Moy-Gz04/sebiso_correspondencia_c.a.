@@ -486,6 +486,20 @@ function construirTarjeta(r, i) {
           ">${r.descripcion || '<span style="color:#aaa;font-style:italic;">Sin descripción</span>'}</div>
         </div>
         <div class="obs-bloque">
+          <span class="obs-label">Observaciones del Área</span>
+          <div style="
+            background: var(--fondo-par, #faf5f7);
+            border: 0.5px solid var(--borde, #e8d8de);
+            border-radius: 5px;
+            padding: 10px 12px;
+            font-size: 13px;
+            color: #333;
+            line-height: 1.55;
+            min-height: 60px;
+            font-family: 'Montserrat', sans-serif;
+          ">${r.obs_area || '<span style="color:#aaa;font-style:italic;">Aún no hay observaciones</span>'}</div>
+        </div>
+        <div class="obs-bloque">
           <span class="obs-label">Observaciones Administración</span>
           <textarea class="obs-area" placeholder="Observaciones administración..."
             onblur="guardarObs(${r.id}, this.value)">${r.obs_admin || ''}</textarea>
