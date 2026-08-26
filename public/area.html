@@ -46,7 +46,7 @@
     }
 
     /* Botones acción */
-    .btn-subturnar, .btn-reasignar {
+    .btn-subturnar, .btn-reasignar, .btn-atender {
       border: none; padding: 7px 14px; border-radius: 5px;
       font-size: 12px; font-weight: 600; cursor: pointer;
       display: flex; align-items: center; gap: 5px;
@@ -56,6 +56,11 @@
     .btn-subturnar:hover { background:#8B1535; }
     .btn-reasignar  { background: #4527a0; color:#fff; }
     .btn-reasignar:hover { background:#311b92; }
+    .btn-atender    { background: var(--guinda,#6B0F2B); color:#fff; }
+    .btn-atender:hover { background:#8B1535; }
+
+    /* Opción "yo mismo" destacada en los selects de asignación */
+    option.opcion-yo-mismo { font-weight: 700; }
 
     /* ══ MODAL SUB-TURNAR ══ */
     #modal-subturnar {
@@ -101,6 +106,12 @@
       background-repeat:no-repeat; background-position:right 10px center;
     }
     .modal-campo select:focus { outline:none; border-color:var(--guinda,#6B0F2B); box-shadow: 0 0 0 3px rgba(107,15,43,.09); }
+    .modal-campo textarea {
+      width:100%; box-sizing:border-box; border:1px solid #d8ccd0; border-radius:7px;
+      padding:8px 11px; font-size:13.5px; font-family:'Montserrat',sans-serif; color:#222;
+      background:#fdfaf9; resize:vertical; transition:border-color 0.2s, box-shadow .2s;
+    }
+    .modal-campo textarea:focus { outline:none; border-color:var(--guinda,#6B0F2B); box-shadow:0 0 0 3px rgba(107,15,43,.09); }
     .modal-info-box {
       background:#f3e5f5; border:1px solid #ce93d8; border-left:3px solid #7b1fa2;
       border-radius:6px; padding:10px 14px; font-size:12.5px; color:#4a148c;
@@ -124,6 +135,21 @@
     .btn-modal-guardar  { background:linear-gradient(135deg, var(--guinda,#6B0F2B) 0%, var(--guinda-oscuro,#3D1420) 100%); color:#fff; }
     .btn-modal-guardar:hover { background:#8B1535; }
     .btn-modal-guardar:disabled { background:#b08090; cursor:not-allowed; }
+
+    /* ══ MODAL ATENDER (autoasignado) ══ */
+    #modal-atender {
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.50);
+      backdrop-filter: blur(2px);
+      z-index:9999; align-items:flex-start; justify-content:center;
+      padding:40px 16px; overflow-y:auto;
+    }
+    .archivos-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .archivo-drop { border:1.5px dashed #d8ccd0; border-radius:8px; padding:16px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s; position:relative; }
+    .archivo-drop:hover { border-color:var(--guinda,#6B0F2B); background:#fdf6f8; }
+    .archivo-drop input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; }
+    .archivo-drop .ti { font-size:26px; color:var(--guinda,#6B0F2B); margin-bottom:6px; display:block; }
+    .archivo-drop-label  { font-size:12.5px; color:#6b6b6b; font-weight:600; }
+    .archivo-drop-nombre { font-size:11.5px; color:var(--guinda,#6B0F2B); margin-top:4px; word-break:break-all; }
 
     /* Sistema de modales genérico */
     .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); backdrop-filter: blur(2px); z-index:10000; align-items:center; justify-content:center; padding:20px; }
@@ -229,23 +255,23 @@
     </div>
   </main>
 
-  <!-- ══ MODAL: SUB-TURNAR A USUARIO ══ -->
+  <!-- ══ MODAL: SUB-TURNAR / AUTOASIGNAR OFICIO ══ -->
   <div id="modal-subturnar">
     <div class="modal-box">
       <div class="modal-header">
-        <h2><i class="ti ti-user-share"></i> Sub-turnar Oficio</h2>
+        <h2><i class="ti ti-user-share"></i> Turnar Oficio</h2>
         <button onclick="cerrarSubturnar()" title="Cerrar"><i class="ti ti-x"></i></button>
       </div>
       <div class="modal-body">
         <div class="modal-info-box">
           <i class="ti ti-info-circle" style="font-size:16px;flex-shrink:0;margin-top:1px;"></i>
-          Selecciona el usuario de tu área que se encargará de atender este oficio.
-          Recibirá el oficio en su bandeja personal.
+          Selecciona un usuario de tu área para que atienda este oficio, o elige
+          <strong>Yo mismo</strong> para atenderlo tú directamente.
         </div>
         <div class="modal-campo">
-          <label>Usuario Asignado</label>
+          <label>Asignar a</label>
           <select id="subturnar-select">
-            <option value="">— Selecciona un usuario —</option>
+            <option value="">— Selecciona una opción —</option>
           </select>
         </div>
       </div>
@@ -256,6 +282,48 @@
         </button>
         <button class="btn-modal-guardar" id="subturnar-btn-guardar" onclick="guardarSubturnar()">
           <i class="ti ti-user-share"></i> Confirmar Asignación
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ MODAL: ATENDER OFICIO (autoasignado por el encargado de turnar) ══ -->
+  <div id="modal-atender">
+    <div class="modal-box" style="max-width:600px;">
+      <div class="modal-header">
+        <h2><i class="ti ti-circle-check"></i> Atender Oficio</h2>
+        <button onclick="cerrarAtender()" title="Cerrar"><i class="ti ti-x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-campo">
+          <label>Observaciones</label>
+          <textarea id="atender-obs" rows="3" placeholder="Describe lo realizado o comentarios sobre este oficio..."></textarea>
+        </div>
+        <div class="modal-campo">
+          <label>Documentos de Respuesta (PDF / Word, opcional)</label>
+          <div class="archivos-grid">
+            <div class="archivo-drop">
+              <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
+              <i class="ti ti-file-upload"></i>
+              <div class="archivo-drop-label">Documento 1</div>
+              <div class="archivo-drop-nombre" id="nombre-doc3"></div>
+            </div>
+            <div class="archivo-drop">
+              <input type="file" id="atender-doc4" accept=".pdf,.doc,.docx" onchange="mostrarNombreArchivo(this,'nombre-doc4')"/>
+              <i class="ti ti-file-upload"></i>
+              <div class="archivo-drop-label">Documento 2</div>
+              <div class="archivo-drop-nombre" id="nombre-doc4"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="modal-error" id="atender-error"></p>
+      <div class="modal-footer">
+        <button class="btn-modal-cancelar" onclick="cerrarAtender()">
+          <i class="ti ti-x"></i> Cancelar
+        </button>
+        <button class="btn-modal-guardar" id="atender-btn-guardar" onclick="guardarAtencion()">
+          <i class="ti ti-circle-check"></i> Marcar como Atendido
         </button>
       </div>
     </div>

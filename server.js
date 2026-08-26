@@ -353,8 +353,11 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
 /* ══ PUT /api/oficios/:id ══
    Flujo de estatus:
      área de origen (o admin legado) → crea/edita/turna su propio registro
-     área receptora                  → turnado → sub_turnado (asigna usuario_asignado_id)
-     usuario_area                    → sub_turnado / rechazado → atendido
+     área receptora                  → turnado → sub_turnado (asigna usuario_asignado_id,
+                                        que puede ser un usuario de su área O ella misma)
+     usuario_area / área receptora   → sub_turnado / rechazado → atendido
+                                        (el encargado de turnar también puede atender
+                                        directamente los oficios que se autoasignó)
      área de origen (o admin legado) → atendido → completado / rechazado
 ══ */
 app.put('/api/oficios/:id', verifyToken, upload.fields([
@@ -418,17 +421,49 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         RETURNING *`;
       return res.json(updated);
 
-    /* ── ÁREA RECEPTORA: solo puede sub-turnar (turnado → sub_turnado) ── */
+    /* ── ÁREA RECEPTORA (el "encargado de turnar" del área a la que se
+         turnó el oficio): puede sub-turnar (turnado → sub_turnado) a uno
+         de los usuarios de su área, O turnárselo a sí misma para
+         atenderlo directamente. Cuando ya se autoasignó el oficio,
+         también puede marcarlo como atendido, igual que un usuario_area. ── */
     } else if (rol === 'area' && oficio.turnado_a === area) {
-      const { usuario_asignado_id, usuario_asignado_nombre } = req.body;
+      const { usuario_asignado_id, estatus: estatusBody, obs_area } = req.body;
 
+      /* Caso 1: el encargado de turnar ya se había autoasignado el oficio
+         y ahora lo marca como atendido (con sus observaciones y docs). */
+      if (estatusBody === 'atendido') {
+        if (oficio.usuario_asignado_id !== id)
+          return res.status(403).json({ mensaje: 'Solo puedes marcar como atendido un oficio que te hayas autoasignado.' });
+
+        const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
+        const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;
+
+        const [updated] = await sql`
+          UPDATE oficios SET
+            obs_area   = COALESCE(${obs_area ?? null}, obs_area),
+            estatus    = 'atendido',
+            ruta_doc3  = COALESCE(${ruta_doc3}, ruta_doc3),
+            ruta_doc4  = COALESCE(${ruta_doc4}, ruta_doc4),
+            updated_at = NOW()
+          WHERE id = ${req.params.id}
+          RETURNING *`;
+        return res.json(updated);
+      }
+
+      /* Caso 2: sub-turnar el oficio a un usuario de su área, o
+         turnárselo a sí misma (usuario_asignado_id === su propio id). */
       if (!usuario_asignado_id)
         return res.status(400).json({ mensaje: 'Debes seleccionar un usuario.' });
 
-      // Verificar que el usuario pertenece al área
-      const [usuarioObj] = await sql`
-        SELECT id, username FROM usuarios
-        WHERE id = ${usuario_asignado_id} AND area = ${area} AND rol = 'usuario_area' AND activo = TRUE`;
+      let usuarioObj = null;
+      if (Number(usuario_asignado_id) === id) {
+        // El encargado de turnar se autoasigna el oficio.
+        usuarioObj = { id, username: req.user.username };
+      } else {
+        [usuarioObj] = await sql`
+          SELECT id, username FROM usuarios
+          WHERE id = ${usuario_asignado_id} AND area = ${area} AND rol = 'usuario_area' AND activo = TRUE`;
+      }
 
       if (!usuarioObj)
         return res.status(400).json({ mensaje: 'El usuario no pertenece a esta área.' });

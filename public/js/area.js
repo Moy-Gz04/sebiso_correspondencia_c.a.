@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════
    SBIS — Bandeja de Oficios (Área)
    El usuario de área ve los oficios turnados a su área.
-   Puede sub-turnar a uno de sus usuarios (turnado → sub_turnado).
+   Puede sub-turnar a uno de sus usuarios (turnado → sub_turnado),
+   o turnárselo a sí mismo para atenderlo directamente.
    ═══════════════════════════════════════════════════ */
 const API = window.location.origin + '/api';
 
@@ -209,11 +210,14 @@ function construirTarjeta(r, i) {
        <div class="docs-admin-grid">${doc3HTML}${doc4HTML}</div>`
     : '';
 
+  // ¿Este oficio está autoasignado al propio encargado de turnar que está viendo la bandeja?
+  const esAutoasignado = r.usuario_asignado_id === USUARIO.id;
+
   // Chip de usuario asignado
   const usuarioAsignadoHTML = r.usuario_asignado_nombre
     ? `<div class="chip-usuario-asignado">
          <i class="ti ti-user-check"></i>
-         Asignado a: <strong>${r.usuario_asignado_nombre}</strong>
+         Asignado a: <strong>${esAutoasignado ? `${r.usuario_asignado_nombre} (yo)` : r.usuario_asignado_nombre}</strong>
        </div>`
     : '';
 
@@ -241,27 +245,53 @@ function construirTarjeta(r, i) {
   if (r.estatus === 'turnado') {
     botonesHTML = `
       <button class="btn-accion btn-subturnar" onclick="abrirSubturnar(${r.id})">
-        <i class="ti ti-user-share"></i> Sub-turnar a Usuario
+        <i class="ti ti-user-share"></i> Turnar / Atender
       </button>`;
   } else if (r.estatus === 'sub_turnado') {
-    botonesHTML = `
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <span style="font-size:11px;color:var(--txt2);font-weight:600;">
-          <i class="ti ti-clock"></i> En atención por ${r.usuario_asignado_nombre || 'usuario asignado'}
-        </span>
-        <button class="btn-accion btn-reasignar" onclick="abrirSubturnar(${r.id})">
-          <i class="ti ti-user-swap"></i> Reasignar
-        </button>
-      </div>`;
+    if (esAutoasignado) {
+      // El propio encargado de turnar se autoasignó este oficio: puede
+      // atenderlo directamente o reasignarlo a alguien más.
+      botonesHTML = `
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button class="btn-accion btn-atender" onclick="abrirAtender(${r.id})">
+            <i class="ti ti-circle-check"></i> Atender Oficio
+          </button>
+          <button class="btn-accion btn-reasignar" onclick="abrirSubturnar(${r.id})">
+            <i class="ti ti-user-swap"></i> Reasignar
+          </button>
+        </div>`;
+    } else {
+      botonesHTML = `
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <span style="font-size:11px;color:var(--txt2);font-weight:600;">
+            <i class="ti ti-clock"></i> En atención por ${r.usuario_asignado_nombre || 'usuario asignado'}
+          </span>
+          <button class="btn-accion btn-reasignar" onclick="abrirSubturnar(${r.id})">
+            <i class="ti ti-user-swap"></i> Reasignar
+          </button>
+        </div>`;
+    }
   } else if (r.estatus === 'atendido') {
     botonesHTML = `<span style="font-size:11px;color:var(--txt2);font-weight:600;">
       <i class="ti ti-clock"></i> Esperando revisión de Administración
     </span>`;
   } else if (r.estatus === 'rechazado') {
-    botonesHTML = `
-      <button class="btn-accion btn-subturnar" onclick="abrirSubturnar(${r.id})">
-        <i class="ti ti-user-share"></i> Re-asignar para Corrección
-      </button>`;
+    if (esAutoasignado) {
+      botonesHTML = `
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <button class="btn-accion btn-atender" onclick="abrirAtender(${r.id})">
+            <i class="ti ti-arrow-back-up"></i> Corregir y Reenviar
+          </button>
+          <button class="btn-accion btn-subturnar" onclick="abrirSubturnar(${r.id})">
+            <i class="ti ti-user-share"></i> Re-asignar para Corrección
+          </button>
+        </div>`;
+    } else {
+      botonesHTML = `
+        <button class="btn-accion btn-subturnar" onclick="abrirSubturnar(${r.id})">
+          <i class="ti ti-user-share"></i> Re-asignar para Corrección
+        </button>`;
+    }
   } else if (r.estatus === 'completado') {
     botonesHTML = `<span style="font-size:11px;color:var(--verde-ok,#2e7d32);font-weight:600;">
       <i class="ti ti-circle-check"></i> Completado
@@ -435,7 +465,7 @@ function mostrarFecha() {
 }
 
 /* ════════════════════════════════════════════════════
-   MODAL: SUB-TURNAR A USUARIO
+   MODAL: SUB-TURNAR A USUARIO (o a sí mismo)
    ════════════════════════════════════════════════════ */
 let subturnandoId = null;
 
@@ -455,22 +485,31 @@ async function abrirSubturnar(id) {
     const usuarios = await res.json();
 
     const select = document.getElementById('subturnar-select');
-    if (!usuarios.length) {
-      select.innerHTML = '<option value="">— No hay usuarios registrados en tu área —</option>';
-      return;
-    }
-
-    // Pre-seleccionar el usuario actualmente asignado si existe
     const oficio = DATOS.find(o => o.id === id);
-    select.innerHTML = '<option value="">— Selecciona un usuario —</option>' +
-      usuarios.map(u =>
-        `<option value="${u.id}" ${oficio?.usuario_asignado_id === u.id ? 'selected' : ''}>
+
+    // El encargado de turnar siempre puede turnárselo a sí mismo para
+    // atenderlo directamente, sin depender de que existan usuarios
+    // registrados en el área.
+    const opcionYo = `<option class="opcion-yo-mismo" value="${USUARIO.id}" ${oficio?.usuario_asignado_id === USUARIO.id ? 'selected' : ''}>
+          Yo mismo (${USUARIO.username}) — lo atenderé directamente
+        </option>`;
+
+    const opcionesUsuarios = usuarios.map(u =>
+      `<option value="${u.id}" ${oficio?.usuario_asignado_id === u.id ? 'selected' : ''}>
           ${u.username}
         </option>`
-      ).join('');
+    ).join('');
+
+    select.innerHTML = '<option value="">— Selecciona una opción —</option>' + opcionYo + opcionesUsuarios;
   } catch (err) {
+    // Aunque falle la carga de usuarios del área, se deja disponible
+    // la opción de autoasignación para no bloquear al encargado de turnar.
+    const oficio = DATOS.find(o => o.id === id);
     document.getElementById('subturnar-select').innerHTML =
-      '<option value="">— Error al cargar usuarios —</option>';
+      '<option value="">— Selecciona una opción —</option>' +
+      `<option class="opcion-yo-mismo" value="${USUARIO.id}" ${oficio?.usuario_asignado_id === USUARIO.id ? 'selected' : ''}>
+          Yo mismo (${USUARIO.username}) — lo atenderé directamente
+        </option>`;
     document.getElementById('subturnar-error').textContent = err.message;
   }
 }
@@ -489,7 +528,7 @@ async function guardarSubturnar() {
 
   const usuarioId = select.value;
   if (!usuarioId) {
-    errEl.textContent = 'Debes seleccionar un usuario.';
+    errEl.textContent = 'Debes seleccionar una opción.';
     return;
   }
 
@@ -508,22 +547,90 @@ async function guardarSubturnar() {
 
     if (!res.ok) {
       const d = await res.json();
-      throw new Error(d.mensaje || 'No se pudo sub-turnar el oficio.');
+      throw new Error(d.mensaje || 'No se pudo turnar el oficio.');
     }
+
+    const meAutoasigne = Number(usuarioId) === USUARIO.id;
 
     cerrarSubturnar();
     cargarOficios(filtroActual);
     await sbisAlert({
-      titulo:  'Oficio sub-turnado',
-      mensaje: 'El oficio fue asignado correctamente al usuario seleccionado.',
+      titulo:  meAutoasigne ? 'Oficio autoasignado' : 'Oficio sub-turnado',
+      mensaje: meAutoasigne
+        ? 'Te asignaste este oficio. Ya puedes atenderlo desde tu bandeja.'
+        : 'El oficio fue asignado correctamente al usuario seleccionado.',
       tipo:    'success',
       btnOk:   'Aceptar'
     });
   } catch (err) {
-    errEl.textContent = err.message || 'No se pudo sub-turnar el oficio.';
+    errEl.textContent = err.message || 'No se pudo turnar el oficio.';
   } finally {
     btn.disabled  = false;
     btn.innerHTML = '<i class="ti ti-user-share"></i> Confirmar Asignación';
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   MODAL: ATENDER OFICIO (solo para oficios autoasignados)
+   ════════════════════════════════════════════════════ */
+let atendiendoId = null;
+
+function abrirAtender(id) {
+  atendiendoId = id;
+  const r = DATOS.find(o => o.id === id);
+  document.getElementById('atender-obs').value        = r?.obs_area || '';
+  document.getElementById('atender-doc3').value        = '';
+  document.getElementById('atender-doc4').value        = '';
+  document.getElementById('nombre-doc3').textContent   = '';
+  document.getElementById('nombre-doc4').textContent   = '';
+  document.getElementById('atender-error').textContent = '';
+  document.getElementById('modal-atender').style.display = 'flex';
+}
+
+function cerrarAtender() {
+  document.getElementById('modal-atender').style.display = 'none';
+  atendiendoId = null;
+}
+
+function mostrarNombreArchivo(input, idDestino) {
+  document.getElementById(idDestino).textContent = input.files?.[0]?.name || '';
+}
+
+async function guardarAtencion() {
+  if (!atendiendoId) return;
+  const errEl = document.getElementById('atender-error');
+  errEl.textContent = '';
+  const btn = document.getElementById('atender-btn-guardar');
+  btn.disabled  = true;
+  btn.innerHTML = 'Guardando...';
+
+  try {
+    const fd = new FormData();
+    fd.append('estatus',  'atendido');
+    fd.append('obs_area', document.getElementById('atender-obs').value || '');
+    const doc3 = document.getElementById('atender-doc3').files?.[0];
+    const doc4 = document.getElementById('atender-doc4').files?.[0];
+    if (doc3) fd.append('doc3', doc3);
+    if (doc4) fd.append('doc4', doc4);
+
+    const res = await apiFetch(`${API}/oficios/${atendiendoId}`, { method: 'PUT', body: fd });
+    if (!res.ok) {
+      const d = await res.json();
+      throw new Error(d.mensaje || 'No se pudo guardar.');
+    }
+    cerrarAtender();
+    cargarOficios(filtroActual);
+    await sbisAlert({
+      titulo:  'Oficio atendido',
+      mensaje: 'Se notificó a Administración para su revisión.',
+      tipo:    'success',
+      btnOk:   'Aceptar'
+    });
+  } catch (err) {
+    errEl.textContent = err.message || 'No se pudo guardar.';
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '<i class="ti ti-circle-check"></i> Marcar como Atendido';
   }
 }
 
@@ -537,5 +644,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('modal-subturnar').addEventListener('click', function (e) {
     if (e.target === this) cerrarSubturnar();
+  });
+  document.getElementById('modal-atender').addEventListener('click', function (e) {
+    if (e.target === this) cerrarAtender();
   });
 });
