@@ -240,6 +240,15 @@ function construirTarjeta(r, i) {
 
   const claseExtra = `${esUrgente ? 'tarjeta-urgente' : ''} ${r.estatus === 'rechazado' ? 'tarjeta-rechazada' : ''}`.trim();
 
+  // Notas que dejó quien atendió el oficio (obs_area), distintas de la
+  // instrucción que dio quien lo turnó. Solo se muestran si ya existen.
+  const notaAtencionHTML = (r.obs_area && ['atendido', 'completado', 'rechazado'].includes(r.estatus))
+    ? `<div class="obs-bloque" style="grid-column:1/-1;margin-bottom:14px;">
+         <span class="obs-label"><i class="ti ti-message-circle"></i> Notas de quien atendió</span>
+         <div class="obs-caja">${r.obs_area}</div>
+       </div>`
+    : '';
+
   // Botones de acción para el área
   let botonesHTML = '';
   if (r.estatus === 'turnado') {
@@ -359,13 +368,14 @@ function construirTarjeta(r, i) {
       </div>
 
       <div class="t-inferior">
+        ${notaAtencionHTML}
         <div class="obs-bloque">
           <span class="obs-label">Descripción del Asunto</span>
           <div class="obs-caja">${r.descripcion || '<span style="color:#aaa;font-style:italic;">Sin descripción</span>'}</div>
         </div>
         <div class="obs-bloque">
-          <span class="obs-label">Observaciones del Área</span>
-          <div class="obs-caja">${r.obs_area || '<span style="color:#aaa;font-style:italic;">Aún no hay observaciones</span>'}</div>
+          <span class="obs-label"><i class="ti ti-clipboard-text" style="font-size:13px;"></i> Instrucción para Atender</span>
+          <div class="obs-caja">${r.instrucciones_turno || '<span style="color:#aaa;font-style:italic;">Sin instrucciones adicionales</span>'}</div>
         </div>
         <div class="acciones-col">
           <span class="acc-titulo">Acciones</span>
@@ -476,6 +486,8 @@ async function abrirSubturnar(id) {
   document.getElementById('subturnar-error').textContent = '';
   document.getElementById('subturnar-select').innerHTML  =
     '<option value="">Cargando usuarios...</option>';
+  const oficioActual = DATOS.find(o => o.id === id);
+  document.getElementById('subturnar-instruccion').value = oficioActual?.instrucciones_turno || '';
   document.getElementById('modal-subturnar').style.display = 'flex';
 
   // Cargar usuarios del área
@@ -539,6 +551,7 @@ async function guardarSubturnar() {
   try {
     const fd = new FormData();
     fd.append('usuario_asignado_id', usuarioId);
+    fd.append('instrucciones_turno', document.getElementById('subturnar-instruccion').value || '');
 
     const res = await apiFetch(`${API}/oficios/${subturnandoId}`, {
       method: 'PUT',
@@ -584,6 +597,15 @@ function abrirAtender(id) {
   document.getElementById('nombre-doc3').textContent   = '';
   document.getElementById('nombre-doc4').textContent   = '';
   document.getElementById('atender-error').textContent = '';
+  const infoInstruccion = document.getElementById('atender-instruccion');
+  if (infoInstruccion) {
+    if (r?.instrucciones_turno) {
+      infoInstruccion.style.display = 'flex';
+      infoInstruccion.querySelector('span').textContent = r.instrucciones_turno;
+    } else {
+      infoInstruccion.style.display = 'none';
+    }
+  }
   document.getElementById('modal-atender').style.display = 'flex';
 }
 

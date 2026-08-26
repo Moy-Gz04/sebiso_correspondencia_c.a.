@@ -271,12 +271,17 @@ function construirTarjeta(r, i) {
 
       <div class="t-inferior">
         ${notaRechazoHTML}
+        ${r.instrucciones_turno ? `
+        <div class="obs-bloque" style="grid-column:1/-1;margin-bottom:14px;">
+          <span class="obs-label"><i class="ti ti-clipboard-text"></i> Instrucción para Atender</span>
+          <div class="obs-caja instruccion-turno-caja">${r.instrucciones_turno}</div>
+        </div>` : ''}
         <div class="obs-bloque">
           <span class="obs-label">Descripción del Asunto</span>
           <div class="obs-caja">${r.descripcion || '<span style="color:#aaa;font-style:italic;">Sin descripción</span>'}</div>
         </div>
         <div class="obs-bloque">
-          <span class="obs-label">Observaciones</span>
+          <span class="obs-label">Mis Observaciones</span>
           <div class="obs-caja">${r.obs_area || '<span style="color:#aaa;font-style:italic;">Aún no hay observaciones</span>'}</div>
         </div>
         <div class="acciones-col">
@@ -388,6 +393,15 @@ function abrirAtender(id) {
   document.getElementById('nombre-doc3').textContent  = '';
   document.getElementById('nombre-doc4').textContent  = '';
   document.getElementById('atender-error').textContent = '';
+  const infoInstruccion = document.getElementById('atender-instruccion');
+  if (infoInstruccion) {
+    if (r?.instrucciones_turno) {
+      infoInstruccion.style.display = 'flex';
+      infoInstruccion.querySelector('span').textContent = r.instrucciones_turno;
+    } else {
+      infoInstruccion.style.display = 'none';
+    }
+  }
   document.getElementById('modal-atender').style.display = 'flex';
 }
 
