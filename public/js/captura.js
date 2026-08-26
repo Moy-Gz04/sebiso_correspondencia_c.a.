@@ -19,6 +19,32 @@ function tieneGestionCompleta(usuario) {
     (usuario?.rol === 'area' && usuario?.area === AREA_CON_GESTION_COMPLETA);
 }
 
+/* Revalida sesión y permisos leyendo siempre el localStorage más
+   reciente (no una copia vieja en memoria). Se usa tanto en la carga
+   normal de la página como al restaurarla con el botón Atrás/Adelante
+   del navegador (ver el listener de "pageshow" al final del archivo).
+   Devuelve true si el acceso es válido; si no, ya redirigió y hay que
+   detener cualquier otra inicialización. */
+function verificarAcceso() {
+  TOKEN   = localStorage.getItem('sbis_token');
+  USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');
+
+  if (!TOKEN || (USUARIO?.rol !== 'admin' && USUARIO?.rol !== 'area')) {
+    window.location.href = '/login';
+    return false;
+  }
+
+  /* Nuevo Registro es exclusivo de Coordinación Administrativa (y del
+     admin legado). Cualquier otra área que entre directo por URL es
+     redirigida a su Bandeja de Oficios: no tiene permiso para crear. */
+  if (!tieneGestionCompleta(USUARIO)) {
+    window.location.href = '/area';
+    return false;
+  }
+
+  return true;
+}
+
 /* ════════════════════════════════════════════════════
    SISTEMA DE MODALES (mismo que app.js) — tipografía
    institucional Montserrat en todas las ventanas emergentes.
@@ -160,7 +186,7 @@ function sbisConfirm({ titulo = '¿Estás seguro?', mensaje = '', btnOk = 'Acept
 function cerrarSesion() {
   localStorage.removeItem('sbis_token');
   localStorage.removeItem('sbis_usuario');
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 }
 
 /* Icono elegante en vez de emoji para el usuario del header */
@@ -263,7 +289,7 @@ async function enviarForm(e) {
         : 'El oficio quedó en estatus "Por Turnar". Recuerda asignarlo a un área desde el Historial.',
       tipo:    'success',
       btnOk:   'Ver Historial',
-      onClose: () => { window.location.href = 'historial.html'; }
+      onClose: () => { window.location.href = '/historial'; }
     });
 
   } catch (err) {
@@ -289,18 +315,7 @@ async function confirmarLimpiar() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  if (!TOKEN || (USUARIO?.rol !== 'admin' && USUARIO?.rol !== 'area')) {
-    window.location.href = '/login.html';
-    return;
-  }
-
-  /* Nuevo Registro es exclusivo de Coordinación Administrativa (y del
-     admin legado). Cualquier otra área que entre directo por URL es
-     redirigida a su Bandeja de Oficios: no tiene permiso para crear. */
-  if (!tieneGestionCompleta(USUARIO)) {
-    window.location.href = '/area.html';
-    return;
-  }
+  if (!verificarAcceso()) return;
 
   const navBandeja = document.getElementById('nav-bandeja');
   if (navBandeja && USUARIO?.rol === 'area') navBandeja.style.display = '';
@@ -324,6 +339,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const sel = document.getElementById('turnado_a');
     const opt = sel?.querySelector(`option[value="${CSS.escape(USUARIO.area)}"]`);
     if (opt) opt.remove();
+  }
+});
+
+/* ── Romper el acceso vía botón "Atrás" tras cerrar sesión ──
+   Si el navegador restaura este formulario desde su caché en memoria
+   (bfcache) al usar Atrás/Adelante, se revalida el token guardado
+   antes de dejarlo visible. Si ya no hay sesión válida, se redirige
+   de inmediato a login. */
+window.addEventListener('pageshow', (evento) => {
+  if (evento.persisted) {
+    verificarAcceso();
   }
 });
 

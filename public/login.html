@@ -591,12 +591,13 @@
         localStorage.setItem('sbis_token',   data.token);
         localStorage.setItem('sbis_usuario', JSON.stringify(data.usuario));
 
-        /* Redirigir según rol */
-        if (data.usuario.rol === 'admin') {
-          window.location.href = '/historial.html';
-        } else {
-          window.location.href = '/area.html';
-        }
+        /* Redirigir según rol. Se usa replace() en vez de asignar a
+           location.href para que esta página de login no quede en el
+           historial de navegación: así, tras entrar al sistema, el
+           botón "Atrás" del navegador no puede regresar a la pantalla
+           de login (donde, además, ya habría una sesión activa). */
+        const destino = data.usuario.rol === 'admin' ? '/historial' : '/area';
+        window.location.replace(destino);
 
       } catch (err) {
         mostrarError('No se pudo conectar con el servidor.');
@@ -622,10 +623,29 @@
         });
         if (res.ok) {
           const { usuario } = await res.json();
-          window.location.href = usuario.rol === 'admin' ? '/historial.html' : '/area.html';
+          window.location.replace(usuario.rol === 'admin' ? '/historial' : '/area');
         }
       } catch { /* token inválido, continuar en login */ }
     })();
+
+    /* ── Romper el acceso vía botón "Atrás" ──
+       Si esta página de login se restaura desde el caché en memoria
+       del navegador (bfcache) después de que el usuario ya entró al
+       sistema, se vuelve a comprobar si hay una sesión activa y, si la
+       hay, se le manda de inmediato a su pantalla correspondiente en
+       vez de dejarlo viendo el formulario de acceso. */
+    window.addEventListener('pageshow', (evento) => {
+      if (evento.persisted) {
+        const token = localStorage.getItem('sbis_token');
+        const u     = localStorage.getItem('sbis_usuario');
+        if (token && u) {
+          try {
+            const usuario = JSON.parse(u);
+            window.location.replace(usuario.rol === 'admin' ? '/historial' : '/area');
+          } catch { /* datos corruptos, se queda en login */ }
+        }
+      }
+    });
   </script>
 </body>
 </html>

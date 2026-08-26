@@ -37,9 +37,9 @@ function iniciarSesion() {
   const u = localStorage.getItem('sbis_usuario');
   USUARIO = u ? JSON.parse(u) : null;
 
-  if (!TOKEN || !USUARIO) { window.location.href = '/login.html'; return false; }
-  if (USUARIO.rol === 'admin')         { window.location.href = '/historial.html'; return false; }
-  if (USUARIO.rol === 'usuario_area')  { window.location.href = '/usuario.html';   return false; }
+  if (!TOKEN || !USUARIO) { window.location.href = '/login'; return false; }
+  if (USUARIO.rol === 'admin')         { window.location.href = '/historial'; return false; }
+  if (USUARIO.rol === 'usuario_area')  { window.location.href = '/usuario';   return false; }
 
   pintarUsuarioHeader(USUARIO.username);
   aplicarMenuSegunPermiso();
@@ -66,7 +66,7 @@ function pintarUsuarioHeader(username) {
 function cerrarSesion() {
   localStorage.removeItem('sbis_token');
   localStorage.removeItem('sbis_usuario');
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 }
 
 async function apiFetch(url, opciones = {}) {
@@ -677,4 +677,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('modal-atender').addEventListener('click', function (e) {
     if (e.target === this) cerrarAtender();
   });
+});
+
+/* ── Romper el acceso vía botón "Atrás" tras cerrar sesión ──
+   Ver la nota equivalente en app.js: si el navegador restaura esta
+   página desde bfcache, se revalida el token guardado antes de dejar
+   nada visible. */
+window.addEventListener('pageshow', (evento) => {
+  if (evento.persisted) {
+    if (!iniciarSesion()) return;
+    cargarOficios(filtroActual);
+  }
 });

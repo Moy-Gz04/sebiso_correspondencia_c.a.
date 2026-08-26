@@ -62,7 +62,6 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
 // NOTA: los archivos subidos por usuarios ya NO se guardan en disco local
 // (Render borra el disco en cada reinicio/redeploy). Ahora se suben a
 // Google Drive vía Apps Script — ver subirArchivoADrive() más abajo.
@@ -89,7 +88,45 @@ const limitadorApi = rateLimit({
 });
 app.use('/api', limitadorApi);
 
-app.get('/', (req, res) => res.redirect('/login.html'));
+/* ══ URLs LIMPIAS (sin .html) ══
+   El frontend son páginas estáticas servidas por el propio Express.
+   Antes se accedía como /historial.html, /area.html, etc. — ahora cada
+   una también responde en su ruta "limpia" (/historial, /area...), y
+   la versión .html redirige de forma permanente (301) a esa ruta, para
+   no romper enlaces o marcadores ya guardados.
+
+   Estas rutas se registran ANTES de express.static para que intercepten
+   la petición: si static fuera primero, serviría el archivo .html
+   directo y el redirect nunca se ejecutaría.
+
+   También se envían cabeceras que impiden que el navegador guarde
+   estas páginas en caché — ni en el caché HTTP normal ni en el
+   "back/forward cache" (bfcache) que algunos navegadores usan para el
+   botón Atrás/Adelante. Esto se combina con la revalidación de sesión
+   en el evento "pageshow" de cada página (ver historial.js, area.js,
+   usuario.js, captura.js): así, después de Cerrar Sesión, la tecla
+   Atrás no puede dejar visible una versión cacheada de una pantalla
+   que ya no debería ser accesible. */
+const PAGINAS = ['login', 'historial', 'area', 'captura', 'usuario'];
+
+function sinCache(res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+}
+
+PAGINAS.forEach(pagina => {
+  app.get(`/${pagina}`, (req, res) => {
+    sinCache(res);
+    res.sendFile(path.join(__dirname, 'public', `${pagina}.html`));
+  });
+  // Compatibilidad con enlaces/marcadores antiguos que usaban .html
+  app.get(`/${pagina}.html`, (req, res) => res.redirect(301, `/${pagina}`));
+});
+
+app.get('/', (req, res) => res.redirect('/login'));
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 const upload = multer({
   storage: multer.memoryStorage(),

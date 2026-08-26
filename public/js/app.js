@@ -214,13 +214,13 @@ function iniciarSesion() {
   const u = localStorage.getItem('sbis_usuario');
   USUARIO = u ? JSON.parse(u) : null;
 
-  if (!TOKEN || !USUARIO) { window.location.href = '/login.html'; return false; }
-  if (USUARIO.rol !== 'admin' && USUARIO.rol !== 'area') { window.location.href = '/area.html'; return false; }
+  if (!TOKEN || !USUARIO) { window.location.href = '/login'; return false; }
+  if (USUARIO.rol !== 'admin' && USUARIO.rol !== 'area') { window.location.href = '/area'; return false; }
 
   /* Historial es exclusivo de Coordinación Administrativa (y del admin
      legado). Cualquier otra área que intente entrar directo por URL
      es redirigida a su Bandeja de Oficios: aquí no tiene nada que ver. */
-  if (!tieneGestionCompleta(USUARIO)) { window.location.href = '/area.html'; return false; }
+  if (!tieneGestionCompleta(USUARIO)) { window.location.href = '/area'; return false; }
 
   const navBandeja = document.getElementById('nav-bandeja');
   if (navBandeja && USUARIO.rol === 'area') navBandeja.style.display = '';
@@ -239,7 +239,7 @@ function pintarUsuarioHeader(username) {
 function cerrarSesion() {
   localStorage.removeItem('sbis_token');
   localStorage.removeItem('sbis_usuario');
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 }
 
 async function apiFetch(url, opciones = {}) {
@@ -1140,4 +1140,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('modal-rechazar').addEventListener('click', function(e) {
     if (e.target === this) cerrarRechazar();
   });
+});
+
+/* ── Romper el acceso vía botón "Atrás" tras cerrar sesión ──
+   Algunos navegadores restauran esta página desde su caché en memoria
+   (bfcache) al usar Atrás/Adelante, sin volver a pedirla al servidor
+   ni volver a ejecutar "DOMContentLoaded". Si eso ocurre después de
+   haber cerrado sesión, se revalida el token guardado y, si ya no es
+   válido, se manda de inmediato a login — así no queda visible ni un
+   instante una pantalla que ya no debería ser accesible. */
+window.addEventListener('pageshow', (evento) => {
+  if (evento.persisted) {
+    if (!iniciarSesion()) return;
+    cargarOficios(filtroActual);
+    cargarPdfsGenerados();
+  }
 });
