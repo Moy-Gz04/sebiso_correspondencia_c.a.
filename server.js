@@ -5,6 +5,8 @@
 
 import express           from 'express';
 import cors              from 'cors';
+import helmet            from 'helmet';
+import rateLimit         from 'express-rate-limit';
 import multer            from 'multer';
 import path              from 'path';
 import { fileURLToPath } from 'url';
@@ -18,16 +20,74 @@ dotenv.config();
 if (!process.env.DATABASE_URL) { console.error('❌  Falta DATABASE_URL'); process.exit(1); }
 if (!process.env.JWT_SECRET)   { console.error('❌  Falta JWT_SECRET');   process.exit(1); }
 
+const PROD = process.env.NODE_ENV === 'production';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const sql = neon(process.env.DATABASE_URL);
 
-app.use(cors({ origin: '*' }));
-app.use(express.json());
+/* La app corre detrás del proxy de Render (u otro similar): sin esto,
+   express-rate-limit y cualquier lógica basada en IP ven siempre la IP
+   interna del proxy, no la del cliente real. */
+app.set('trust proxy', 1);
+
+/* ── Cabeceras de seguridad ──
+   CSP se deja desactivado porque el frontend actual usa atributos
+   onclick="" inline en el HTML generado (no scripts inline sueltos),
+   y una CSP estricta rompería esos manejadores sin una migración a
+   addEventListener. El resto de cabeceras de helmet (X-Content-Type-
+   Options, X-Frame-Options/frame-ancestors, Referrer-Policy, HSTS,
+   etc.) se mantienen activas. */
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+/* ── CORS restringido ──
+   Antes: origin: '*' permitía que cualquier sitio hiciera peticiones
+   autenticadas contra la API si robaba un token. Ahora solo se acepta
+   el/los orígenes indicados en ALLOWED_ORIGINS (coma-separado). Si no
+   se configura, se asume que el frontend se sirve desde el mismo
+   origen que la API (caso típico de este despliegue) y se rechaza
+   cualquier origen cross-site. */
+const ORIGENES_PERMITIDOS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(o => o.trim()).filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    // Sin header Origin (llamadas same-origin, curl, health checks) → permitir.
+    if (!origin) return callback(null, true);
+    if (ORIGENES_PERMITIDOS.length === 0 || ORIGENES_PERMITIDOS.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Origen no permitido por CORS.'));
+  },
+}));
+
+app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 // NOTA: los archivos subidos por usuarios ya NO se guardan en disco local
 // (Render borra el disco en cada reinicio/redeploy). Ahora se suben a
 // Google Drive vía Apps Script — ver subirArchivoADrive() más abajo.
+
+/* ── Límite de intentos de login (fuerza bruta) ──
+   10 intentos cada 15 minutos por IP. Las respuestas de login ya son
+   genéricas ("Usuario o contraseña incorrectos"), esto añade una
+   segunda capa contra ataques automatizados de adivinanza. */
+const limitadorLogin = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { mensaje: 'Demasiados intentos. Intenta de nuevo en unos minutos.' },
+});
+
+/* Límite general, más holgado, para el resto de la API. */
+const limitadorApi = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { mensaje: 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.' },
+});
+app.use('/api', limitadorApi);
 
 app.get('/', (req, res) => res.redirect('/login.html'));
 
@@ -114,11 +174,119 @@ async function siguienteNControl(area) {
   return String(max + 1).padStart(4, '0');
 }
 
+/* ══ SEGURIDAD DE DOCUMENTOS ══
+   Las columnas ruta_doc1..4 pueden contener enlaces directos de
+   Google Drive (o, en registros heredados, un nombre de archivo local).
+   Antes esos enlaces viajaban tal cual en cualquier respuesta de
+   /api/oficios, quedando visibles en el DevTools de cualquiera con
+   sesión y reenviables sin control alguno. Ahora:
+     1) Nunca se exponen las rutas crudas en las respuestas de la API;
+        se sustituyen por un objeto { tipo, nombre } sin URL.
+     2) Para abrir un documento, el frontend primero pide un token de
+        un solo uso y corta duración (ver /doc-token/:slot), y luego
+        navega a /api/docs/:token, que valida el token y recién ahí
+        redirige al documento real. */
+function sanitizarDoc(ruta) {
+  if (!ruta) return null;
+  if (/^https?:\/\//i.test(ruta)) return { tipo: 'externo', nombre: 'Ver documento' };
+  return { tipo: 'local', nombre: String(ruta).replace(/^\d+_/, '') };
+}
+
+function sanitizarOficio(o) {
+  if (!o) return o;
+  const { ruta_doc1, ruta_doc2, ruta_doc3, ruta_doc4, ...resto } = o;
+  return {
+    ...resto,
+    doc1: sanitizarDoc(ruta_doc1),
+    doc2: sanitizarDoc(ruta_doc2),
+    doc3: sanitizarDoc(ruta_doc3),
+    doc4: sanitizarDoc(ruta_doc4),
+  };
+}
+
+/* Misma regla de acceso que ya usa GET /api/oficios/:id, extraída
+   para reutilizarla también al emitir un doc-token. */
+function puedeVerOficio(user, oficio) {
+  const { rol, area, id } = user;
+  if (rol === 'admin') return true;
+  if (rol === 'area')  return oficio.turnado_a === area || oficio.area_origen === area;
+  if (rol === 'usuario_area') return oficio.usuario_asignado_id === id;
+  return false;
+}
+
+/* ══ POST /api/oficios/:id/doc-token/:slot ══
+   Requiere el mismo Bearer token de sesión que el resto de la API.
+   Si el usuario tiene acceso al oficio y el documento existe, emite
+   un JWT de un solo propósito (oficio + slot), válido 3 minutos, para
+   canjear en /api/docs/:token. Así la URL real de Drive nunca se
+   envía en las respuestas normales de la API. ══ */
+app.get('/api/oficios/:id/doc-token/:slot', verifyToken, async (req, res) => {
+  try {
+    const { id, slot } = req.params;
+    if (!['doc1', 'doc2', 'doc3', 'doc4'].includes(slot))
+      return res.status(400).json({ mensaje: 'Documento no válido.' });
+
+    const [oficio] = await sql`SELECT * FROM oficios WHERE id = ${id}`;
+    if (!oficio) return res.status(404).json({ mensaje: 'No encontrado.' });
+    if (!puedeVerOficio(req.user, oficio))
+      return res.status(403).json({ mensaje: 'Sin acceso.' });
+
+    const ruta = oficio[`ruta_${slot}`];
+    if (!ruta) return res.status(404).json({ mensaje: 'Este oficio no tiene ese documento.' });
+
+    const token = jwt.sign(
+      { propósito: 'doc', oficioId: oficio.id, slot },
+      process.env.JWT_SECRET,
+      { expiresIn: '3m' }
+    );
+
+    res.json({ url: `/api/docs/${token}` });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo generar el enlace del documento.');
+  }
+});
+
+/* ══ GET /api/docs/:token ══
+   Endpoint público (sin Authorization header) pero solo aceptable con
+   un token de un solo propósito y corta vida emitido arriba. Verifica
+   la firma, revalida que el documento siga existiendo y redirige al
+   destino real (Drive, o el servidor legado de /uploads). ══ */
+app.get('/api/docs/:token', async (req, res) => {
+  try {
+    let payload;
+    try {
+      payload = jwt.verify(req.params.token, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).send('Enlace inválido o expirado.');
+    }
+    if (payload?.propósito !== 'doc') return res.status(401).send('Enlace inválido.');
+
+    const [oficio] = await sql`SELECT * FROM oficios WHERE id = ${payload.oficioId}`;
+    if (!oficio) return res.status(404).send('No encontrado.');
+
+    const ruta = oficio[`ruta_${payload.slot}`];
+    if (!ruta) return res.status(404).send('Documento no disponible.');
+
+    if (/^https?:\/\//i.test(ruta)) return res.redirect(302, ruta);
+    return res.redirect(302, `/uploads/${ruta}`);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo abrir el documento.');
+  }
+});
+
+/* Log completo en servidor siempre; al cliente, en producción, solo un
+   mensaje genérico (evita filtrar detalles internos de la base de
+   datos u otras integraciones en el mensaje de error). */
+function manejarError(res, err, mensajeGenerico, status = 500) {
+  console.error(err);
+  res.status(status).json({ mensaje: PROD ? mensajeGenerico : `${mensajeGenerico} ${err.message}` });
+}
+
 /* ══ HEALTH CHECK ══ */
 app.get('/api/ping', (req, res) => res.json({ ok: true, ts: new Date() }));
 
 /* ══ LOGIN ══ */
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', limitadorLogin, async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password)
@@ -142,7 +310,7 @@ app.post('/api/login', async (req, res) => {
     console.log(`🔐  Login: ${usuario.username} (${usuario.rol})`);
     res.json({ token, usuario: { id: usuario.id, username: usuario.username, area: usuario.area, rol: usuario.rol } });
   } catch (err) {
-    res.status(500).json({ mensaje: 'Error en el servidor: ' + err.message });
+    manejarError(res, err, 'Error en el servidor.');
   }
 });
 
@@ -168,7 +336,7 @@ app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ mensaje: err.message });
+    manejarError(res, err, 'No se pudieron obtener los usuarios.');
   }
 });
 
@@ -259,9 +427,9 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
       return res.status(403).json({ mensaje: 'Rol no reconocido.' });
     }
 
-    res.json(rows);
+    res.json(rows.map(sanitizarOficio));
   } catch (err) {
-    res.status(500).json({ mensaje: 'Error al obtener registros: ' + err.message });
+    manejarError(res, err, 'Error al obtener registros.');
   }
 });
 
@@ -271,16 +439,12 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
     const [row] = await sql`SELECT * FROM oficios WHERE id = ${req.params.id}`;
     if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
 
-    const { rol, area, id } = req.user;
-    if (rol === 'admin') { /* sin restricción */ }
-    else if (rol === 'area' && row.turnado_a !== area && row.area_origen !== area)
-      return res.status(403).json({ mensaje: 'Sin acceso.' });
-    else if (rol === 'usuario_area' && row.usuario_asignado_id !== id)
+    if (!puedeVerOficio(req.user, row))
       return res.status(403).json({ mensaje: 'Sin acceso.' });
 
-    res.json(row);
+    res.json(sanitizarOficio(row));
   } catch (err) {
-    res.status(500).json({ mensaje: err.message });
+    manejarError(res, err, 'No se pudo obtener el registro.');
   }
 });
 
@@ -344,9 +508,9 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
       RETURNING *`;
 
     console.log(`✅  Oficio creado por ${areaOrigen}: N. Control ${n_control} → ${estatusInicial}${turnado_a ? ' → ' + turnado_a : ''}`);
-    res.status(201).json(nuevo);
+    res.status(201).json(sanitizarOficio(nuevo));
   } catch (err) {
-    res.status(500).json({ mensaje: 'Error al guardar: ' + err.message });
+    manejarError(res, err, 'Error al guardar.');
   }
 });
 
@@ -423,7 +587,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           updated_at              = NOW()
         WHERE id = ${req.params.id}
         RETURNING *`;
-      return res.json(updated);
+      return res.json(sanitizarOficio(updated));
 
     /* ── ÁREA RECEPTORA (el "encargado de turnar" del área a la que se
          turnó el oficio): puede sub-turnar (turnado → sub_turnado) a uno
@@ -453,7 +617,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
             updated_at = NOW()
           WHERE id = ${req.params.id}
           RETURNING *`;
-        return res.json(updated);
+        return res.json(sanitizarOficio(updated));
       }
 
       /* Caso 2: sub-turnar el oficio a un usuario de su área, o
@@ -484,7 +648,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           updated_at              = NOW()
         WHERE id = ${req.params.id}
         RETURNING *`;
-      return res.json(updated);
+      return res.json(sanitizarOficio(updated));
 
     /* ── USUARIO_AREA: solo puede marcar atendido y subir docs ── */
     } else if (rol === 'usuario_area') {
@@ -506,14 +670,14 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           updated_at = NOW()
         WHERE id = ${req.params.id}
         RETURNING *`;
-      return res.json(updated);
+      return res.json(sanitizarOficio(updated));
 
     } else {
       return res.status(403).json({ mensaje: 'Sin acceso a este registro.' });
     }
 
   } catch (err) {
-    res.status(500).json({ mensaje: err.message });
+    manejarError(res, err, 'No se pudo actualizar el registro.');
   }
 });
 
@@ -532,7 +696,7 @@ app.delete('/api/oficios/:id', verifyToken, async (req, res) => {
     console.log(`🗑️   Oficio ${req.params.id} eliminado`);
     res.json({ mensaje: 'Eliminado correctamente.' });
   } catch (err) {
-    res.status(500).json({ mensaje: err.message });
+    manejarError(res, err, 'No se pudo eliminar el registro.');
   }
 });
 
@@ -586,11 +750,11 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
       VALUES (${ids}, ${data.folios}, ${data.url}, ${data.fileId || null}, ${req.user.username}, ${req.user.area || null})
       RETURNING *`;
 
-    console.log(`📄  PDF generado por ${req.user.username} (${req.user.area || 'sin área'}) — N. Control: ${data.folios.join(', ')} → ${data.url}`);
+    console.log(`📄  PDF generado por ${req.user.username} (${req.user.area || 'sin área'}) — N. Control: ${data.folios.join(', ')}`);
     res.json(guardado);
 
   } catch (err) {
-    res.status(500).json({ mensaje: 'Error al generar el PDF: ' + err.message });
+    manejarError(res, err, 'Error al generar el PDF.');
   }
 });
 
@@ -629,7 +793,7 @@ app.delete('/api/pdfs-generados/:id', verifyToken, async (req, res) => {
     console.log(`🗑️   PDF generado (id ${req.params.id}) eliminado del historial.`);
     res.json({ mensaje: 'Eliminado correctamente.' });
   } catch (err) {
-    res.status(500).json({ mensaje: err.message });
+    manejarError(res, err, 'No se pudo eliminar el PDF.');
   }
 });
 
@@ -650,7 +814,7 @@ app.get('/api/pdfs-generados', verifyToken, async (req, res) => {
       : await sql`SELECT * FROM pdfs_generados WHERE area = ${area} ORDER BY created_at DESC LIMIT 50`;
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ mensaje: err.message });
+    manejarError(res, err, 'No se pudo obtener el historial de PDFs.');
   }
 });
 
@@ -671,7 +835,7 @@ app.listen(PORT, () => {
   console.log(`║  ✅  Servidor SBIS activo                ║`);
   console.log(`║  🌐  http://localhost:${PORT}              ║`);
   console.log(`║  🗄️   NeonDB conectado                   ║`);
-  console.log(`║  🔐  JWT Auth habilitado                 ║`);
+  console.log(`║  🔐  JWT Auth + rate-limit + CORS restringido ║`);
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
 });

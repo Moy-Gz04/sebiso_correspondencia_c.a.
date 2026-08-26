@@ -160,21 +160,21 @@ function construirTarjeta(r, i) {
   const [cls, lbl] = BADGE[r.estatus] || ['b-tur', r.estatus];
 
   // Documentos del admin (solo lectura)
-  const doc1HTML = r.ruta_doc1
-    ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc1}')">
+  const doc1HTML = r.doc1
+    ? `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, 'doc1')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${nombreVisibleDoc(r.ruta_doc1)}</span>
+           <span class="doc-admin-nombre">${r.doc1.nombre}</span>
            <span class="doc-admin-meta">Documento recibido</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
 
-  const doc2HTML = r.ruta_doc2
-    ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc2}')">
+  const doc2HTML = r.doc2
+    ? `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, 'doc2')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${nombreVisibleDoc(r.ruta_doc2)}</span>
+           <span class="doc-admin-nombre">${r.doc2.nombre}</span>
            <span class="doc-admin-meta">Documento recibido</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
@@ -185,21 +185,21 @@ function construirTarjeta(r, i) {
        <div class="docs-admin-grid">${doc1HTML}${doc2HTML}</div>`
     : '<span style="font-size:12.5px;color:#999;font-style:italic;display:flex;align-items:center;gap:6px;"><i class=\'ti ti-file-off\'></i> No se adjuntaron documentos al oficio</span>';
 
-  const doc3HTML = r.ruta_doc3
-    ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc3}')">
+  const doc3HTML = r.doc3
+    ? `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, 'doc3')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${nombreVisibleDoc(r.ruta_doc3)}</span>
+           <span class="doc-admin-nombre">${r.doc3.nombre}</span>
            <span class="doc-admin-meta">Documento de respuesta</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
 
-  const doc4HTML = r.ruta_doc4
-    ? `<div class="doc-admin-card" onclick="verDoc('${r.ruta_doc4}')">
+  const doc4HTML = r.doc4
+    ? `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, 'doc4')">
          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${nombreVisibleDoc(r.ruta_doc4)}</span>
+           <span class="doc-admin-nombre">${r.doc4.nombre}</span>
            <span class="doc-admin-meta">Documento de respuesta</span>
          </div>
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
@@ -437,18 +437,25 @@ function limpiarBusqueda() {
   renderLista(DATOS);
 }
 
-function verDoc(ruta) {
-  if (/^https?:\/\//i.test(ruta)) {
-    window.open(ruta, '_blank');
-  } else {
-    window.open(`${API.replace('/api', '')}/uploads/${ruta}`, '_blank');
+/* ── Ver documento de forma segura ──
+   Se pide un token de un solo uso y corta duración (3 min) al
+   servidor, y se navega a ese enlace; la URL real del documento
+   nunca viaja en las respuestas normales de la API. */
+async function verDocSeguro(oficioId, slot) {
+  const nuevaVentana = window.open('', '_blank');
+  try {
+    const res = await apiFetch(`${API}/oficios/${oficioId}/doc-token/${slot}`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.mensaje || 'No se pudo abrir el documento.');
+    }
+    const { url } = await res.json();
+    if (nuevaVentana) nuevaVentana.location.href = url;
+    else window.open(url, '_blank', 'noopener');
+  } catch (err) {
+    if (nuevaVentana) nuevaVentana.close();
+    await sbisAlert({ titulo: 'Error', mensaje: err.message || 'No se pudo abrir el documento.', tipo: 'error' });
   }
-}
-
-function nombreVisibleDoc(ruta) {
-  if (!ruta) return '';
-  if (/^https?:\/\//i.test(ruta)) return 'Ver documento';
-  return ruta.replace(/^\d+_/, '');
 }
 
 function formatFecha(iso) {

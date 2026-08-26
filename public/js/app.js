@@ -286,15 +286,15 @@ function construirTarjeta(r, i) {
        <span style="font-size:10px;color:var(--txt2);margin-top:2px;">→ ${r.turnado_a}</span>`
     : `<span class="badge ${cls}">${lbl}</span>`;
 
-  const doc1HTML = r.ruta_doc1
-    ? `<button class="btn-doc" onclick="verDoc('${r.ruta_doc1}')">
-         <i class="ti ti-file-type-pdf"></i> ${nombreVisibleDoc(r.ruta_doc1)}
+  const doc1HTML = r.doc1
+    ? `<button class="btn-doc" onclick="verDocSeguro(${r.id}, 'doc1')">
+         <i class="ti ti-file-type-pdf"></i> ${r.doc1.nombre}
        </button>`
     : null;
 
-  const doc2HTML = r.ruta_doc2
-    ? `<button class="btn-doc" onclick="verDoc('${r.ruta_doc2}')">
-         <i class="ti ti-file-type-pdf"></i> ${nombreVisibleDoc(r.ruta_doc2)}
+  const doc2HTML = r.doc2
+    ? `<button class="btn-doc" onclick="verDocSeguro(${r.id}, 'doc2')">
+         <i class="ti ti-file-type-pdf"></i> ${r.doc2.nombre}
        </button>`
     : null;
 
@@ -302,21 +302,21 @@ function construirTarjeta(r, i) {
     ? (doc1HTML || '') + (doc2HTML || '')
     : '<span style="font-size:12.5px;color:#999;font-style:italic;display:flex;align-items:center;gap:6px;"><i class=\'ti ti-file-off\'></i> No se proporcionaron archivos al momento de registrar</span>';
 
-  const doc3HTML = r.ruta_doc3
-    ? `<div class="doc-area-card" onclick="verDoc('${r.ruta_doc3}')">
+  const doc3HTML = r.doc3
+    ? `<div class="doc-area-card" onclick="verDocSeguro(${r.id}, 'doc3')">
          <div class="doc-area-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-area-info">
-           <span class="doc-area-nombre">${nombreVisibleDoc(r.ruta_doc3)}</span>
+           <span class="doc-area-nombre">${r.doc3.nombre}</span>
            <span class="doc-area-meta">Documento del área</span>
          </div>
          <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
 
-  const doc4HTML = r.ruta_doc4
-    ? `<div class="doc-area-card" onclick="verDoc('${r.ruta_doc4}')">
+  const doc4HTML = r.doc4
+    ? `<div class="doc-area-card" onclick="verDocSeguro(${r.id}, 'doc4')">
          <div class="doc-area-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-area-info">
-           <span class="doc-area-nombre">${nombreVisibleDoc(r.ruta_doc4)}</span>
+           <span class="doc-area-nombre">${r.doc4.nombre}</span>
            <span class="doc-area-meta">Documento del área</span>
          </div>
          <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
@@ -638,20 +638,27 @@ async function eliminar(id) {
   }
 }
 
-function verDoc(ruta) {
-  // Archivos nuevos: ya es un link completo de Drive → se abre directo.
-  // Archivos viejos (antes de la migración a Drive): ruta local heredada.
-  if (/^https?:\/\//i.test(ruta)) {
-    window.open(ruta, '_blank');
-  } else {
-    window.open(`${API.replace('/api', '')}/uploads/${ruta}`, '_blank');
+/* ── Ver documento de forma segura ──
+   Ya no se maneja la URL real del documento en el cliente. Se pide al
+   servidor un token de un solo uso y corta duración (3 min) y se
+   navega a ese enlace, que es el único que redirige al documento real.
+   La pestaña se abre ANTES de esperar la respuesta para no chocar con
+   los bloqueadores de pop-ups de los navegadores. */
+async function verDocSeguro(oficioId, slot) {
+  const nuevaVentana = window.open('', '_blank');
+  try {
+    const res = await apiFetch(`${API}/oficios/${oficioId}/doc-token/${slot}`);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.mensaje || 'No se pudo abrir el documento.');
+    }
+    const { url } = await res.json();
+    if (nuevaVentana) nuevaVentana.location.href = url;
+    else window.open(url, '_blank', 'noopener');
+  } catch (err) {
+    if (nuevaVentana) nuevaVentana.close();
+    await sbisAlert({ titulo: 'Error', mensaje: err.message || 'No se pudo abrir el documento.', tipo: 'error' });
   }
-}
-
-function nombreVisibleDoc(ruta) {
-  if (!ruta) return '';
-  if (/^https?:\/\//i.test(ruta)) return 'Ver documento';
-  return ruta.replace(/^\d+_/, '');
 }
 
 function formatFecha(iso) {
