@@ -21,7 +21,7 @@
       --dorado-claro:  #faf4e1;
       --borde:         #e0c4cc;
       --txt:           #1a0a10;
-      --txt2:          #7a4255;
+      --txt2:           #7a4255;
       --blanco:        #ffffff;
       --error:         #a32d2d;
       --fuente-titulo: 'Montserrat', Georgia, sans-serif;
@@ -407,6 +407,19 @@
       letter-spacing: 0.04em;
     }
 
+    /* ══ ANTI-ZOOM EN MÓVIL ══
+       Evita que Safari iOS y otros navegadores móviles hagan zoom
+       automático al enfocar el campo de usuario o contraseña
+       (ocurre cuando el font-size del input es menor a 16px). Se
+       fuerza 16px en todos los anchos de pantalla móvil, sin usar
+       user-scalable=no (que además ya no funciona en iOS moderno
+       y perjudica la accesibilidad). */
+    @media (max-width: 768px) {
+      .campo-input {
+        font-size: 16px;
+      }
+    }
+
     /* ══ RESPONSIVE ══
        Cubre los anchos de viewport más comunes en móviles:
        iPhone 15 Pro Max (430), iPhone XR (414), iPhone SE (375)
@@ -431,7 +444,7 @@
       .login-gov { font-size: 0.55rem; }
       .login-secretaria { font-size: 0.88rem; }
       .login-body { padding: 18px 16px 20px; }
-      .campo-input { font-size: 0.88rem; padding: 9px 12px 9px 36px; }
+      .campo-input { padding: 9px 12px 9px 36px; }
       .btn-login { font-size: 0.85rem; padding: 12px; }
     }
 

@@ -1233,6 +1233,26 @@ img { max-width: 100%; }
 }
 
 /* ═══════════════════════════════════════════════════
+   ANTI-ZOOM EN MÓVIL
+   Safari iOS (y varios navegadores móviles) hacen zoom
+   automático al enfocar un campo cuyo font-size sea menor
+   a 16px. Forzamos 16px en TODOS los campos de formulario
+   del sistema (inputs, selects, textareas) para evitar ese
+   zoom involuntario, sin desactivar el zoom manual del
+   usuario (accesible, a diferencia de user-scalable=no).
+   Se aplica desde 768px hacia abajo, que cubre teléfonos y
+   tablets en cualquier orientación, sin afectar el diseño
+   de escritorio.
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
    RESPONSIVO
    Puntos de quiebre pensados para los anchos de viewport
    más comunes en móviles reales:
