@@ -101,7 +101,7 @@
 .col-full { grid-column: 1 / -1; }
 
 /* ── Campo individual ── */
-.campo { display: flex; flex-direction: column; gap: 5px; }
+.campo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 
 .campo-label {
   font-size: 10.5px;
@@ -296,9 +296,33 @@
 /* ── Responsivo ── */
 @media (max-width: 700px) {
   .card-captura-unica    { padding: 22px 18px 26px; }
-  .form-grid             { grid-template-columns: 1fr; }
+  .form-grid             { grid-template-columns: 1fr; gap: 14px; }
   .col-full              { grid-column: span 1; }
   .acciones-form         { flex-direction: column; align-items: stretch; }
   .acciones-form-der     { flex-direction: column; }
   .btn                   { justify-content: center; }
+}
+
+/* ── Móviles grandes (iPhone Pro Max / XR ~414-430px) ── */
+@media (max-width: 600px) {
+  .card-captura-unica  { padding: 18px 14px 22px; border-radius: 12px; }
+  .card-seccion-titulo { padding-bottom: 12px; margin-bottom: 16px; }
+  .card-titulo-txt     { font-size: 1rem; }
+  .form-grid           { gap: 12px; }
+  .campo-input,
+  .campo-select,
+  .campo-textarea      { font-size: 13.5px; padding: 10px 12px; }
+  .campo-select        { padding-right: 34px; }
+  .btn                 { padding: 11px 20px; font-size: 12.5px; }
+  .btn-guardar         { min-width: 0; width: 100%; }
+  .campo-archivo       { padding: 12px 14px; }
+}
+
+/* ── Móviles compactos (iPhone SE ~375px y menos) ── */
+@media (max-width: 400px) {
+  .card-captura-unica  { padding: 14px 12px 18px; }
+  .card-titulo-txt     { font-size: 0.92rem; }
+  .card-titulo-txt i   { font-size: 16px; }
+  .campo-label         { font-size: 10px; }
+  .campo-hint          { font-size: 10px; }
 }

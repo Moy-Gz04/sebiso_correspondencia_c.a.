@@ -366,6 +366,30 @@
     }
     .btn-modal-guardar.btn-modal-danger { background: linear-gradient(135deg, #d64545 0%, #c62828 100%); }
     .btn-modal-guardar.btn-modal-danger:hover { background: #b71c1c; }
+
+    /* ── Responsivo: móviles grandes (iPhone Pro Max / XR ~414-430px) ── */
+    @media (max-width: 600px) {
+      #modal-editar, #modal-turnar, #modal-rechazar { padding: 20px 10px; }
+      .modal-grid { grid-template-columns: 1fr; gap: 12px; }
+
+      .t-header-row { padding: 12px 14px; gap: 6px; }
+      .th-check input[type="checkbox"] { width: 17px; height: 17px; }
+
+      #barra-seleccion {
+        left: 10px; right: 10px; bottom: 14px;
+        transform: none;
+        flex-wrap: wrap;
+        justify-content: center;
+        padding: 10px 14px;
+        gap: 10px;
+      }
+      #barra-seleccion .bs-txt { flex-basis: 100%; text-align: center; }
+    }
+
+    /* ── Responsivo: móviles compactos (iPhone SE ~375px) ── */
+    @media (max-width: 400px) {
+      #barra-seleccion button { flex: 1; justify-content: center; }
+    }
   </style>
 </head>
 <body>

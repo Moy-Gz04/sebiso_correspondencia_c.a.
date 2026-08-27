@@ -29,7 +29,7 @@
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: 15px; }
+    html { font-size: 15px; -webkit-text-size-adjust: 100%; }
 
     body {
       font-family: var(--fuente-cuerpo);
@@ -37,7 +37,7 @@
       display: flex;
       flex-direction: column;
       background: var(--guinda-oscuro);
-      overflow: hidden;
+      overflow-x: hidden;
     }
 
     /* ══ FONDO CON PATRÓN SUTIL ══ */
@@ -99,6 +99,7 @@
       align-items: center;
       justify-content: center;
       padding: 40px 20px;
+      width: 100%;
     }
 
     .login-card {
@@ -165,7 +166,7 @@
     }
     .escudo-placeholder i { font-size: 24px; color: var(--guinda); }
 
-    .login-header-texto { flex: 1; }
+    .login-header-texto { flex: 1; min-width: 0; }
 
     .login-gov {
       font-size: 0.6rem;
@@ -397,6 +398,7 @@
       align-items: center;
       z-index: 10;
       border-top: 1px solid rgba(200,169,81,.15);
+      gap: 10px;
     }
 
     .banda-bottom span {
@@ -405,12 +407,36 @@
       letter-spacing: 0.04em;
     }
 
-    /* ══ RESPONSIVE ══ */
-    @media (max-width: 480px) {
-      .login-header { padding: 20px 20px 16px; }
-      .login-body   { padding: 20px 20px 24px; }
+    /* ══ RESPONSIVE ══
+       Cubre los anchos de viewport más comunes en móviles:
+       iPhone 15 Pro Max (430), iPhone XR (414), iPhone SE (375)
+       y, en general, cualquier pantalla ≤600px / ≤400px. */
+    @media (max-width: 600px) {
+      .login-wrapper { padding: 28px 14px 64px; }
+      .login-header  { padding: 20px 20px 16px; gap: 12px; }
+      .escudo-placeholder { width: 46px; height: 46px; }
+      .escudo-placeholder i { font-size: 20px; }
+      .login-secretaria { font-size: 0.96rem; }
+      .login-subsecretaria { font-size: 0.68rem; }
+      .login-body   { padding: 20px 20px 24px; gap: 16px; }
+      .login-titulo { font-size: 1.18rem; }
       .banda-bottom { padding: 8px 16px; }
+      .banda-bottom span { font-size: 0.62rem; }
       .banda-bottom .derecha { display: none; }
+    }
+
+    @media (max-width: 400px) {
+      .login-header { padding: 16px 16px 14px; }
+      .escudo-placeholder { width: 42px; height: 42px; }
+      .login-gov { font-size: 0.55rem; }
+      .login-secretaria { font-size: 0.88rem; }
+      .login-body { padding: 18px 16px 20px; }
+      .campo-input { font-size: 0.88rem; padding: 9px 12px 9px 36px; }
+      .btn-login { font-size: 0.85rem; padding: 12px; }
+    }
+
+    @media (max-height: 700px) {
+      .login-wrapper { padding-top: 20px; padding-bottom: 56px; align-items: flex-start; }
     }
   </style>
 </head>

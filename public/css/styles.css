@@ -44,7 +44,7 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { font-size: 16px; scroll-behavior: smooth; }
+html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
 body {
   font-family: var(--fuente-cuerpo);
@@ -57,7 +57,10 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
+
+img { max-width: 100%; }
 
 @keyframes fadeInDown {
   from { opacity: 0; transform: translateY(-10px); }
@@ -93,6 +96,7 @@ body {
 .header-banda-superior {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 18px;
   width: 90%;
   max-width: 1800px;
@@ -150,6 +154,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 
 .header-gobierno {
@@ -169,6 +174,7 @@ body {
   background: var(--dorado);
   display: inline-block;
   border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .header-secretaria {
@@ -186,6 +192,7 @@ body {
 .header-derecha {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 8px 6px 8px 18px;
   border-left: 1px solid var(--borde);
@@ -204,6 +211,7 @@ body {
   padding: 6px 14px 6px 6px;
   border-radius: var(--radio-pill);
   box-shadow: inset 0 1px 2px rgba(95,33,50,.06);
+  max-width: 100%;
 }
 #header-usuario:empty { display: none; }
 #header-usuario .ico-usuario {
@@ -252,6 +260,7 @@ body {
     0 2px 6px rgba(95,33,50,.22),
     0 8px 18px rgba(95,33,50,.14),
     inset 0 1px 0 rgba(255,255,255,.14);
+  white-space: nowrap;
 }
 
 .btn-cerrar-sesion i {
@@ -314,7 +323,11 @@ body {
   align-items: center;
   gap: 32px;
   min-height: 52px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.menu-container::-webkit-scrollbar { display: none; }
 
 .menu-label {
   font-family: var(--fuente-titulo);
@@ -326,12 +339,14 @@ body {
   border-right: 1px solid rgba(200,169,81,.35);
   padding-right: 24px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .menu-lista {
   list-style: none;
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .menu-item {
@@ -363,6 +378,8 @@ body {
 .main-contenido {
   flex: 1;
   padding: 32px 24px 56px;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .contenido-wrapper {
@@ -418,7 +435,7 @@ body {
   opacity: .5;
 }
 
-.seccion-titulo-txt { display: flex; flex-direction: column; gap: 2px; }
+.seccion-titulo-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
 .seccion-titulo-eyebrow {
   font-family: var(--fuente-mono);
@@ -484,6 +501,7 @@ body {
   border: none;
   outline: none;
   flex: 1;
+  min-width: 0;
   font-family: var(--fuente-cuerpo);
   font-size: 14px;
   color: var(--txt);
@@ -592,6 +610,7 @@ body {
 .panel-pdfs-acciones {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -648,6 +667,7 @@ body {
   padding: 6px 8px 6px 14px;
   box-shadow: var(--sombra-suave);
   transition: box-shadow .18s, border-color .18s, transform .15s;
+  max-width: 100%;
 }
 .pdf-item:hover {
   box-shadow: var(--sombra-media);
@@ -680,8 +700,12 @@ body {
   font-family: var(--fuente-cuerpo);
   text-decoration: none;
   padding: 4px 4px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.btn-ver-pdf i { font-size: 15px; color: var(--dorado-oscuro); }
+.btn-ver-pdf i { font-size: 15px; color: var(--dorado-oscuro); flex-shrink: 0; }
 .btn-ver-pdf:hover { color: var(--guinda-oscuro); text-decoration: underline; }
 
 /* ═══════════════════════════════════════════════════
@@ -886,7 +910,7 @@ body {
   margin-bottom: 16px;
 }
 
-.t-extra-item { display: flex; flex-direction: column; gap: 3px; }
+.t-extra-item { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 
 .t-extra-label {
   font-size: 9.5px;
@@ -899,6 +923,7 @@ body {
 .t-extra-val {
   font-size: 13.5px;
   color: var(--txt);
+  word-break: break-word;
 }
 
 .t-extra-instruccion { grid-column: 1 / -1; }
@@ -987,6 +1012,7 @@ body {
   flex: 1;
   display: flex; flex-direction: column; gap: 3px;
   overflow: hidden;
+  min-width: 0;
 }
 
 .doc-area-nombre {
@@ -1023,6 +1049,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
 }
 
 .obs-label {
@@ -1126,12 +1153,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
   font-size: 12.5px;
   color: var(--txt2);
   box-shadow: var(--sombra-suave);
 }
 
-.paginacion { display: flex; gap: 5px; }
+.paginacion { display: flex; gap: 5px; flex-wrap: wrap; }
 
 .btn-pag {
   width: 30px; height: 30px;
@@ -1157,6 +1186,7 @@ body {
   font-family: var(--fuente-cuerpo) !important;
   animation: pop .28s cubic-bezier(.22,1,.36,1) both;
   box-shadow: var(--sombra-fuerte), 0 0 0 1px rgba(95,33,50,.04) !important;
+  max-width: calc(100vw - 24px);
 }
 
 .modal-header {
@@ -1204,6 +1234,12 @@ body {
 
 /* ═══════════════════════════════════════════════════
    RESPONSIVO
+   Puntos de quiebre pensados para los anchos de viewport
+   más comunes en móviles reales:
+     ≤1000px  tablets / laptops pequeñas
+     ≤768px   tablets verticales / phablets
+     ≤600px   móviles grandes (iPhone Pro Max ~430, XR ~414)
+     ≤400px   móviles compactos (iPhone SE ~375 y similares)
    ═══════════════════════════════════════════════════ */
 @media (max-width: 1000px) {
   .t-header {
@@ -1213,15 +1249,18 @@ body {
 }
 
 @media (max-width: 768px) {
-  .header-banda-superior { padding: 10px 18px; }
+  .header-banda-superior { padding: 10px 18px; gap: 12px; }
   .header-secretaria     { font-size: 1.05rem; }
   .header-fecha          { display: none; }
+  .header-derecha        { padding-left: 12px; gap: 10px; }
 
-  .menu-container { padding: 0 18px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; }
-  .menu-label     { border-right: none; padding-right: 0; }
-  .menu-lista     { flex-wrap: wrap; }
+  .menu-container { padding: 0 18px; }
+  .menu-label     { border-right: none; padding-right: 12px; }
 
   .main-contenido { padding: 20px 14px 40px; }
+  .contenido-wrapper { width: 100%; }
+
+  .seccion-titulo-h1 { font-size: 1.55rem; }
 
   .t-header {
     grid-template-columns: 1fr 1fr;
@@ -1236,4 +1275,86 @@ body {
   .btn-accion     { flex: 1; min-width: 90px; }
 
   .footer-contenido { flex-direction: column; text-align: center; padding: 10px 16px; }
+}
+
+/* ── Móviles grandes: iPhone 15 Pro Max (430×932), iPhone XR (414×896) ── */
+@media (max-width: 600px) {
+  .header-banda-superior { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
+  .header-emblema        { width: 40px; height: 40px; min-width: 40px; }
+  .header-emblema i      { font-size: 17px; }
+  .header-gobierno       { font-size: 0.58rem; }
+  .header-secretaria     { font-size: 0.92rem; }
+  .header-spacer         { flex-basis: 100%; height: 0; }
+  .header-derecha        {
+    border-left: none;
+    padding: 4px 0 0;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+  }
+  #header-usuario        { font-size: 0.72rem; padding: 5px 12px 5px 5px; flex: 1 1 auto; }
+  #header-usuario .ico-usuario { width: 20px; height: 20px; font-size: 11px; }
+  .btn-cerrar-sesion     { padding: 8px 14px; font-size: 0.7rem; }
+
+  .menu-label   { font-size: 0.85rem; }
+  .menu-item    { padding: 7px 14px; font-size: 0.72rem; }
+
+  .main-contenido { padding: 16px 10px 32px; }
+
+  .seccion-titulo-bloque { gap: 10px; margin-bottom: 10px; padding-bottom: 10px; }
+  .titulo-icono           { width: 38px; height: 38px; min-width: 38px; font-size: 1.05rem; }
+  .seccion-titulo-h1      { font-size: 1.28rem; }
+  .seccion-titulo-eyebrow { font-size: 9px; }
+
+  .buscador-wrap  { padding: 6px 8px 6px 6px; }
+  .buscador-icono { width: 30px; height: 30px; min-width: 30px; font-size: 13px; }
+  .buscador-input { font-size: 13px; }
+
+  .filtros-barra  { padding: 10px 12px; gap: 6px; }
+  .chip           { padding: 5px 13px; font-size: 11px; }
+  .filtro-total   { font-size: 11.5px; }
+  .filtro-spacer  { flex-basis: 100%; height: 0; order: 3; }
+
+  .t-header  { padding: 12px 14px; }
+  .th-val    { font-size: 12.5px; }
+  .th-val.mono { font-size: 13px; }
+
+  .t-body { padding: 16px 14px; }
+  .t-extra { gap: 10px; padding-bottom: 12px; margin-bottom: 12px; }
+
+  .doc-area-card, .doc-admin-card { padding: 10px 12px; gap: 10px; }
+  .doc-area-icon, .doc-admin-icon { width: 36px; height: 36px; font-size: 18px; }
+
+  .acciones-col  { flex-direction: column; }
+  .btn-accion    { width: 100%; }
+
+  .pie-tabla { flex-direction: column; align-items: stretch; text-align: center; padding: 12px 14px; }
+  .paginacion { justify-content: center; }
+
+  .modal-header  { padding: 14px 18px; }
+  .modal-header h2 { font-size: 1.1rem; }
+  .modal-body    { padding: 18px 18px 0; }
+  .modal-footer  { padding: 16px 18px 18px; flex-wrap: wrap; }
+  .modal-footer button { flex: 1; min-width: 130px; justify-content: center; }
+}
+
+/* ── Móviles compactos: iPhone SE / similares (~375px y menos) ── */
+@media (max-width: 400px) {
+  .header-secretaria { font-size: 0.82rem; }
+  .header-gobierno   { letter-spacing: 0.10em; }
+
+  #header-usuario { font-size: 0.68rem; }
+  .btn-cerrar-sesion { padding: 7px 11px; font-size: 0.66rem; }
+
+  .seccion-titulo-h1 { font-size: 1.12rem; }
+
+  .t-header { grid-template-columns: 1fr; grid-template-rows: none; }
+  .th-bloque { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 8px; }
+
+  .t-extra { grid-template-columns: 1fr; }
+
+  .chip { padding: 4px 10px; font-size: 10.5px; }
+
+  .modal-footer { flex-direction: column-reverse; }
+  .modal-footer button { width: 100%; }
 }
