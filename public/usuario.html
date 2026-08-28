@@ -221,17 +221,17 @@
           <textarea id="atender-obs" rows="3" placeholder="Describe lo realizado o comentarios sobre este oficio..."></textarea>
         </div>
         <div class="modal-campo">
-          <label>Documentos de Respuesta (PDF / Word, opcional)</label>
+          <label>Documentos de Respuesta (PDF, Word o Imagen, opcional)</label>
           <div class="archivos-grid">
             <div class="archivo-drop">
-              <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
+              <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx,image/*" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
               <i class="ti ti-file-upload"></i>
               <div class="archivo-drop-label">Turno</div>
               <div class="archivo-drop-desc">Oficio recepcionado sin atención</div>
               <div class="archivo-drop-nombre" id="nombre-doc3"></div>
             </div>
             <div class="archivo-drop">
-              <input type="file" id="atender-doc4" accept=".pdf,.doc,.docx" onchange="mostrarNombreArchivo(this,'nombre-doc4')"/>
+              <input type="file" id="atender-doc4" accept=".pdf,.doc,.docx,image/*" onchange="mostrarNombreArchivo(this,'nombre-doc4')"/>
               <i class="ti ti-file-upload"></i>
               <div class="archivo-drop-label">Seguimiento</div>
               <div class="archivo-drop-desc">Contestación del oficio recepcionado</div>

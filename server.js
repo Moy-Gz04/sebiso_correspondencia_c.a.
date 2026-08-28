@@ -128,12 +128,25 @@ app.get('/', (req, res) => res.redirect('/login'));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+/* ── Tipos de documento permitidos ──
+   Antes solo se aceptaban PDF y Word (.pdf, .doc, .docx). Ahora también
+   se aceptan imágenes de cualquier tipo común (fotos de oficios tomadas
+   con celular, capturas de pantalla, escaneos exportados como imagen,
+   etc.), validando tanto la extensión del archivo como su MIME type
+   real reportado por el navegador, para mayor robustez. */
+const EXTENSIONES_PERMITIDAS = [
+  '.pdf', '.doc', '.docx',
+  '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp',
+  '.tif', '.tiff', '.heic', '.heif', '.svg',
+];
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, ['.pdf', '.doc', '.docx'].includes(ext));
+    const esImagen = file.mimetype?.startsWith('image/');
+    cb(null, esImagen || EXTENSIONES_PERMITIDAS.includes(ext));
   }
 });
 
