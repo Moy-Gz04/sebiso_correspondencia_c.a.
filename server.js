@@ -643,7 +643,26 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
 
     const { rol, area, id } = req.user;
     const files = req.files || {};
-    const esOrigen = rol === 'admin' || (rol === 'area' && oficio.area_origen === area);
+
+    /* Si el área receptora (que puede coincidir con el área de origen,
+       p. ej. Coordinación Administrativa turnándose oficios a sí misma)
+       está haciendo un SUB-TURNADO real -manda usuario_asignado_id y no
+       trae estatus/turnado_a de re-turnado-, esa acción SIEMPRE debe
+       resolverse en la rama de "área receptora", sin importar si esa
+       misma área también es la de origen. De lo contrario, cuando
+       Coordinación es origen Y receptora a la vez, el sub-turnado caía
+       en la rama de "origen" y el UPDATE no tocaba usuario_asignado_id
+       ni el estatus: el modal mostraba éxito pero nada quedaba
+       registrado. */
+    const esSubTurnadoReceptor =
+      rol === 'area' &&
+      oficio.turnado_a === area &&
+      req.body.usuario_asignado_id !== undefined &&
+      req.body.estatus === undefined &&
+      req.body.turnado_a === undefined;
+
+    const esOrigen = !esSubTurnadoReceptor &&
+      (rol === 'admin' || (rol === 'area' && oficio.area_origen === area));
 
     /* ── QUIEN ORIGINÓ EL REGISTRO (admin legado, o el área que lo creó):
          edición completa, incluyendo turnar/re-turnar a cualquier área ── */
