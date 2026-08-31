@@ -415,9 +415,9 @@ app.get('/api/me', verifyToken, (req, res) => res.json({ usuario: req.user }));
 app.post('/api/heartbeat', verifyToken, (req, res) => res.sendStatus(204));
 
 /* ══ GET /api/usuarios-activos ══
-   Solo admin: cuántos usuarios (y cuáles) han tenido actividad en el
-   sistema en los últimos minutos, con su área y rol. ══ */
-app.get('/api/usuarios-activos', verifyToken, onlyAdmin, (req, res) => {
+   Cualquier usuario con sesión válida puede consultarlo (no expone
+   nada sensible: solo username, área y rol de quien ya está activo). */
+app.get('/api/usuarios-activos', verifyToken, (req, res) => {
   const usuarios = obtenerUsuariosActivos();
   res.json({ total: usuarios.length, usuarios });
 });

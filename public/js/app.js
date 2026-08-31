@@ -248,8 +248,6 @@ function iniciarHeartbeat() {
 }
 
 function iniciarContadorUsuariosActivos() {
-  if (USUARIO?.rol !== 'admin') return; // el backend tampoco lo permite para otros roles
-
   const badge = document.createElement('div');
   badge.id = 'badge-usuarios-activos';
   badge.title = 'Usuarios con actividad en los últimos minutos';
