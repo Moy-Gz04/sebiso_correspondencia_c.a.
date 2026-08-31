@@ -57,6 +57,12 @@ async function apiFetch(url, opciones = {}) {
   return res;
 }
 
+/* ── Usuarios Activos: heartbeat (ver nota en area.js) ── */
+function iniciarHeartbeat() {
+  apiFetch(`${API}/heartbeat`, { method: 'POST' }).catch(() => {});
+  setInterval(() => apiFetch(`${API}/heartbeat`, { method: 'POST' }).catch(() => {}), 60000);
+}
+
 /* ════════════════════════════════════════════════════
    MODALES GENÉRICOS
    ════════════════════════════════════════════════════ */
@@ -466,6 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
   mostrarFecha();
   cargarOficios();
+  iniciarHeartbeat();
   document.getElementById('modal-atender').addEventListener('click', function (e) {
     if (e.target === this) cerrarAtender();
   });

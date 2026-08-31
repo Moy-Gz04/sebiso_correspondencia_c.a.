@@ -180,8 +180,47 @@ function verifyToken(req, res, next) {
   const token = req.headers['authorization']?.startsWith('Bearer ')
     ? req.headers['authorization'].slice(7) : null;
   if (!token) return res.status(401).json({ mensaje: 'Token requerido.' });
-  try { req.user = jwt.verify(token, process.env.JWT_SECRET); next(); }
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    registrarActividad(req.user);
+    next();
+  }
   catch { return res.status(401).json({ mensaje: 'Token inválido o expirado.' }); }
+}
+
+/* ══ USUARIOS ACTIVOS (en memoria) ══
+   "Activo" = tuvo alguna petición autenticada (o un heartbeat, ver
+   /api/heartbeat) en los últimos VENTANA_ACTIVO_MS. No se necesita
+   tabla en la base de datos: como registrarActividad() se llama en
+   CADA petición que pasa por verifyToken, cualquier uso normal del
+   sistema ya alimenta el contador; el heartbeat solo cubre el caso de
+   alguien con la pestaña abierta pero sin interactuar.
+   Vive en memoria del proceso: si el servidor se reinicia el registro
+   se vacía (no importa, solo interesa la actividad reciente) y, si
+   algún día se despliegan varias instancias a la vez, cada una vería
+   solo a sus propios usuarios — para el tamaño actual de este sistema
+   (una sola instancia en Render) es la solución correcta y más simple. */
+const VENTANA_ACTIVO_MS = 3 * 60 * 1000; // 3 min sin actividad → ya no cuenta como activo
+const usuariosActivos = new Map(); // username -> { username, area, rol, ultimaVez }
+
+function registrarActividad(user) {
+  if (!user?.username) return;
+  usuariosActivos.set(user.username, {
+    username:  user.username,
+    area:      user.area || null,
+    rol:       user.rol,
+    ultimaVez: Date.now(),
+  });
+}
+
+function obtenerUsuariosActivos() {
+  const ahora = Date.now();
+  const activos = [];
+  for (const [username, datos] of usuariosActivos) {
+    if (ahora - datos.ultimaVez <= VENTANA_ACTIVO_MS) activos.push(datos);
+    else usuariosActivos.delete(username); // limpieza perezosa de sesiones ya inactivas
+  }
+  return activos.sort((a, b) => a.username.localeCompare(b.username));
 }
 
 function onlyAdmin(req, res, next) {
@@ -366,6 +405,22 @@ app.post('/api/login', limitadorLogin, async (req, res) => {
 
 /* ══ ME ══ */
 app.get('/api/me', verifyToken, (req, res) => res.json({ usuario: req.user }));
+
+/* ══ POST /api/heartbeat ══
+   El frontend llama a este endpoint cada cierto tiempo mientras la
+   pestaña sigue abierta y con sesión, para que "Usuarios Activos" sea
+   preciso incluso si el usuario se queda viendo una pantalla sin
+   generar otras peticiones. verifyToken ya registra la actividad al
+   pasar por aquí, así que el handler no necesita hacer nada más. ══ */
+app.post('/api/heartbeat', verifyToken, (req, res) => res.sendStatus(204));
+
+/* ══ GET /api/usuarios-activos ══
+   Solo admin: cuántos usuarios (y cuáles) han tenido actividad en el
+   sistema en los últimos minutos, con su área y rol. ══ */
+app.get('/api/usuarios-activos', verifyToken, onlyAdmin, (req, res) => {
+  const usuarios = obtenerUsuariosActivos();
+  res.json({ total: usuarios.length, usuarios });
+});
 
 /* ══ GET /api/usuarios/area/:area
    Devuelve los usuarios con rol 'usuario_area' del área indicada.

@@ -45,6 +45,16 @@ function verificarAcceso() {
   return true;
 }
 
+/* ── Usuarios Activos: heartbeat (ver nota en area.js) ── */
+function iniciarHeartbeat() {
+  const ping = () => fetch(`${API}/heartbeat`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${TOKEN}` }
+  }).catch(() => {});
+  ping();
+  setInterval(ping, 60000);
+}
+
 /* ════════════════════════════════════════════════════
    SISTEMA DE MODALES (mismo que app.js) — tipografía
    institucional Montserrat en todas las ventanas emergentes.
@@ -324,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
   pintarUsuarioHeader(USUARIO?.username || '');
   mostrarFecha();
   preRellenar();
+  iniciarHeartbeat();
 
   document.getElementById('dias_entrega').addEventListener('change', onDiasChange);
   document.getElementById('btn-limpiar').addEventListener('click', confirmarLimpiar);

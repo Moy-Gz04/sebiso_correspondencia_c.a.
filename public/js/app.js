@@ -236,6 +236,56 @@ function pintarUsuarioHeader(username) {
   elUser.innerHTML = `<span class="ico-usuario"><i class="ti ti-user-circle"></i></span><span>${username}</span>`;
 }
 
+/* ── Usuarios Activos ──
+   heartbeat: avisa al servidor cada minuto que esta sesión sigue
+   abierta (ver detalle en server.js, /api/heartbeat).
+   El contador visible (badge en el header) es exclusivo del admin
+   legado, que es el único rol autorizado a consultar
+   /api/usuarios-activos en el backend. */
+function iniciarHeartbeat() {
+  apiFetch(`${API}/heartbeat`, { method: 'POST' }).catch(() => {});
+  setInterval(() => apiFetch(`${API}/heartbeat`, { method: 'POST' }).catch(() => {}), 60000);
+}
+
+function iniciarContadorUsuariosActivos() {
+  if (USUARIO?.rol !== 'admin') return; // el backend tampoco lo permite para otros roles
+
+  const badge = document.createElement('div');
+  badge.id = 'badge-usuarios-activos';
+  badge.title = 'Usuarios con actividad en los últimos minutos';
+  badge.style.cssText = `
+    display:flex; align-items:center; gap:5px;
+    color:#6b6b6b; font-size:12.5px; font-weight:600;
+    font-family:'Montserrat',sans-serif; white-space:nowrap; cursor:default;`;
+  badge.innerHTML = `
+    <span style="position:relative; display:inline-flex;">
+      <i class="ti ti-users" style="font-size:17px; line-height:1;"></i>
+      <span style="position:absolute; bottom:-1px; right:-2px; width:7px; height:7px;
+                   background:#2e7d32; border:1.5px solid #fff; border-radius:50%;"></span>
+    </span>
+    <span id="txt-usuarios-activos">—</span>`;
+
+  const headerDerecha = document.querySelector('.header-derecha');
+  if (headerDerecha) headerDerecha.prepend(badge);
+
+  const actualizar = async () => {
+    try {
+      const res  = await apiFetch(`${API}/usuarios-activos`);
+      const data = await res.json();
+      const txt  = document.getElementById('txt-usuarios-activos');
+      if (txt) {
+        txt.textContent = data.total;
+        badge.title = data.usuarios.length
+          ? `Usuarios activos:\n${data.usuarios.map(u => `${u.username} (${u.area || u.rol})`).join('\n')}`
+          : 'Sin usuarios activos en este momento';
+      }
+    } catch { /* silencioso: no debe interrumpir el resto de la página */ }
+  };
+
+  actualizar();
+  setInterval(actualizar, 30000);
+}
+
 function cerrarSesion() {
   localStorage.removeItem('sbis_token');
   localStorage.removeItem('sbis_usuario');
@@ -1130,6 +1180,8 @@ document.addEventListener('DOMContentLoaded', () => {
   mostrarFecha();
   cargarOficios();
   cargarPdfsGenerados();
+  iniciarHeartbeat();
+  iniciarContadorUsuariosActivos();
 
   document.getElementById('modal-editar').addEventListener('click', function(e) {
     if (e.target === this) cerrarEditar();

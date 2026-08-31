@@ -78,6 +78,17 @@ async function apiFetch(url, opciones = {}) {
   return res;
 }
 
+/* ── Usuarios Activos: heartbeat ──
+   Avisa al servidor cada minuto que esta sesión sigue abierta, para
+   que el contador de "Usuarios Activos" (visible en el panel del
+   admin) sea preciso incluso si el usuario no genera otras peticiones.
+   Los fallos se ignoran a propósito: nunca debe interrumpir el uso
+   normal de la página. */
+function iniciarHeartbeat() {
+  apiFetch(`${API}/heartbeat`, { method: 'POST' }).catch(() => {});
+  setInterval(() => apiFetch(`${API}/heartbeat`, { method: 'POST' }).catch(() => {}), 60000);
+}
+
 /* ════════════════════════════════════════════════════
    SISTEMA DE MODALES (alert / confirm)
    ════════════════════════════════════════════════════ */
@@ -670,6 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
   mostrarFecha();
   cargarOficios();
+  iniciarHeartbeat();
 
   document.getElementById('modal-subturnar').addEventListener('click', function (e) {
     if (e.target === this) cerrarSubturnar();
