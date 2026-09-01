@@ -1,8 +1,10 @@
 /* ═══════════════════════════════════════════════════
    SBIS — Bandeja de Oficios (Área)
    El usuario de área ve los oficios turnados a su área.
-   Puede sub-turnar a uno de sus usuarios (turnado → sub_turnado),
-   o turnárselo a sí mismo para atenderlo directamente.
+   Puede sub-turnar dentro de su propia área (turnado → sub_turnado):
+   a un usuario operativo, a OTRO encargado de turnar de su misma área,
+   o a sí mismo para atenderlo directamente.
+   El turnado hacia OTRA área es exclusivo de Coordinación Administrativa.
    ═══════════════════════════════════════════════════ */
 const API = window.location.origin + '/api';
 
@@ -261,7 +263,9 @@ function construirTarjeta(r, i) {
        <div class="docs-admin-grid">${doc3HTML}${doc4HTML}</div>`
     : '';
 
-  // ¿Este oficio está autoasignado al propio encargado de turnar que está viendo la bandeja?
+  // ¿Este oficio está asignado al propio encargado de turnar que está viendo
+  // la bandeja? Puede ser porque se lo autoasignó, o porque otro encargado
+  // de su misma área se lo asignó.
   const esAutoasignado = r.usuario_asignado_id === USUARIO.id;
 
   // Chip de usuario asignado
@@ -309,8 +313,8 @@ function construirTarjeta(r, i) {
       </button>`;
   } else if (r.estatus === 'sub_turnado') {
     if (esAutoasignado) {
-      // El propio encargado de turnar se autoasignó este oficio: puede
-      // atenderlo directamente o reasignarlo a alguien más.
+      // Este oficio está asignado a mí (me lo autoasigné, o me lo asignó
+      // otro encargado de mi área): puedo atenderlo o reasignarlo.
       botonesHTML = `
         <div style="display:flex;flex-direction:column;gap:6px;">
           <button class="btn-accion btn-atender" onclick="abrirAtender(${r.id})">
@@ -533,7 +537,11 @@ function mostrarFecha() {
 }
 
 /* ════════════════════════════════════════════════════
-   MODAL: SUB-TURNAR A USUARIO (o a sí mismo)
+   MODAL: SUB-TURNAR DENTRO DEL ÁREA
+   Destinatarios posibles, todos de la MISMA área:
+     · Yo mismo (el encargado lo atiende directamente)
+     · Otro encargado de turnar del área (rol 'area')
+     · Un usuario operativo del área (rol 'usuario_area')
    ════════════════════════════════════════════════════ */
 let subturnandoId = null;
 
@@ -544,42 +552,49 @@ async function abrirSubturnar(id) {
   document.getElementById('subturnar-error').textContent = '';
   document.getElementById('subturnar-select').innerHTML  =
     '<option value="">Cargando usuarios...</option>';
-  const oficioActual = DATOS.find(o => o.id === id);
-  document.getElementById('subturnar-instruccion').value = oficioActual?.instrucciones_turno || '';
+
+  const oficio = DATOS.find(o => o.id === id);
+  document.getElementById('subturnar-instruccion').value = oficio?.instrucciones_turno || '';
   document.getElementById('modal-subturnar').style.display = 'flex';
 
-  // Cargar usuarios del área
+  const seleccionado = u => (oficio?.usuario_asignado_id === u.id ? 'selected' : '');
+
+  // El encargado de turnar siempre puede turnárselo a sí mismo para
+  // atenderlo directamente, sin depender de que existan más usuarios
+  // registrados en el área.
+  const opcionYo = () =>
+    `<option class="opcion-yo-mismo" value="${USUARIO.id}" ${seleccionado(USUARIO)}>
+       Yo mismo (${USUARIO.username}) — lo atenderé directamente
+     </option>`;
+
   try {
     const res = await apiFetch(`${API}/usuarios/area/${encodeURIComponent(USUARIO.area)}`);
-    if (!res.ok) throw new Error('No se pudieron cargar los usuarios.');
+    if (!res.ok) throw new Error('No se pudieron cargar los usuarios del área.');
     const usuarios = await res.json();
 
-    const select = document.getElementById('subturnar-select');
-    const oficio = DATOS.find(o => o.id === id);
+    // Nunca duplicar al propio usuario: ya aparece como "Yo mismo".
+    const otros      = usuarios.filter(u => u.id !== USUARIO.id);
+    const encargados = otros.filter(u => u.rol === 'area');
+    const operativos = otros.filter(u => u.rol !== 'area');
 
-    // El encargado de turnar siempre puede turnárselo a sí mismo para
-    // atenderlo directamente, sin depender de que existan usuarios
-    // registrados en el área.
-    const opcionYo = `<option class="opcion-yo-mismo" value="${USUARIO.id}" ${oficio?.usuario_asignado_id === USUARIO.id ? 'selected' : ''}>
-          Yo mismo (${USUARIO.username}) — lo atenderé directamente
-        </option>`;
+    const opt = u => `<option value="${u.id}" ${seleccionado(u)}>${u.username}</option>`;
 
-    const opcionesUsuarios = usuarios.map(u =>
-      `<option value="${u.id}" ${oficio?.usuario_asignado_id === u.id ? 'selected' : ''}>
-          ${u.username}
-        </option>`
-    ).join('');
+    const grupoEncargados = encargados.length
+      ? `<optgroup label="Encargados del área">${encargados.map(opt).join('')}</optgroup>`
+      : '';
+    const grupoOperativos = operativos.length
+      ? `<optgroup label="Usuarios del área">${operativos.map(opt).join('')}</optgroup>`
+      : '';
 
-    select.innerHTML = '<option value="">— Selecciona una opción —</option>' + opcionYo + opcionesUsuarios;
+    document.getElementById('subturnar-select').innerHTML =
+      '<option value="">— Selecciona una opción —</option>' +
+      `<optgroup label="Atender yo mismo">${opcionYo()}</optgroup>` +
+      grupoEncargados + grupoOperativos;
   } catch (err) {
     // Aunque falle la carga de usuarios del área, se deja disponible
     // la opción de autoasignación para no bloquear al encargado de turnar.
-    const oficio = DATOS.find(o => o.id === id);
     document.getElementById('subturnar-select').innerHTML =
-      '<option value="">— Selecciona una opción —</option>' +
-      `<option class="opcion-yo-mismo" value="${USUARIO.id}" ${oficio?.usuario_asignado_id === USUARIO.id ? 'selected' : ''}>
-          Yo mismo (${USUARIO.username}) — lo atenderé directamente
-        </option>`;
+      '<option value="">— Selecciona una opción —</option>' + opcionYo();
     document.getElementById('subturnar-error').textContent = err.message;
   }
 }
@@ -601,6 +616,9 @@ async function guardarSubturnar() {
     errEl.textContent = 'Debes seleccionar una opción.';
     return;
   }
+
+  // Nombre visible del destinatario, para el mensaje de confirmación.
+  const nombreDestino = select.options[select.selectedIndex]?.text.trim() || '';
 
   const btn = document.getElementById('subturnar-btn-guardar');
   btn.disabled  = true;
@@ -626,10 +644,10 @@ async function guardarSubturnar() {
     cerrarSubturnar();
     cargarOficios(filtroActual);
     await sbisAlert({
-      titulo:  meAutoasigne ? 'Oficio autoasignado' : 'Oficio sub-turnado',
+      titulo:  meAutoasigne ? 'Oficio autoasignado' : 'Oficio turnado',
       mensaje: meAutoasigne
         ? 'Te asignaste este oficio. Ya puedes atenderlo desde tu bandeja.'
-        : 'El oficio fue asignado correctamente al usuario seleccionado.',
+        : `El oficio fue asignado correctamente a ${nombreDestino}.`,
       tipo:    'success',
       btnOk:   'Aceptar'
     });
@@ -642,7 +660,7 @@ async function guardarSubturnar() {
 }
 
 /* ════════════════════════════════════════════════════
-   MODAL: ATENDER OFICIO (solo para oficios autoasignados)
+   MODAL: ATENDER OFICIO (para oficios asignados a mí)
    ════════════════════════════════════════════════════ */
 let atendiendoId = null;
 

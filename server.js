@@ -239,6 +239,15 @@ function tieneGestionCompleta(user) {
     (user?.rol === 'area' && user?.area === AREA_CON_GESTION_COMPLETA);
 }
 
+/* ── Roles que pueden RECIBIR un oficio dentro de un área ──
+   Son 'usuario_area' (usuarios operativos) y 'area' (encargados de
+   turnar): así un encargado puede sub-turnarle a OTRO encargado de su
+   MISMA área, no solo a los usuarios operativos. Se escribe literal en
+   cada consulta (rol IN ('area','usuario_area')) para que Postgres no
+   tenga que inferir el tipo de un parámetro de arreglo.
+   El turnado hacia OTRA área sigue siendo exclusivo de Coordinación
+   Administrativa (ver onlyCoordOrAdmin y la rama "origen" del PUT). */
+
 /* Solo Coordinación Administrativa (o el admin legado) puede crear
    registros nuevos. Las demás áreas ya no tienen esta capacidad: solo
    gestionan lo que se les turna, desde su Bandeja de Oficios. */
@@ -423,7 +432,11 @@ app.get('/api/usuarios-activos', verifyToken, (req, res) => {
 });
 
 /* ══ GET /api/usuarios/area/:area
-   Devuelve los usuarios con rol 'usuario_area' del área indicada.
+   Devuelve los usuarios del área indicada que pueden RECIBIR un oficio:
+   tanto los usuarios operativos (rol 'usuario_area') como los demás
+   encargados de turnar (rol 'area') de esa misma área — así un
+   encargado puede sub-turnarle a otro encargado de su área.
+   Se devuelve también el rol, para que el frontend pueda agruparlos.
    Solo accesible por el área correspondiente o admin.
 ══ */
 app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
@@ -434,10 +447,12 @@ app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
       return res.status(403).json({ mensaje: 'Sin acceso.' });
 
     const rows = await sql`
-      SELECT id, username, area
+      SELECT id, username, area, rol
       FROM usuarios
-      WHERE area = ${area} AND rol = 'usuario_area' AND activo = TRUE
-      ORDER BY username ASC`;
+      WHERE area = ${area}
+        AND rol IN ('area', 'usuario_area')
+        AND activo = TRUE
+      ORDER BY CASE WHEN rol = 'area' THEN 0 ELSE 1 END, username ASC`;
 
     res.json(rows);
   } catch (err) {
@@ -623,13 +638,19 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
    Flujo de estatus:
      área de origen (o admin legado) → crea/edita/turna su propio registro
      área receptora                  → turnado → sub_turnado (asigna usuario_asignado_id,
-                                        que puede ser un usuario de su área O ella misma;
-                                        puede acompañarlo de instrucciones_turno, dirigidas
-                                        a quien va a atenderlo)
+                                        que puede ser un usuario operativo de su área,
+                                        OTRO encargado de turnar de su misma área, o ella
+                                        misma; puede acompañarlo de instrucciones_turno,
+                                        dirigidas a quien va a atenderlo)
      usuario_area / área receptora   → sub_turnado / rechazado → atendido
                                         (el encargado de turnar también puede atender
-                                        directamente los oficios que se autoasignó)
+                                        directamente los oficios que se autoasignó o
+                                        que otro encargado de su área le asignó)
      área de origen (o admin legado) → atendido → completado / rechazado
+
+   IMPORTANTE: el turnado hacia OTRA área sigue siendo exclusivo de
+   Coordinación Administrativa (rama "origen"). El área receptora solo
+   puede mover el oficio DENTRO de su propia área.
 ══ */
 app.put('/api/oficios/:id', verifyToken, upload.fields([
   { name: 'doc1', maxCount: 1 },
@@ -713,21 +734,24 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         RETURNING *`;
       return res.json(sanitizarOficio(updated));
 
-    /* ── ÁREA RECEPTORA (el "encargado de turnar" del área a la que se
+    /* ── ÁREA RECEPTORA (un "encargado de turnar" del área a la que se
          turnó el oficio): puede sub-turnar (turnado → sub_turnado) a uno
-         de los usuarios de su área, O turnárselo a sí misma para
-         atenderlo directamente — en ambos casos puede escribir una
-         instrucción para quien va a atenderlo. Cuando ya se autoasignó
-         el oficio, también puede marcarlo como atendido, igual que un
+         de los usuarios operativos de su área, a OTRO encargado de turnar
+         de su MISMA área, o turnárselo a sí mismo para atenderlo
+         directamente — en todos los casos puede escribir una instrucción
+         para quien va a atenderlo. Cuando el oficio quedó asignado a él
+         (por autoasignación o porque otro encargado de su área se lo
+         asignó), también puede marcarlo como atendido, igual que un
          usuario_area. ── */
     } else if (rol === 'area' && oficio.turnado_a === area) {
       const { usuario_asignado_id, estatus: estatusBody, obs_area, instrucciones_turno } = req.body;
 
-      /* Caso 1: el encargado de turnar ya se había autoasignado el oficio
-         y ahora lo marca como atendido (con sus observaciones y docs). */
+      /* Caso 1: el oficio está asignado a este encargado (se lo autoasignó,
+         o se lo asignó otro encargado de su área) y ahora lo marca como
+         atendido (con sus observaciones y docs). */
       if (estatusBody === 'atendido') {
         if (oficio.usuario_asignado_id !== id)
-          return res.status(403).json({ mensaje: 'Solo puedes marcar como atendido un oficio que te hayas autoasignado.' });
+          return res.status(403).json({ mensaje: 'Solo puedes marcar como atendido un oficio que tengas asignado.' });
 
         const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
         const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;
@@ -744,9 +768,14 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         return res.json(sanitizarOficio(updated));
       }
 
-      /* Caso 2: sub-turnar el oficio a un usuario de su área, o
-         turnárselo a sí misma (usuario_asignado_id === su propio id),
-         con una instrucción opcional para quien lo atienda. */
+      /* Caso 2: sub-turnar el oficio a alguien de su área —un usuario
+         operativo (rol 'usuario_area') u otro encargado de turnar
+         (rol 'area')—, o turnárselo a sí mismo (usuario_asignado_id ===
+         su propio id), con una instrucción opcional para quien lo atienda.
+
+         El filtro `area = ${area}` de la consulta es la garantía de que
+         esto NO se convierte en un turnado entre áreas: solo alcanza a
+         personas de su propia área. */
       if (!usuario_asignado_id)
         return res.status(400).json({ mensaje: 'Debes seleccionar un usuario.' });
 
@@ -757,11 +786,14 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       } else {
         [usuarioObj] = await sql`
           SELECT id, username FROM usuarios
-          WHERE id = ${usuario_asignado_id} AND area = ${area} AND rol = 'usuario_area' AND activo = TRUE`;
+          WHERE id = ${usuario_asignado_id}
+            AND area = ${area}
+            AND rol IN ('area', 'usuario_area')
+            AND activo = TRUE`;
       }
 
       if (!usuarioObj)
-        return res.status(400).json({ mensaje: 'El usuario no pertenece a esta área.' });
+        return res.status(400).json({ mensaje: 'El usuario no pertenece a esta área o no puede recibir oficios.' });
 
       const [updated] = await sql`
         UPDATE oficios SET
