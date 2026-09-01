@@ -573,7 +573,16 @@ async function abrirSubturnar(id) {
     const usuarios = await res.json();
 
     // Nunca duplicar al propio usuario: ya aparece como "Yo mismo".
-    const otros      = usuarios.filter(u => u.id !== USUARIO.id);
+    // Se compara tanto por id como por username (sin distinguir
+    // mayúsculas/minúsculas): si en la base de datos llegara a existir
+    // una cuenta duplicada de la misma persona con otra capitalización
+    // de su username (el backend ya evita esto, ver /api/usuarios/area
+    // en server.js), aquí no vuelve a aparecer.
+    const miUsername = (USUARIO.username || '').trim().toLowerCase();
+    const otros = usuarios.filter(u =>
+      u.id !== USUARIO.id &&
+      (u.username || '').trim().toLowerCase() !== miUsername
+    );
     const encargados = otros.filter(u => u.rol === 'area');
     const operativos = otros.filter(u => u.rol !== 'area');
 

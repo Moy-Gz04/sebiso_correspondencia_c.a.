@@ -390,9 +390,25 @@ app.post('/api/login', limitadorLogin, async (req, res) => {
     if (!username || !password)
       return res.status(400).json({ mensaje: 'Usuario y contraseña requeridos.' });
 
+    /* Comparación insensible a mayúsculas/minúsculas: el username se
+       guarda tal cual se capturó (puede tener mayúsculas), pero para
+       iniciar sesión no debe importar cómo lo escriba la persona.
+       Antes se forzaba el valor tecleado a minúsculas y se comparaba
+       con IGUALDAD EXACTA contra la columna — si alguna cuenta se
+       había dado de alta con mayúsculas (p. ej. "Abril_Hernandez"),
+       jamás hacía match y esa persona no podía entrar, lo que llevaba
+       a crear una segunda cuenta duplicada en minúsculas solo para
+       poder acceder. LOWER() en ambos lados del WHERE hace que
+       cualquier combinación de mayúsculas/minúsculas funcione igual.
+       ORDER BY id ASC + LIMIT 1 es un resguardo por si aún existiera
+       una cuenta duplicada de una persona (ver notas de limpieza en
+       schema.sql): toma siempre la más antigua, de forma consistente,
+       en vez de que Postgres devuelva una fila al azar. */
     const [usuario] = await sql`
       SELECT * FROM usuarios
-      WHERE username = ${username.trim().toLowerCase()} AND activo = TRUE`;
+      WHERE LOWER(username) = LOWER(${username.trim()}) AND activo = TRUE
+      ORDER BY id ASC
+      LIMIT 1`;
 
     if (!usuario) return res.status(401).json({ mensaje: 'Usuario o contraseña incorrectos.' });
 
@@ -446,13 +462,25 @@ app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
     if (req.user.rol !== 'admin' && req.user.area !== area)
       return res.status(403).json({ mensaje: 'Sin acceso.' });
 
+    /* DISTINCT ON (LOWER(username)) es un resguardo por si dos cuentas
+       de la misma persona coexistieran con distinta capitalización
+       (ver la nota sobre LOWER() en /api/login más arriba): se queda
+       con una sola fila por username, sin importar mayúsculas, y entre
+       posibles duplicados prefiere siempre la de menor id (la más
+       antigua). Con los usernames ya sin duplicados esto no cambia
+       nada — es puramente defensivo. */
     const rows = await sql`
-      SELECT id, username, area, rol
+      SELECT DISTINCT ON (LOWER(username)) id, username, area, rol
       FROM usuarios
       WHERE area = ${area}
         AND rol IN ('area', 'usuario_area')
         AND activo = TRUE
-      ORDER BY CASE WHEN rol = 'area' THEN 0 ELSE 1 END, username ASC`;
+      ORDER BY LOWER(username), id ASC`;
+
+    rows.sort((a, b) => {
+      if (a.rol !== b.rol) return a.rol === 'area' ? -1 : 1;
+      return a.username.localeCompare(b.username);
+    });
 
     res.json(rows);
   } catch (err) {
