@@ -55,21 +55,104 @@ function iniciarHeartbeat() {
   setInterval(ping, 60000);
 }
 
+/* ── Usuarios Activos: badge discreto en el header con panel al pasar
+   el cursor ──
+   Se inyecta una sola vez el CSS del panel (inyectarEstilosUsuariosActivos)
+   y luego, cada vez que se actualiza el contador, se repinta la lista
+   de usuario + área/rol dentro del panel. El panel se muestra por CSS
+   (:hover / :focus-within), sin depender del title nativo del navegador. */
+function inyectarEstilosUsuariosActivos() {
+  if (document.getElementById('estilos-usuarios-activos')) return;
+  const style = document.createElement('style');
+  style.id = 'estilos-usuarios-activos';
+  style.textContent = `
+    .badge-usuarios-activos {
+      position: relative;
+      display: flex; align-items: center; gap: 5px;
+      color: #6b6b6b; font-size: 12.5px; font-weight: 600;
+      font-family: 'Montserrat', sans-serif; white-space: nowrap;
+      cursor: default; padding: 3px 6px; border-radius: 6px;
+      transition: background .15s;
+    }
+    .badge-usuarios-activos:hover,
+    .badge-usuarios-activos:focus-within { background: #f4eef0; }
+    .badge-usuarios-activos:hover .panel-usuarios-activos,
+    .badge-usuarios-activos:focus-within .panel-usuarios-activos {
+      opacity: 1; visibility: visible; transform: translateY(0);
+    }
+    .panel-usuarios-activos {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      min-width: 220px; max-width: 280px;
+      background: #fff; border: 1px solid #e6dde1; border-radius: 10px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.14);
+      padding: 10px 12px; z-index: 20000;
+      opacity: 0; visibility: hidden; transform: translateY(-4px);
+      transition: opacity .15s ease, transform .15s ease, visibility .15s;
+      text-align: left; white-space: normal; cursor: default;
+    }
+    .panel-usuarios-activos-titulo {
+      font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; color: #999; margin-bottom: 7px;
+    }
+    .panel-usuarios-activos-lista {
+      display: flex; flex-direction: column; gap: 6px;
+      max-height: 190px; overflow-y: auto;
+    }
+    .panel-usuarios-activos-fila {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: #333;
+    }
+    .panel-usuarios-activos-nombre {
+      font-weight: 600; color: #222;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .panel-usuarios-activos-area {
+      color: #918a8d; font-size: 10.5px; margin-left: auto;
+      text-align: right; flex-shrink: 0; max-width: 120px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .punto-activo {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #2e7d32; flex-shrink: 0;
+    }
+    .panel-usuarios-activos-vacio { font-size: 12px; color: #999; font-style: italic; }
+  `;
+  document.head.appendChild(style);
+}
+
+function pintarPanelUsuariosActivos(usuarios) {
+  const listaEl = document.getElementById('lista-usuarios-activos');
+  if (!listaEl) return;
+  listaEl.innerHTML = usuarios.length
+    ? usuarios.map(u => `
+        <div class="panel-usuarios-activos-fila">
+          <span class="punto-activo"></span>
+          <span class="panel-usuarios-activos-nombre">${u.username}</span>
+          <span class="panel-usuarios-activos-area">${u.area || (u.rol === 'admin' ? 'Administración' : u.rol)}</span>
+        </div>`).join('')
+    : '<span class="panel-usuarios-activos-vacio">Sin usuarios activos en este momento</span>';
+}
+
 function iniciarContadorUsuariosActivos() {
+  inyectarEstilosUsuariosActivos();
+
   const badge = document.createElement('div');
   badge.id = 'badge-usuarios-activos';
-  badge.title = 'Usuarios con actividad en los últimos minutos';
-  badge.style.cssText = `
-    display:flex; align-items:center; gap:5px;
-    color:#6b6b6b; font-size:12.5px; font-weight:600;
-    font-family:'Montserrat',sans-serif; white-space:nowrap; cursor:default;`;
+  badge.className = 'badge-usuarios-activos';
+  badge.tabIndex = 0;
   badge.innerHTML = `
     <span style="position:relative; display:inline-flex;">
       <i class="ti ti-users" style="font-size:17px; line-height:1;"></i>
       <span style="position:absolute; bottom:-1px; right:-2px; width:7px; height:7px;
                    background:#2e7d32; border:1.5px solid #fff; border-radius:50%;"></span>
     </span>
-    <span id="txt-usuarios-activos">—</span>`;
+    <span id="txt-usuarios-activos">—</span>
+    <div class="panel-usuarios-activos">
+      <div class="panel-usuarios-activos-titulo">Usuarios activos</div>
+      <div class="panel-usuarios-activos-lista" id="lista-usuarios-activos">
+        <span class="panel-usuarios-activos-vacio">Cargando…</span>
+      </div>
+    </div>`;
 
   const headerDerecha = document.querySelector('.header-derecha');
   if (headerDerecha) headerDerecha.prepend(badge);
@@ -79,12 +162,8 @@ function iniciarContadorUsuariosActivos() {
       const res  = await fetch(`${API}/usuarios-activos`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
       const data = await res.json();
       const txt  = document.getElementById('txt-usuarios-activos');
-      if (txt) {
-        txt.textContent = data.total;
-        badge.title = data.usuarios.length
-          ? `Usuarios activos:\n${data.usuarios.map(u => `${u.username} (${u.area || u.rol})`).join('\n')}`
-          : 'Sin usuarios activos en este momento';
-      }
+      if (txt) txt.textContent = data.total;
+      pintarPanelUsuariosActivos(data.usuarios || []);
     } catch { /* silencioso */ }
   };
 
