@@ -669,7 +669,11 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
                                         que puede ser un usuario operativo de su área,
                                         OTRO encargado de turnar de su misma área, o ella
                                         misma; puede acompañarlo de instrucciones_turno,
-                                        dirigidas a quien va a atenderlo)
+                                        dirigidas a quien va a atenderlo, y opcionalmente
+                                        del documento de Turno — ruta_doc3 — si el propio
+                                        encargado ya lo tiene a la mano; si no lo sube
+                                        aquí, quien reciba el sub-turnado deberá subirlo
+                                        al atender)
      usuario_area / área receptora   → sub_turnado / rechazado → atendido
                                         (el encargado de turnar también puede atender
                                         directamente los oficios que se autoasignó o
@@ -781,6 +785,13 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         if (oficio.usuario_asignado_id !== id)
           return res.status(403).json({ mensaje: 'Solo puedes marcar como atendido un oficio que tengas asignado.' });
 
+        // El documento de Turno (doc3) solo es obligatorio en este paso
+        // si NADIE lo subió antes (ni el encargado al sub-turnar, ni un
+        // intento previo de atención); si ya existe en el registro, se
+        // conserva tal cual (COALESCE) y aquí no se vuelve a exigir.
+        if (!oficio.ruta_doc3 && !files.doc3?.[0])
+          return res.status(400).json({ mensaje: 'Falta el documento de Turno.' });
+
         const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
         const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;
 
@@ -799,7 +810,11 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       /* Caso 2: sub-turnar el oficio a alguien de su área —un usuario
          operativo (rol 'usuario_area') u otro encargado de turnar
          (rol 'area')—, o turnárselo a sí mismo (usuario_asignado_id ===
-         su propio id), con una instrucción opcional para quien lo atienda.
+         su propio id), con una instrucción opcional para quien lo atienda
+         y, opcionalmente, el documento de Turno (doc3) ya digitalizado:
+         si el encargado lo adjunta aquí, quien reciba el sub-turnado ya
+         no tiene que volver a subirlo, solo visualizarlo; si no lo
+         adjunta, queda pendiente de que lo suba quien atienda.
 
          El filtro `area = ${area}` de la consulta es la garantía de que
          esto NO se convierte en un turnado entre áreas: solo alcanza a
@@ -823,12 +838,15 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       if (!usuarioObj)
         return res.status(400).json({ mensaje: 'El usuario no pertenece a esta área o no puede recibir oficios.' });
 
+      const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
+
       const [updated] = await sql`
         UPDATE oficios SET
           estatus                 = 'sub_turnado',
           usuario_asignado_id     = ${usuarioObj.id},
           usuario_asignado_nombre = ${usuarioObj.username},
           instrucciones_turno     = ${instrucciones_turno !== undefined ? (instrucciones_turno || null) : oficio.instrucciones_turno},
+          ruta_doc3                = COALESCE(${ruta_doc3}, ruta_doc3),
           updated_at              = NOW()
         WHERE id = ${req.params.id}
         RETURNING *`;
@@ -841,6 +859,13 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
 
       const { obs_area, estatus: estatusBody } = req.body;
       const nuevoEstatus = estatusBody === 'atendido' ? 'atendido' : null;
+
+      // Igual que para el encargado de turnar: el documento de Turno
+      // (doc3) solo es obligatorio al marcar como atendido si aún nadie
+      // lo había subido (ni el encargado que lo sub-turnó, ni un intento
+      // previo de este mismo usuario).
+      if (nuevoEstatus === 'atendido' && !oficio.ruta_doc3 && !files.doc3?.[0])
+        return res.status(400).json({ mensaje: 'Falta el documento de Turno.' });
 
       const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
       const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;

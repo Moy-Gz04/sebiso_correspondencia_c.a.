@@ -431,6 +431,13 @@ function mostrarFecha() {
 
 /* ════════════════════════════════════════════════════
    MODAL: ATENDER OFICIO
+
+   El documento de Turno (doc3) puede haber llegado ya adjunto desde
+   el sub-turnado (si el encargado de turnar que asignó el oficio lo
+   subió ahí): en ese caso aquí solo se puede visualizar, y este
+   usuario únicamente sube el Seguimiento (doc4). Si nadie lo ha
+   subido todavía, se pide aquí mismo y es obligatorio para poder
+   marcar el oficio como atendido.
    ════════════════════════════════════════════════════ */
 let atendiendoId = null;
 
@@ -438,11 +445,34 @@ function abrirAtender(id) {
   atendiendoId = id;
   const r = DATOS.find(o => o.id === id);
   document.getElementById('atender-obs').value        = r?.obs_area || '';
-  document.getElementById('atender-doc3').value       = '';
-  document.getElementById('atender-doc4').value       = '';
-  document.getElementById('nombre-doc3').textContent  = '';
-  document.getElementById('nombre-doc4').textContent  = '';
+  document.getElementById('atender-doc4').value        = '';
+  document.getElementById('nombre-doc4').textContent   = '';
   document.getElementById('atender-error').textContent = '';
+
+  const slot = document.getElementById('atender-doc3-slot');
+  if (slot) {
+    if (r?.doc3) {
+      slot.innerHTML = `
+        <div class="doc-admin-card doc-solo-vista" onclick="verDocSeguro(${id}, 'doc3')">
+          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
+          <div class="doc-admin-info">
+            <span class="doc-admin-nombre">${r.doc3.nombre}</span>
+            <span class="doc-admin-meta">Turno — ya adjunto, clic para ver</span>
+          </div>
+          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
+        </div>`;
+    } else {
+      slot.innerHTML = `
+        <div class="archivo-drop">
+          <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx,image/*" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
+          <i class="ti ti-file-upload"></i>
+          <div class="archivo-drop-label">Turno <span class="archivo-drop-req">*</span></div>
+          <div class="archivo-drop-desc">Oficio recepcionado sin atención</div>
+          <div class="archivo-drop-nombre" id="nombre-doc3"></div>
+        </div>`;
+    }
+  }
+
   const infoInstruccion = document.getElementById('atender-instruccion');
   if (infoInstruccion) {
     if (r?.instrucciones_turno) {
@@ -468,6 +498,18 @@ async function guardarAtencion() {
   if (!atendiendoId) return;
   const errEl = document.getElementById('atender-error');
   errEl.textContent = '';
+
+  const r         = DATOS.find(o => o.id === atendiendoId);
+  const doc3Input = document.getElementById('atender-doc3'); // no existe si el doc3 ya venía adjunto
+  const doc3File  = doc3Input?.files?.[0];
+
+  // Si nadie subió el documento de Turno todavía, es obligatorio subirlo
+  // ahora para poder marcar el oficio como atendido.
+  if (!r?.doc3 && !doc3File) {
+    errEl.textContent = 'Debes adjuntar el documento de Turno para poder atender este oficio.';
+    return;
+  }
+
   const btn = document.getElementById('atender-btn-guardar');
   btn.disabled = true;
   btn.innerHTML = 'Guardando...';
@@ -476,9 +518,8 @@ async function guardarAtencion() {
     const fd = new FormData();
     fd.append('estatus',  'atendido');
     fd.append('obs_area', document.getElementById('atender-obs').value || '');
-    const doc3 = document.getElementById('atender-doc3').files?.[0];
     const doc4 = document.getElementById('atender-doc4').files?.[0];
-    if (doc3) fd.append('doc3', doc3);
+    if (doc3File) fd.append('doc3', doc3File);
     if (doc4) fd.append('doc4', doc4);
 
     const res = await apiFetch(`${API}/oficios/${atendiendoId}`, { method: 'PUT', body: fd });

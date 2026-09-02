@@ -78,6 +78,8 @@
     .archivo-drop-label  { font-size:12.5px; color:#6b6b6b; font-weight:600; }
     .archivo-drop-desc   { font-size:11px; color:#8a8a8a; font-weight:400; margin-top:2px; line-height:1.3; }
     .archivo-drop-nombre { font-size:11.5px; color:var(--guinda,#6B0F2B); margin-top:4px; word-break:break-all; }
+    .archivo-drop-req { color: var(--alerta,#c62828); }
+    .doc-admin-card.doc-solo-vista { cursor:pointer; height:100%; box-sizing:border-box; align-items:center; }
 
     /* ── Responsivo: modal Atender en móvil ── */
     @media (max-width: 600px) {
@@ -221,15 +223,9 @@
           <textarea id="atender-obs" rows="3" placeholder="Describe lo realizado o comentarios sobre este oficio..."></textarea>
         </div>
         <div class="modal-campo">
-          <label>Documentos de Respuesta (PDF, Word o Imagen, opcional)</label>
+          <label>Documentos de Respuesta (PDF, Word o Imagen)</label>
           <div class="archivos-grid">
-            <div class="archivo-drop">
-              <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx,image/*" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
-              <i class="ti ti-file-upload"></i>
-              <div class="archivo-drop-label">Turno</div>
-              <div class="archivo-drop-desc">Oficio recepcionado sin atención</div>
-              <div class="archivo-drop-nombre" id="nombre-doc3"></div>
-            </div>
+            <div id="atender-doc3-slot"></div>
             <div class="archivo-drop">
               <input type="file" id="atender-doc4" accept=".pdf,.doc,.docx,image/*" onchange="mostrarNombreArchivo(this,'nombre-doc4')"/>
               <i class="ti ti-file-upload"></i>

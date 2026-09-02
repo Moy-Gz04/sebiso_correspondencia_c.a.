@@ -542,6 +542,12 @@ function mostrarFecha() {
      · Yo mismo (el encargado lo atiende directamente)
      · Otro encargado de turnar del área (rol 'area')
      · Un usuario operativo del área (rol 'usuario_area')
+
+   Desde aquí el encargado de turnar también puede adjuntar el
+   documento de Turno (doc3) del oficio que va a asignar: si lo
+   adjunta, quien reciba el sub-turnado ya no tiene que subirlo, solo
+   podrá visualizarlo al atender; si no lo adjunta, queda pendiente de
+   que lo suba quien atienda el oficio.
    ════════════════════════════════════════════════════ */
 let subturnandoId = null;
 
@@ -555,6 +561,28 @@ async function abrirSubturnar(id) {
 
   const oficio = DATOS.find(o => o.id === id);
   document.getElementById('subturnar-instruccion').value = oficio?.instrucciones_turno || '';
+
+  // Documento de Turno: campo de subida siempre disponible aquí (permite
+  // reemplazar el archivo aunque ya exista uno), con un aviso si el
+  // oficio ya trae uno adjunto.
+  const doc3Input   = document.getElementById('subturnar-doc3');
+  const doc3Nombre  = document.getElementById('nombre-subturnar-doc3');
+  const doc3InfoBox = document.getElementById('subturnar-doc3-info');
+  if (doc3Input)  doc3Input.value = '';
+  if (doc3Nombre) doc3Nombre.textContent = '';
+  if (doc3InfoBox) {
+    if (oficio?.doc3) {
+      doc3InfoBox.style.display = 'flex';
+      doc3InfoBox.className = 'modal-info-box';
+      doc3InfoBox.innerHTML = `
+        <i class="ti ti-circle-check" style="font-size:16px;flex-shrink:0;margin-top:1px;"></i>
+        <span>Este oficio ya tiene un documento de Turno adjunto (<strong>${oficio.doc3.nombre}</strong>). Puedes dejarlo así o subir uno nuevo para reemplazarlo.</span>`;
+    } else {
+      doc3InfoBox.style.display = 'none';
+      doc3InfoBox.innerHTML = '';
+    }
+  }
+
   document.getElementById('modal-subturnar').style.display = 'flex';
 
   const seleccionado = u => (oficio?.usuario_asignado_id === u.id ? 'selected' : '');
@@ -637,6 +665,8 @@ async function guardarSubturnar() {
     const fd = new FormData();
     fd.append('usuario_asignado_id', usuarioId);
     fd.append('instrucciones_turno', document.getElementById('subturnar-instruccion').value || '');
+    const doc3 = document.getElementById('subturnar-doc3')?.files?.[0];
+    if (doc3) fd.append('doc3', doc3);
 
     const res = await apiFetch(`${API}/oficios/${subturnandoId}`, {
       method: 'PUT',
@@ -670,6 +700,12 @@ async function guardarSubturnar() {
 
 /* ════════════════════════════════════════════════════
    MODAL: ATENDER OFICIO (para oficios asignados a mí)
+
+   El documento de Turno (doc3) puede haber llegado ya adjunto desde
+   el sub-turnado (si el encargado que asignó el oficio lo subió ahí):
+   en ese caso aquí solo se puede visualizar, y quien atiende únicamente
+   sube el Seguimiento (doc4). Si nadie lo ha subido todavía, se pide
+   aquí mismo y es obligatorio para poder marcar el oficio como atendido.
    ════════════════════════════════════════════════════ */
 let atendiendoId = null;
 
@@ -677,11 +713,34 @@ function abrirAtender(id) {
   atendiendoId = id;
   const r = DATOS.find(o => o.id === id);
   document.getElementById('atender-obs').value        = r?.obs_area || '';
-  document.getElementById('atender-doc3').value        = '';
   document.getElementById('atender-doc4').value        = '';
-  document.getElementById('nombre-doc3').textContent   = '';
   document.getElementById('nombre-doc4').textContent   = '';
   document.getElementById('atender-error').textContent = '';
+
+  const slot = document.getElementById('atender-doc3-slot');
+  if (slot) {
+    if (r?.doc3) {
+      slot.innerHTML = `
+        <div class="doc-admin-card doc-solo-vista" onclick="verDocSeguro(${id}, 'doc3')">
+          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
+          <div class="doc-admin-info">
+            <span class="doc-admin-nombre">${r.doc3.nombre}</span>
+            <span class="doc-admin-meta">Turno — ya adjunto, clic para ver</span>
+          </div>
+          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
+        </div>`;
+    } else {
+      slot.innerHTML = `
+        <div class="archivo-drop">
+          <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx,image/*" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
+          <i class="ti ti-file-upload"></i>
+          <div class="archivo-drop-label">Turno <span class="archivo-drop-req">*</span></div>
+          <div class="archivo-drop-desc">Oficio recepcionado sin atención</div>
+          <div class="archivo-drop-nombre" id="nombre-doc3"></div>
+        </div>`;
+    }
+  }
+
   const infoInstruccion = document.getElementById('atender-instruccion');
   if (infoInstruccion) {
     if (r?.instrucciones_turno) {
@@ -707,6 +766,18 @@ async function guardarAtencion() {
   if (!atendiendoId) return;
   const errEl = document.getElementById('atender-error');
   errEl.textContent = '';
+
+  const r         = DATOS.find(o => o.id === atendiendoId);
+  const doc3Input = document.getElementById('atender-doc3'); // no existe si el doc3 ya venía adjunto
+  const doc3File  = doc3Input?.files?.[0];
+
+  // Si nadie subió el documento de Turno todavía, es obligatorio subirlo
+  // ahora para poder marcar el oficio como atendido.
+  if (!r?.doc3 && !doc3File) {
+    errEl.textContent = 'Debes adjuntar el documento de Turno para poder atender este oficio.';
+    return;
+  }
+
   const btn = document.getElementById('atender-btn-guardar');
   btn.disabled  = true;
   btn.innerHTML = 'Guardando...';
@@ -715,9 +786,8 @@ async function guardarAtencion() {
     const fd = new FormData();
     fd.append('estatus',  'atendido');
     fd.append('obs_area', document.getElementById('atender-obs').value || '');
-    const doc3 = document.getElementById('atender-doc3').files?.[0];
     const doc4 = document.getElementById('atender-doc4').files?.[0];
-    if (doc3) fd.append('doc3', doc3);
+    if (doc3File) fd.append('doc3', doc3File);
     if (doc4) fd.append('doc4', doc4);
 
     const res = await apiFetch(`${API}/oficios/${atendiendoId}`, { method: 'PUT', body: fd });
