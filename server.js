@@ -14,6 +14,7 @@ import { neon }          from '@neondatabase/serverless';
 import dotenv            from 'dotenv';
 import bcrypt            from 'bcryptjs';
 import jwt                from 'jsonwebtoken';
+import { randomUUID }     from 'crypto';
 
 dotenv.config();
 
@@ -199,28 +200,69 @@ function verifyToken(req, res, next) {
    se vacía (no importa, solo interesa la actividad reciente) y, si
    algún día se despliegan varias instancias a la vez, cada una vería
    solo a sus propios usuarios — para el tamaño actual de este sistema
-   (una sola instancia en Render) es la solución correcta y más simple. */
+   (una sola instancia en Render) es la solución correcta y más simple.
+
+   El mapa se indexa por "sid" (identificador de SESIÓN, uno por cada
+   login — ver /api/login) y no por username, para poder distinguir dos
+   sesiones simultáneas de la MISMA cuenta (p. ej. la misma cuenta
+   abierta en dos dispositivos a la vez): cada sesión queda su propia
+   entrada, y obtenerUsuariosActivos() las agrupa por username al
+   final para reportar cuántas sesiones tiene abiertas cada cuenta. Un
+   token emitido antes de este cambio no trae "sid": se le asigna uno
+   basado en su username como resguardo, para no romper sesiones ya
+   abiertas (esas cuentas viejas simplemente cuentan como una sola
+   sesión hasta que vuelvan a iniciar sesión). */
 const VENTANA_ACTIVO_MS = 3 * 60 * 1000; // 3 min sin actividad → ya no cuenta como activo
-const usuariosActivos = new Map(); // username -> { username, area, rol, ultimaVez }
+const usuariosActivos = new Map(); // sid -> { username, area, rol, sid, ultimaVez }
 
 function registrarActividad(user) {
   if (!user?.username) return;
-  usuariosActivos.set(user.username, {
+  const sid = user.sid || `legacy-${user.username}`;
+  usuariosActivos.set(sid, {
     username:  user.username,
     area:      user.area || null,
     rol:       user.rol,
+    sid,
     ultimaVez: Date.now(),
   });
 }
 
 function obtenerUsuariosActivos() {
   const ahora = Date.now();
-  const activos = [];
-  for (const [username, datos] of usuariosActivos) {
-    if (ahora - datos.ultimaVez <= VENTANA_ACTIVO_MS) activos.push(datos);
-    else usuariosActivos.delete(username); // limpieza perezosa de sesiones ya inactivas
+  const sesiones = [];
+  for (const [sid, datos] of usuariosActivos) {
+    if (ahora - datos.ultimaVez <= VENTANA_ACTIVO_MS) sesiones.push(datos);
+    else usuariosActivos.delete(sid); // limpieza perezosa de sesiones ya inactivas
   }
-  return activos.sort((a, b) => a.username.localeCompare(b.username));
+
+  // Agrupar por username: la misma cuenta activa en varios dispositivos
+  // aparece como UNA sola fila con "sesiones" > 1, en vez de duplicarse
+  // en la lista — así el frontend puede marcarla con un "×2", "×3", etc.
+  const porUsuario = new Map(); // username -> { username, area, rol, sesiones }
+  for (const s of sesiones) {
+    const existente = porUsuario.get(s.username);
+    if (existente) {
+      existente.sesiones += 1;
+      // Se conserva el área/rol más reciente entre sus sesiones.
+      if (s.ultimaVez >= existente._ultimaVez) {
+        existente.area = s.area;
+        existente.rol  = s.rol;
+        existente._ultimaVez = s.ultimaVez;
+      }
+    } else {
+      porUsuario.set(s.username, {
+        username: s.username,
+        area:     s.area,
+        rol:      s.rol,
+        sesiones: 1,
+        _ultimaVez: s.ultimaVez,
+      });
+    }
+  }
+
+  return [...porUsuario.values()]
+    .map(({ _ultimaVez, ...resto }) => resto)
+    .sort((a, b) => a.username.localeCompare(b.username));
 }
 
 function onlyAdmin(req, res, next) {
@@ -415,8 +457,16 @@ app.post('/api/login', limitadorLogin, async (req, res) => {
     const coincide = await bcrypt.compare(password, usuario.password);
     if (!coincide) return res.status(401).json({ mensaje: 'Usuario o contraseña incorrectos.' });
 
+    /* "sid" = identificador único de ESTA sesión (este inicio de sesión
+       en este dispositivo/navegador), distinto del id del usuario. Se
+       genera uno nuevo en cada login y viaja dentro del JWT. Gracias a
+       esto, si la misma cuenta inicia sesión en dos dispositivos a la
+       vez, el sistema puede distinguir ambas sesiones activas en vez
+       de verlas como una sola (ver registrarActividad/
+       obtenerUsuariosActivos más abajo) y mostrar en "Usuarios Activos"
+       que esa cuenta tiene 2 sesiones abiertas. */
     const token = jwt.sign(
-      { id: usuario.id, username: usuario.username, area: usuario.area, rol: usuario.rol },
+      { id: usuario.id, username: usuario.username, area: usuario.area, rol: usuario.rol, sid: randomUUID() },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );

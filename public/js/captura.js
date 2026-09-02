@@ -115,6 +115,13 @@ function inyectarEstilosUsuariosActivos() {
       width: 6px; height: 6px; border-radius: 50%;
       background: #2e7d32; flex-shrink: 0;
     }
+    .chip-sesiones {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 16px; height: 16px; padding: 0 4px;
+      border-radius: 999px; background: #fff3e0; color: #b45309;
+      border: 1px solid #f3d9a8; font-size: 9.5px; font-weight: 700;
+      flex-shrink: 0; cursor: help;
+    }
     .panel-usuarios-activos-vacio { font-size: 12px; color: #999; font-style: italic; }
   `;
   document.head.appendChild(style);
@@ -128,6 +135,7 @@ function pintarPanelUsuariosActivos(usuarios) {
         <div class="panel-usuarios-activos-fila">
           <span class="punto-activo"></span>
           <span class="panel-usuarios-activos-nombre">${u.username}</span>
+          ${u.sesiones > 1 ? `<span class="chip-sesiones" title="Esta cuenta tiene ${u.sesiones} sesiones activas al mismo tiempo (posiblemente en distintos dispositivos)">×${u.sesiones}</span>` : ''}
           <span class="panel-usuarios-activos-area">${u.area || (u.rol === 'admin' ? 'Administración' : u.rol)}</span>
         </div>`).join('')
     : '<span class="panel-usuarios-activos-vacio">Sin usuarios activos en este momento</span>';
