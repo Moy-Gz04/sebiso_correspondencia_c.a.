@@ -13,6 +13,18 @@ const BADGE = {
   completado: ['b-comp',  'Completado'],
 };
 
+/* Áreas a las que se puede turnar un oficio (debe reflejar las mismas
+   opciones que los selects de turnado en captura.html/historial.html). */
+const AREAS_TURNADO = [
+  'Coordinación Administrativa',
+  'R. Humanos',
+  'R. Financieros',
+  'Seguimiento de Auditorías',
+  'Informática',
+  'R. Materiales',
+  'Archivo',
+];
+
 /* Solo Coordinación Administrativa (o el admin legado) tiene acceso a
    Historial y a Nuevo Registro. El resto de las áreas se maneja
    exclusivamente desde Bandeja de Oficios (área.html). */
@@ -24,6 +36,7 @@ function tieneGestionCompleta(usuario) {
 
 let DATOS        = [];
 let filtroActual = 'todos';
+let filtroArea   = 'todas'; // 'todas' o el nombre exacto de un área (columna turnado_a)
 let TOKEN        = null;
 let USUARIO      = null;
 let SELECCION    = []; // ids de oficios seleccionados, en orden de selección (máx. 4)
@@ -383,6 +396,50 @@ async function apiFetch(url, opciones = {}) {
   return res;
 }
 
+/* ── Filtro por área (además del filtro por estatus / búsqueda) ──
+   Se pinta como un <select id="filtro-area"> en la barra de filtros:
+   "Todas las áreas" o una en específico, sobre la columna turnado_a.
+   Se combina con el filtro de estatus (chips) y con la búsqueda de
+   texto, aplicándose siempre sobre los datos ya cargados (DATOS). */
+function poblarFiltroArea() {
+  const sel = document.getElementById('filtro-area');
+  if (!sel) return;
+  sel.innerHTML = '<option value="todas">Todas las áreas</option>' +
+    AREAS_TURNADO.map(a => `<option value="${a}">${a}</option>`).join('');
+  sel.value = filtroArea;
+}
+
+function filtrarPorArea(valor) {
+  filtroArea = valor || 'todas';
+  aplicarFiltrosLocales();
+}
+
+/* ── Búsqueda de texto + filtro de área, combinados ──
+   Incluye N. Control, N. Referencia, área turnada, remitente,
+   dependencia y también el Asunto (descripción). */
+function aplicarFiltrosLocales() {
+  let lista = DATOS;
+
+  if (filtroArea !== 'todas') {
+    lista = lista.filter(r => r.turnado_a === filtroArea);
+  }
+
+  const buscador = document.getElementById('buscador');
+  const q = (buscador?.value || '').trim().toLowerCase();
+  if (q) {
+    lista = lista.filter(r =>
+      (r.n_control   || '').toLowerCase().includes(q) ||
+      (r.n_referencia|| '').toLowerCase().includes(q) ||
+      (r.turnado_a   || '').toLowerCase().includes(q) ||
+      (r.remitente   || '').toLowerCase().includes(q) ||
+      (r.dependencia || '').toLowerCase().includes(q) ||
+      (r.descripcion || '').toLowerCase().includes(q)
+    );
+  }
+
+  renderLista(lista);
+}
+
 /* ── Cargar oficios ── */
 async function cargarOficios(estatus = 'todos') {
   const lista = document.getElementById('lista');
@@ -401,7 +458,7 @@ async function cargarOficios(estatus = 'todos') {
     const res = await apiFetch(url);
     if (!res.ok) throw new Error();
     DATOS = await res.json();
-    renderLista(DATOS);
+    aplicarFiltrosLocales();
   } catch {
     lista.innerHTML = `<div class="cargando-msg error">
       <i class="ti ti-alert-circle"></i> No se pudo conectar con el servidor.
@@ -415,7 +472,8 @@ function construirTarjeta(r, i) {
 
   const badgeHTML = r.turnado_a
     ? `<span class="badge ${cls}">${lbl}</span>
-       <span style="font-size:10px;color:var(--txt2);margin-top:2px;">→ ${r.turnado_a}</span>`
+       <span style="font-size:10px;color:var(--txt2);margin-top:2px;">→ ${r.turnado_a}</span>
+       ${r.turnado_por ? `<span style="font-size:9.5px;color:var(--txt2);opacity:.85;">por ${r.turnado_por}</span>` : ''}`
     : `<span class="badge ${cls}">${lbl}</span>`;
 
   const doc1HTML = r.doc1
@@ -574,6 +632,10 @@ function construirTarjeta(r, i) {
           </span>
         </div>
         <div class="t-extra-item">
+          <span class="t-extra-label">Turnado por</span>
+          <span class="t-extra-val">${r.turnado_por || '—'}</span>
+        </div>
+        <div class="t-extra-item">
           <span class="t-extra-label">F. Registro</span>
           <span class="t-extra-val">${formatFecha(r.f_registro)}</span>
         </div>
@@ -680,25 +742,12 @@ function filtrar(btn, estatus) {
   cargarOficios(estatus);
 }
 
-/* ── Búsqueda en tiempo real (filtra sobre DATOS ya cargados) ──
-   Incluye N. Control, N. Referencia, área turnada, remitente,
-   dependencia y también el Asunto (descripción). */
+/* ── Búsqueda en tiempo real (filtra sobre DATOS ya cargados, junto
+   con el filtro de área) ── */
 function buscar(texto) {
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = texto.trim() ? 'flex' : 'none';
-
-  const q = texto.trim().toLowerCase();
-  if (!q) { renderLista(DATOS); return; }
-
-  const filtrados = DATOS.filter(r =>
-    (r.n_control   || '').toLowerCase().includes(q) ||
-    (r.n_referencia|| '').toLowerCase().includes(q) ||
-    (r.turnado_a   || '').toLowerCase().includes(q) ||
-    (r.remitente   || '').toLowerCase().includes(q) ||
-    (r.dependencia || '').toLowerCase().includes(q) ||
-    (r.descripcion || '').toLowerCase().includes(q)
-  );
-  renderLista(filtrados);
+  aplicarFiltrosLocales();
 }
 
 function limpiarBusqueda() {
@@ -706,7 +755,7 @@ function limpiarBusqueda() {
   if (buscador) buscador.value = '';
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = 'none';
-  renderLista(DATOS);
+  aplicarFiltrosLocales();
 }
 
 async function guardarObs(id, valor) {
@@ -1260,6 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
   inyectarModales();
   mostrarFecha();
+  poblarFiltroArea();
   cargarOficios();
   cargarPdfsGenerados();
   iniciarHeartbeat();

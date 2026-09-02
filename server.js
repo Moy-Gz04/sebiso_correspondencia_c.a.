@@ -677,11 +677,15 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
     const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
     const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
 
+    // Si el registro ya nace turnado a un área, se deja constancia de
+    // quién hizo el turnado (el usuario que está creando el registro).
+    const turnadoPor = turnado_a ? req.user.username : null;
+
     const [nuevo] = await sql`
       INSERT INTO oficios (
         n_control, f_sello, f_oficio, dias_entrega, numero,
         n_referencia, remitente, dependencia, instruccion, f_registro,
-        folio_despacho, turnado_a, hora_recibido, estatus, descripcion,
+        folio_despacho, turnado_a, turnado_por, hora_recibido, estatus, descripcion,
         ruta_doc1, ruta_doc2, area_origen
       ) VALUES (
         ${n_control},
@@ -696,6 +700,7 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
         ${f_registro     || new Date().toISOString().split('T')[0]},
         ${folio_despacho || null},
         ${turnado_a      || null},
+        ${turnadoPor},
         ${hora_recibido  || null},
         ${estatusInicial},
         ${descripcion    || null},
@@ -787,10 +792,17 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       // y la instrucción de turno anterior, para que la nueva área receptora empiece limpio.
       const limpiarAsignacion = nuevoEstatus === 'turnado' ? true : false;
 
+      // Cada vez que este PUT trae un "turnado_a" (se turna o re-turna
+      // el oficio a un área), se registra quién lo hizo: el usuario
+      // autenticado que está haciendo la petición. Si el PUT no toca
+      // turnado_a, se conserva el turnado_por ya guardado (COALESCE).
+      const turnadoPor = turnado_a ? req.user.username : null;
+
       const [updated] = await sql`
         UPDATE oficios SET
           estatus                 = COALESCE(${nuevoEstatus},   estatus),
           turnado_a               = COALESCE(${turnado_a      ?? null}, turnado_a),
+          turnado_por             = COALESCE(${turnadoPor}, turnado_por),
           instruccion             = COALESCE(${instruccion    ?? null}, instruccion),
           descripcion             = COALESCE(${descripcion    ?? null}, descripcion),
           obs_area                = COALESCE(${obs_area       ?? null}, obs_area),
