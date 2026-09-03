@@ -79,6 +79,48 @@ body {
 
 img { max-width: 100%; }
 
+/* ═══════════════════════════════════════════════════
+   LLUVIA DE FLORES DE CEMPASÚCHIL — fondo decorativo
+   Capa fija a pantalla completa (z-index negativo) que cae
+   detrás de todo el contenido: el header, el menú, el pie y
+   las tarjetas siguen opacos y por encima, así que las flores
+   solo se asoman en los espacios blancos entre ellos. Las
+   flores individuales se generan por JS (ver js/lluvia.js)
+   con tamaño, posición y velocidad aleatorios, para que la
+   caída se vea natural: ni muchas ni pocas, muy pequeñas. */
+.lluvia-flores {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.flor-lluvia {
+  position: absolute;
+  top: -6%;
+  background-image: url('../img/lluvia.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0;
+  animation-name: caerFlorCempasuchil;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes caerFlorCempasuchil {
+  0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  8%   { opacity: .78; }
+  90%  { opacity: .7; }
+  100% { transform: translateY(112vh) translateX(var(--deriva, 24px)) rotate(var(--giro-final, 300deg)); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flor-lluvia { animation: none; opacity: 0; }
+}
+
 @keyframes fadeInDown {
   from { opacity: 0; transform: translateY(-10px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -400,7 +442,11 @@ img { max-width: 100%; }
   padding: 32px 24px 56px;
   width: 100%;
   overflow-x: hidden;
-  background: #ffffff;
+  /* Transparente a propósito: deja ver la lluvia de flores de
+     cempasúchil (.lluvia-flores, z-index:-1) en los espacios entre
+     tarjetas. Las tarjetas y demás bloques de contenido siguen con
+     su propio fondo opaco, así que la lectura nunca se ve afectada. */
+  background: transparent;
 }
 
 .contenido-wrapper {

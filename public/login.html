@@ -77,6 +77,41 @@
       50%      { transform: translateY(-26px) translateX(10px); opacity: 1; }
     }
 
+    /* ══ LLUVIA DE FLORES DE CEMPASÚCHIL — fondo decorativo ══
+       Misma capa (z-index:0) que .fondo-patron / .particula: cae
+       detrás de la tarjeta de acceso (.login-wrapper, z-index:1),
+       generada por js/lluvia.js con tamaño, posición y velocidad
+       aleatorios para que se vea natural. */
+    .lluvia-flores {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .flor-lluvia {
+      position: absolute;
+      top: -6%;
+      background-image: url('img/lluvia.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      opacity: 0;
+      animation-name: caerFlorCempasuchil;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+      will-change: transform, opacity;
+    }
+    @keyframes caerFlorCempasuchil {
+      0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+      8%   { opacity: .8; }
+      90%  { opacity: .7; }
+      100% { transform: translateY(112vh) translateX(var(--deriva, 24px)) rotate(var(--giro-final, 300deg)); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flor-lluvia { animation: none; opacity: 0; }
+    }
+
     /* ══ BANDA TRICOLOR SUPERIOR ══ */
     .banda-top {
       position: fixed;
@@ -462,6 +497,9 @@
   <div class="particula" style="width:5px;height:5px;top:80%;left:20%;animation-delay:4s;"></div>
   <div class="particula" style="width:3px;height:3px;top:30%;left:88%;animation-delay:6s;"></div>
 
+  <!-- Lluvia de flores de cempasúchil: capa de fondo decorativa, ver arriba y js/lluvia.js -->
+  <div class="lluvia-flores" id="lluvia-flores"></div>
+
   <!-- Banda tricolor superior -->
   <div class="banda-top">
     <span class="g1"></span>
@@ -686,5 +724,7 @@
       }
     });
   </script>
+
+  <script src="js/lluvia.js"></script>
 </body>
 </html>
