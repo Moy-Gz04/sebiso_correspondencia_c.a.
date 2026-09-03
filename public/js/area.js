@@ -80,6 +80,21 @@ async function apiFetch(url, opciones = {}) {
   return res;
 }
 
+/* Lee el mensaje de error de una respuesta fallida sin asumir que el
+   cuerpo es JSON válido. El servidor siempre responde en JSON, pero
+   un proxy intermedio, una caída del servicio o un límite de tamaño
+   no controlado pueden entregar HTML o texto plano en su lugar; sin
+   este resguardo, res.json() lanza "Unexpected token '<'..." y el
+   usuario nunca ve el mensaje real. */
+async function leerMensajeError(res, mensajePorDefecto) {
+  try {
+    const d = await res.json();
+    return d?.mensaje || mensajePorDefecto;
+  } catch {
+    return mensajePorDefecto;
+  }
+}
+
 /* ── Usuarios Activos: heartbeat ──
    Avisa al servidor cada minuto que esta sesión sigue abierta, para
    que el contador de "Usuarios Activos" (visible en el panel del
@@ -807,8 +822,7 @@ async function guardarSubturnar() {
     });
 
     if (!res.ok) {
-      const d = await res.json();
-      throw new Error(d.mensaje || 'No se pudo turnar el oficio.');
+      throw new Error(await leerMensajeError(res, 'No se pudo turnar el oficio.'));
     }
 
     const meAutoasigne = Number(usuarioId) === USUARIO.id;
@@ -839,41 +853,73 @@ async function guardarSubturnar() {
    en ese caso aquí solo se puede visualizar, y quien atiende únicamente
    sube el Seguimiento (doc4). Si nadie lo ha subido todavía, se pide
    aquí mismo y es obligatorio para poder marcar el oficio como atendido.
+
+   Al Corregir y Reenviar un oficio rechazado, tanto el Turno como el
+   Seguimiento pueden venir ya adjuntos de un intento anterior: en ese
+   caso se muestran en modo solo-vista con un botón para eliminarlos
+   y poder subir un archivo nuevo en su lugar (docsQuitados).
    ════════════════════════════════════════════════════ */
 let atendiendoId = null;
+let docsQuitados = { doc3: false, doc4: false };
+
+const ETIQUETA_SLOT = { doc3: 'Turno', doc4: 'Seguimiento' };
+const DESC_SLOT      = { doc3: 'Oficio recepcionado sin atención', doc4: 'Contestación del oficio recepcionado' };
+
+/* Pinta, dentro del slot indicado (doc3 o doc4), la tarjeta de solo-vista
+   del archivo ya adjunto (con botón para eliminarlo y subir otro) o, si
+   no hay archivo (o el usuario lo eliminó), el input para subir uno nuevo. */
+function renderSlotDoc(id, r, slot, requerido) {
+  const cont = document.getElementById(`atender-${slot}-slot`);
+  if (!cont) return;
+  const doc = r?.[slot];
+  const etiqueta = ETIQUETA_SLOT[slot];
+
+  if (doc && !docsQuitados[slot]) {
+    cont.innerHTML = `
+      <div class="doc-admin-card doc-solo-vista">
+        <div class="doc-admin-click" onclick="verDocSeguro(${id}, '${slot}')">
+          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
+          <div class="doc-admin-info">
+            <span class="doc-admin-nombre">${etiqueta}</span>
+            <span class="doc-admin-meta">${doc.nombre} — ya adjunto, clic para ver</span>
+            ${doc.subido_por ? `<span class="doc-admin-subido-por"><i class="ti ti-user"></i> Subido por ${doc.subido_por}</span>` : ''}
+          </div>
+        </div>
+        <button type="button" class="btn-quitar-doc" title="Eliminar y subir un archivo nuevo" onclick="quitarDocExistente('${slot}')">
+          <i class="ti ti-trash"></i>
+        </button>
+      </div>`;
+  } else {
+    cont.innerHTML = `
+      <div class="archivo-drop">
+        <input type="file" id="atender-${slot}" accept=".pdf,.doc,.docx,image/*" onchange="mostrarNombreArchivo(this,'nombre-${slot}')"/>
+        <i class="ti ti-file-upload"></i>
+        <div class="archivo-drop-label">${etiqueta}${requerido ? ' <span class="archivo-drop-req">*</span>' : ''}</div>
+        <div class="archivo-drop-desc">${DESC_SLOT[slot]}</div>
+        <div class="archivo-drop-nombre" id="nombre-${slot}"></div>
+      </div>`;
+  }
+}
+
+/* Quita de la vista el archivo ya adjunto (doc3 o doc4) para que el
+   usuario pueda subir uno nuevo en su lugar. El archivo anterior solo
+   se reemplaza en el servidor si efectivamente se sube uno nuevo antes
+   de guardar (ver guardarAtencion). */
+function quitarDocExistente(slot) {
+  docsQuitados[slot] = true;
+  const r = DATOS.find(o => o.id === atendiendoId);
+  renderSlotDoc(atendiendoId, r, slot, slot === 'doc3');
+}
 
 function abrirAtender(id) {
   atendiendoId = id;
+  docsQuitados = { doc3: false, doc4: false };
   const r = DATOS.find(o => o.id === id);
   document.getElementById('atender-obs').value        = r?.obs_area || '';
-  document.getElementById('atender-doc4').value        = '';
-  document.getElementById('nombre-doc4').textContent   = '';
   document.getElementById('atender-error').textContent = '';
 
-  const slot = document.getElementById('atender-doc3-slot');
-  if (slot) {
-    if (r?.doc3) {
-      slot.innerHTML = `
-        <div class="doc-admin-card doc-solo-vista" onclick="verDocSeguro(${id}, 'doc3')">
-          <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
-          <div class="doc-admin-info">
-            <span class="doc-admin-nombre">Turno</span>
-            <span class="doc-admin-meta">${r.doc3.nombre} — ya adjunto, clic para ver</span>
-            ${r.doc3.subido_por ? `<span class="doc-admin-subido-por"><i class="ti ti-user"></i> Subido por ${r.doc3.subido_por}</span>` : ''}
-          </div>
-          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
-        </div>`;
-    } else {
-      slot.innerHTML = `
-        <div class="archivo-drop">
-          <input type="file" id="atender-doc3" accept=".pdf,.doc,.docx,image/*" onchange="mostrarNombreArchivo(this,'nombre-doc3')"/>
-          <i class="ti ti-file-upload"></i>
-          <div class="archivo-drop-label">Turno <span class="archivo-drop-req">*</span></div>
-          <div class="archivo-drop-desc">Oficio recepcionado sin atención</div>
-          <div class="archivo-drop-nombre" id="nombre-doc3"></div>
-        </div>`;
-    }
-  }
+  renderSlotDoc(id, r, 'doc3', true);
+  renderSlotDoc(id, r, 'doc4', false);
 
   const infoInstruccion = document.getElementById('atender-instruccion');
   if (infoInstruccion) {
@@ -902,12 +948,16 @@ async function guardarAtencion() {
   errEl.textContent = '';
 
   const r         = DATOS.find(o => o.id === atendiendoId);
-  const doc3Input = document.getElementById('atender-doc3'); // no existe si el doc3 ya venía adjunto
+  const doc3Input = document.getElementById('atender-doc3'); // no existe si el doc3 ya venía adjunto y no se quitó
   const doc3File  = doc3Input?.files?.[0];
+  const doc4Input = document.getElementById('atender-doc4');
+  const doc4File  = doc4Input?.files?.[0];
 
-  // Si nadie subió el documento de Turno todavía, es obligatorio subirlo
-  // ahora para poder marcar el oficio como atendido.
-  if (!r?.doc3 && !doc3File) {
+  // El Turno sigue siendo válido si ya venía adjunto y el usuario no lo
+  // eliminó de la vista; si lo eliminó (para reemplazarlo), es obligatorio
+  // subir uno nuevo antes de guardar.
+  const doc3SigueValido = !!(r?.doc3 && !docsQuitados.doc3);
+  if (!doc3SigueValido && !doc3File) {
     errEl.textContent = 'Debes adjuntar el documento de Turno para poder atender este oficio.';
     return;
   }
@@ -920,14 +970,12 @@ async function guardarAtencion() {
     const fd = new FormData();
     fd.append('estatus',  'atendido');
     fd.append('obs_area', document.getElementById('atender-obs').value || '');
-    const doc4 = document.getElementById('atender-doc4').files?.[0];
     if (doc3File) fd.append('doc3', doc3File);
-    if (doc4) fd.append('doc4', doc4);
+    if (doc4File) fd.append('doc4', doc4File);
 
     const res = await apiFetch(`${API}/oficios/${atendiendoId}`, { method: 'PUT', body: fd });
     if (!res.ok) {
-      const d = await res.json();
-      throw new Error(d.mensaje || 'No se pudo guardar.');
+      throw new Error(await leerMensajeError(res, 'No se pudo guardar.'));
     }
     cerrarAtender();
     cargarOficios(filtroActual === 'asignados_mi' ? 'todos' : filtroActual);

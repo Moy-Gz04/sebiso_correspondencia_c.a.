@@ -141,13 +141,21 @@ const EXTENSIONES_PERMITIDAS = [
   '.tif', '.tiff', '.heic', '.heif', '.svg',
 ];
 
+const TAMANO_MAXIMO_MB = 10;
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: TAMANO_MAXIMO_MB * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     const esImagen = file.mimetype?.startsWith('image/');
-    cb(null, esImagen || EXTENSIONES_PERMITIDAS.includes(ext));
+    if (esImagen || EXTENSIONES_PERMITIDAS.includes(ext)) return cb(null, true);
+    // Antes: cb(null, false) descartaba el archivo en silencio y la
+    // petición seguía como si no se hubiera adjuntado nada, dejando al
+    // usuario sin ninguna explicación de por qué "no se subió" su
+    // archivo. Ahora se rechaza con un error explícito, capturado por
+    // el manejador de errores de multer definido más abajo.
+    cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname));
   }
 });
 
@@ -958,6 +966,36 @@ function formatearFechaMX(fecha) {
   const pad = n => String(n).padStart(2, '0');
   return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 }
+
+/* ══ Cualquier ruta /api no reconocida responde en JSON ══
+   Sin esto, una URL de API mal escrita o un endpoint que ya no existe
+   caía en el 404 HTML por defecto de Express, y el frontend (que
+   siempre espera JSON de /api/*) truena al intentar leerlo. */
+app.use('/api', (req, res) => res.status(404).json({ mensaje: 'Ruta no encontrada.' }));
+
+/* ══ Manejador de errores global ══
+   Sin este manejador, un error ocurrido en un middleware ANTES de
+   llegar a la ruta —el caso más común es multer, al procesar un
+   archivo adjunto que excede el tamaño máximo (10 MB) o que no pasa
+   el fileFilter— terminaba respondido con la página de error HTML por
+   defecto de Express, y el frontend truena al intentar interpretarla
+   como JSON ("Unexpected token '<', "<!DOCTYPE "... is not valid
+   JSON"). Ahora cualquier error, multer incluido, siempre se responde
+   en JSON con un mensaje claro para el usuario. Debe ir al final,
+   después de todas las rutas. */
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    const mensaje = err.code === 'LIMIT_FILE_SIZE'
+      ? `El archivo supera el tamaño máximo permitido (${TAMANO_MAXIMO_MB} MB).`
+      : 'No se pudo procesar el archivo adjunto. Verifica que sea un PDF, Word o imagen válido.';
+    return res.status(400).json({ mensaje });
+  }
+  if (err.message === 'Origen no permitido por CORS.') {
+    return res.status(403).json({ mensaje: err.message });
+  }
+  console.error(err);
+  res.status(500).json({ mensaje: PROD ? 'Error inesperado en el servidor.' : err.message });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
