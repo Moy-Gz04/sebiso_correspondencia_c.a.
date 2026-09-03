@@ -241,6 +241,24 @@ async function cargarOficios(estatus = 'todos') {
   }
 }
 
+/* Documentos de respuesta (Turno / Seguimiento): etiqueta fija según
+   el tipo, nombre del archivo tal como se subió y, cuando el servidor
+   lo indica, quién lo adjuntó (por ejemplo, el encargado que sub-turnó
+   el oficio pudo haber subido ya el Turno). */
+function tarjetaDoc(r, slot, etiqueta) {
+  const doc = r[slot];
+  if (!doc) return '';
+  return `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, '${slot}')">
+    <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
+    <div class="doc-admin-info">
+      <span class="doc-admin-nombre">${etiqueta}</span>
+      <span class="doc-admin-meta">${doc.nombre}</span>
+      ${doc.subido_por ? `<span class="doc-admin-subido-por"><i class="ti ti-user"></i> Subido por ${doc.subido_por}</span>` : ''}
+    </div>
+    <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
+  </div>`;
+}
+
 function construirTarjeta(r, i) {
   const [cls, lbl] = BADGE[r.estatus] || ['b-sub', r.estatus];
 
@@ -264,30 +282,16 @@ function construirTarjeta(r, i) {
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
 
+  // Sin documentos del oficio: se omite la sección por completo (el
+  // administrador nunca adjunta nada aquí, el aviso de "no se
+  // adjuntaron documentos" no aportaba nada).
   const docsAdminHTML = (doc1HTML || doc2HTML)
     ? `<p class="t-docs-titulo">Documentos del Oficio</p>
        <div class="docs-admin-grid">${doc1HTML}${doc2HTML}</div>`
-    : '<span style="font-size:12.5px;color:#999;font-style:italic;display:flex;align-items:center;gap:6px;"><i class=\'ti ti-file-off\'></i> No se adjuntaron documentos al oficio</span>';
+    : '';
 
-  const doc3HTML = r.doc3
-    ? `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, 'doc3')">
-         <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
-         <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${r.doc3.nombre}</span>
-           <span class="doc-admin-meta">Tu documento de respuesta</span>
-         </div>
-         <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
-       </div>` : '';
-
-  const doc4HTML = r.doc4
-    ? `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, 'doc4')">
-         <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
-         <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${r.doc4.nombre}</span>
-           <span class="doc-admin-meta">Tu documento de respuesta</span>
-         </div>
-         <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
-       </div>` : '';
+  const doc3HTML = tarjetaDoc(r, 'doc3', 'Turno');
+  const doc4HTML = tarjetaDoc(r, 'doc4', 'Seguimiento');
 
   const docsRespuestaHTML = (doc3HTML || doc4HTML)
     ? `<p class="t-docs-titulo" style="margin-top:14px">Tus Documentos de Respuesta</p>
@@ -543,8 +547,9 @@ function abrirAtender(id) {
         <div class="doc-admin-card doc-solo-vista" onclick="verDocSeguro(${id}, 'doc3')">
           <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
           <div class="doc-admin-info">
-            <span class="doc-admin-nombre">${r.doc3.nombre}</span>
-            <span class="doc-admin-meta">Turno — ya adjunto, clic para ver</span>
+            <span class="doc-admin-nombre">Turno</span>
+            <span class="doc-admin-meta">${r.doc3.nombre} — ya adjunto, clic para ver</span>
+            ${r.doc3.subido_por ? `<span class="doc-admin-subido-por"><i class="ti ti-user"></i> Subido por ${r.doc3.subido_por}</span>` : ''}
           </div>
           <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
         </div>`;

@@ -325,22 +325,29 @@ async function siguienteNControl(area) {
      2) Para abrir un documento, el frontend primero pide un token de
         un solo uso y corta duración (ver /doc-token/:slot), y luego
         navega a /api/docs/:token, que valida el token y recién ahí
-        redirige al documento real. */
-function sanitizarDoc(ruta) {
+        redirige al documento real.
+
+   Adicionalmente, ruta_doc3 (Turno) y ruta_doc4 (Seguimiento) tienen
+   cada uno una columna hermana *_subido_por con el username de quien
+   adjuntó ese archivo (quien lo sub-turnó, o quien lo atendió), para
+   que en la tarjeta quede claro quién subió cada documento. */
+function sanitizarDoc(ruta, subidoPor) {
   if (!ruta) return null;
-  if (/^https?:\/\//i.test(ruta)) return { tipo: 'externo', nombre: 'Ver documento' };
-  return { tipo: 'local', nombre: String(ruta).replace(/^\d+_/, '') };
+  const base = /^https?:\/\//i.test(ruta)
+    ? { tipo: 'externo', nombre: 'Ver documento' }
+    : { tipo: 'local', nombre: String(ruta).replace(/^\d+_/, '') };
+  return subidoPor ? { ...base, subido_por: subidoPor } : base;
 }
 
 function sanitizarOficio(o) {
   if (!o) return o;
-  const { ruta_doc1, ruta_doc2, ruta_doc3, ruta_doc4, ...resto } = o;
+  const { ruta_doc1, ruta_doc2, ruta_doc3, ruta_doc4, doc3_subido_por, doc4_subido_por, ...resto } = o;
   return {
     ...resto,
     doc1: sanitizarDoc(ruta_doc1),
     doc2: sanitizarDoc(ruta_doc2),
-    doc3: sanitizarDoc(ruta_doc3),
-    doc4: sanitizarDoc(ruta_doc4),
+    doc3: sanitizarDoc(ruta_doc3, doc3_subido_por),
+    doc4: sanitizarDoc(ruta_doc4, doc4_subido_por),
   };
 }
 
@@ -432,20 +439,6 @@ app.post('/api/login', limitadorLogin, async (req, res) => {
     if (!username || !password)
       return res.status(400).json({ mensaje: 'Usuario y contraseña requeridos.' });
 
-    /* Comparación insensible a mayúsculas/minúsculas: el username se
-       guarda tal cual se capturó (puede tener mayúsculas), pero para
-       iniciar sesión no debe importar cómo lo escriba la persona.
-       Antes se forzaba el valor tecleado a minúsculas y se comparaba
-       con IGUALDAD EXACTA contra la columna — si alguna cuenta se
-       había dado de alta con mayúsculas (p. ej. "Abril_Hernandez"),
-       jamás hacía match y esa persona no podía entrar, lo que llevaba
-       a crear una segunda cuenta duplicada en minúsculas solo para
-       poder acceder. LOWER() en ambos lados del WHERE hace que
-       cualquier combinación de mayúsculas/minúsculas funcione igual.
-       ORDER BY id ASC + LIMIT 1 es un resguardo por si aún existiera
-       una cuenta duplicada de una persona (ver notas de limpieza en
-       schema.sql): toma siempre la más antigua, de forma consistente,
-       en vez de que Postgres devuelva una fila al azar. */
     const [usuario] = await sql`
       SELECT * FROM usuarios
       WHERE LOWER(username) = LOWER(${username.trim()}) AND activo = TRUE
@@ -457,14 +450,6 @@ app.post('/api/login', limitadorLogin, async (req, res) => {
     const coincide = await bcrypt.compare(password, usuario.password);
     if (!coincide) return res.status(401).json({ mensaje: 'Usuario o contraseña incorrectos.' });
 
-    /* "sid" = identificador único de ESTA sesión (este inicio de sesión
-       en este dispositivo/navegador), distinto del id del usuario. Se
-       genera uno nuevo en cada login y viaja dentro del JWT. Gracias a
-       esto, si la misma cuenta inicia sesión en dos dispositivos a la
-       vez, el sistema puede distinguir ambas sesiones activas en vez
-       de verlas como una sola (ver registrarActividad/
-       obtenerUsuariosActivos más abajo) y mostrar en "Usuarios Activos"
-       que esa cuenta tiene 2 sesiones abiertas. */
     const token = jwt.sign(
       { id: usuario.id, username: usuario.username, area: usuario.area, rol: usuario.rol, sid: randomUUID() },
       process.env.JWT_SECRET,
@@ -481,44 +466,22 @@ app.post('/api/login', limitadorLogin, async (req, res) => {
 /* ══ ME ══ */
 app.get('/api/me', verifyToken, (req, res) => res.json({ usuario: req.user }));
 
-/* ══ POST /api/heartbeat ══
-   El frontend llama a este endpoint cada cierto tiempo mientras la
-   pestaña sigue abierta y con sesión, para que "Usuarios Activos" sea
-   preciso incluso si el usuario se queda viendo una pantalla sin
-   generar otras peticiones. verifyToken ya registra la actividad al
-   pasar por aquí, así que el handler no necesita hacer nada más. ══ */
+/* ══ POST /api/heartbeat ══ */
 app.post('/api/heartbeat', verifyToken, (req, res) => res.sendStatus(204));
 
-/* ══ GET /api/usuarios-activos ══
-   Cualquier usuario con sesión válida puede consultarlo (no expone
-   nada sensible: solo username, área y rol de quien ya está activo). */
+/* ══ GET /api/usuarios-activos ══ */
 app.get('/api/usuarios-activos', verifyToken, (req, res) => {
   const usuarios = obtenerUsuariosActivos();
   res.json({ total: usuarios.length, usuarios });
 });
 
-/* ══ GET /api/usuarios/area/:area
-   Devuelve los usuarios del área indicada que pueden RECIBIR un oficio:
-   tanto los usuarios operativos (rol 'usuario_area') como los demás
-   encargados de turnar (rol 'area') de esa misma área — así un
-   encargado puede sub-turnarle a otro encargado de su área.
-   Se devuelve también el rol, para que el frontend pueda agruparlos.
-   Solo accesible por el área correspondiente o admin.
-══ */
+/* ══ GET /api/usuarios/area/:area ══ */
 app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
   try {
     const { area } = req.params;
-    // El área solo puede consultar sus propios usuarios; admin puede consultar cualquiera
     if (req.user.rol !== 'admin' && req.user.area !== area)
       return res.status(403).json({ mensaje: 'Sin acceso.' });
 
-    /* DISTINCT ON (LOWER(username)) es un resguardo por si dos cuentas
-       de la misma persona coexistieran con distinta capitalización
-       (ver la nota sobre LOWER() en /api/login más arriba): se queda
-       con una sola fila por username, sin importar mayúsculas, y entre
-       posibles duplicados prefiere siempre la de menor id (la más
-       antigua). Con los usernames ya sin duplicados esto no cambia
-       nada — es puramente defensivo. */
     const rows = await sql`
       SELECT DISTINCT ON (LOWER(username)) id, username, area, rol
       FROM usuarios
@@ -538,16 +501,7 @@ app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
   }
 });
 
-/* ══ GET /api/oficios ══
-   - admin        → todos los oficios (legado)
-   - area         → por defecto, lo que le TURNARON a su área (bandeja).
-                     Con ?origen=mio → lo que ELLA misma creó (su historial
-                     propio). Este historial propio es exclusivo de
-                     Coordinación Administrativa (o el admin legado): las
-                     demás áreas ya no crean registros, así que no tienen
-                     nada que consultar ahí.
-   - usuario_area → solo los oficios que tienen usuario_asignado_id = su id
-══ */
+/* ══ GET /api/oficios ══ */
 app.get('/api/oficios', verifyToken, async (req, res) => {
   try {
     const { estatus, origen } = req.query;
@@ -570,10 +524,6 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
             FROM oficios ORDER BY created_at DESC`;
 
     } else if (rol === 'area' && origen === 'mio') {
-      // Su propio historial: lo que ELLA creó. Reservado a Coordinación
-      // Administrativa; cualquier otra área que intente consultarlo
-      // (por ejemplo llamando la API directamente) recibe 403, ya que
-      // esa opción no le corresponde.
       if (area !== AREA_CON_GESTION_COMPLETA)
         return res.status(403).json({ mensaje: 'Sin acceso al Historial.' });
 
@@ -647,11 +597,7 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
 });
 
 /* ══ POST /api/oficios — Exclusivo de Coordinación Administrativa (o el
-   admin legado) ══
-   Solo Coordinación Administrativa puede dar de alta nuevos registros;
-   las demás áreas ya no tienen esta capacidad. Si manda "turnado_a", el
-   registro nace directo en estatus 'turnado' (lo crea Y lo turna en un
-   solo paso); si no, nace en 'por_turnar' para turnarlo después. ══ */
+   admin legado) ══ */
 app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
   { name: 'doc1', maxCount: 1 },
   { name: 'doc2', maxCount: 1 }
@@ -666,8 +612,6 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
     if (!f_oficio || !remitente?.trim())
       return res.status(400).json({ mensaje: 'F. Oficio y Remitente son obligatorios.' });
 
-    // El área que crea el registro es la que origina el N. Control con
-    // su propio prefijo. El admin legado usa Coordinación como fallback.
     const areaOrigen = req.user.area || 'Coordinación Administrativa';
     const n_control   = await siguienteNControl(areaOrigen);
 
@@ -677,8 +621,6 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
     const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
     const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
 
-    // Si el registro ya nace turnado a un área, se deja constancia de
-    // quién hizo el turnado (el usuario que está creando el registro).
     const turnadoPor = turnado_a ? req.user.username : null;
 
     const [nuevo] = await sql`
@@ -717,28 +659,7 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
   }
 });
 
-/* ══ PUT /api/oficios/:id ══
-   Flujo de estatus:
-     área de origen (o admin legado) → crea/edita/turna su propio registro
-     área receptora                  → turnado → sub_turnado (asigna usuario_asignado_id,
-                                        que puede ser un usuario operativo de su área,
-                                        OTRO encargado de turnar de su misma área, o ella
-                                        misma; puede acompañarlo de instrucciones_turno,
-                                        dirigidas a quien va a atenderlo, y opcionalmente
-                                        del documento de Turno — ruta_doc3 — si el propio
-                                        encargado ya lo tiene a la mano; si no lo sube
-                                        aquí, quien reciba el sub-turnado deberá subirlo
-                                        al atender)
-     usuario_area / área receptora   → sub_turnado / rechazado → atendido
-                                        (el encargado de turnar también puede atender
-                                        directamente los oficios que se autoasignó o
-                                        que otro encargado de su área le asignó)
-     área de origen (o admin legado) → atendido → completado / rechazado
-
-   IMPORTANTE: el turnado hacia OTRA área sigue siendo exclusivo de
-   Coordinación Administrativa (rama "origen"). El área receptora solo
-   puede mover el oficio DENTRO de su propia área.
-══ */
+/* ══ PUT /api/oficios/:id ══ */
 app.put('/api/oficios/:id', verifyToken, upload.fields([
   { name: 'doc1', maxCount: 1 },
   { name: 'doc2', maxCount: 1 },
@@ -752,16 +673,6 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
     const { rol, area, id } = req.user;
     const files = req.files || {};
 
-    /* Si el área receptora (que puede coincidir con el área de origen,
-       p. ej. Coordinación Administrativa turnándose oficios a sí misma)
-       está haciendo un SUB-TURNADO real -manda usuario_asignado_id y no
-       trae estatus/turnado_a de re-turnado-, esa acción SIEMPRE debe
-       resolverse en la rama de "área receptora", sin importar si esa
-       misma área también es la de origen. De lo contrario, cuando
-       Coordinación es origen Y receptora a la vez, el sub-turnado caía
-       en la rama de "origen" y el UPDATE no tocaba usuario_asignado_id
-       ni el estatus: el modal mostraba éxito pero nada quedaba
-       registrado. */
     const esSubTurnadoReceptor =
       rol === 'area' &&
       oficio.turnado_a === area &&
@@ -772,8 +683,6 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
     const esOrigen = !esSubTurnadoReceptor &&
       (rol === 'admin' || (rol === 'area' && oficio.area_origen === area));
 
-    /* ── QUIEN ORIGINÓ EL REGISTRO (admin legado, o el área que lo creó):
-         edición completa, incluyendo turnar/re-turnar a cualquier área ── */
     if (esOrigen) {
       const {
         estatus, turnado_a, instruccion, descripcion,
@@ -788,14 +697,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
       const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
 
-      // Si se vuelve a turnar (rechaza y manda de vuelta), limpiar asignación de usuario
-      // y la instrucción de turno anterior, para que la nueva área receptora empiece limpio.
       const limpiarAsignacion = nuevoEstatus === 'turnado' ? true : false;
 
-      // Cada vez que este PUT trae un "turnado_a" (se turna o re-turna
-      // el oficio a un área), se registra quién lo hizo: el usuario
-      // autenticado que está haciendo la petición. Si el PUT no toca
-      // turnado_a, se conserva el turnado_por ya guardado (COALESCE).
       const turnadoPor = turnado_a ? req.user.username : null;
 
       const [updated] = await sql`
@@ -828,15 +731,6 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         RETURNING *`;
       return res.json(sanitizarOficio(updated));
 
-    /* ── ÁREA RECEPTORA (un "encargado de turnar" del área a la que se
-         turnó el oficio): puede sub-turnar (turnado → sub_turnado) a uno
-         de los usuarios operativos de su área, a OTRO encargado de turnar
-         de su MISMA área, o turnárselo a sí mismo para atenderlo
-         directamente — en todos los casos puede escribir una instrucción
-         para quien va a atenderlo. Cuando el oficio quedó asignado a él
-         (por autoasignación o porque otro encargado de su área se lo
-         asignó), también puede marcarlo como atendido, igual que un
-         usuario_area. ── */
     } else if (rol === 'area' && oficio.turnado_a === area) {
       const { usuario_asignado_id, estatus: estatusBody, obs_area, instrucciones_turno } = req.body;
 
@@ -847,10 +741,6 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         if (oficio.usuario_asignado_id !== id)
           return res.status(403).json({ mensaje: 'Solo puedes marcar como atendido un oficio que tengas asignado.' });
 
-        // El documento de Turno (doc3) solo es obligatorio en este paso
-        // si NADIE lo subió antes (ni el encargado al sub-turnar, ni un
-        // intento previo de atención); si ya existe en el registro, se
-        // conserva tal cual (COALESCE) y aquí no se vuelve a exigir.
         if (!oficio.ruta_doc3 && !files.doc3?.[0])
           return res.status(400).json({ mensaje: 'Falta el documento de Turno.' });
 
@@ -859,11 +749,13 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
 
         const [updated] = await sql`
           UPDATE oficios SET
-            obs_area   = COALESCE(${obs_area ?? null}, obs_area),
-            estatus    = 'atendido',
-            ruta_doc3  = COALESCE(${ruta_doc3}, ruta_doc3),
-            ruta_doc4  = COALESCE(${ruta_doc4}, ruta_doc4),
-            updated_at = NOW()
+            obs_area        = COALESCE(${obs_area ?? null}, obs_area),
+            estatus         = 'atendido',
+            ruta_doc3       = COALESCE(${ruta_doc3}, ruta_doc3),
+            ruta_doc4       = COALESCE(${ruta_doc4}, ruta_doc4),
+            doc3_subido_por = COALESCE(${ruta_doc3 ? req.user.username : null}, doc3_subido_por),
+            doc4_subido_por = COALESCE(${ruta_doc4 ? req.user.username : null}, doc4_subido_por),
+            updated_at      = NOW()
           WHERE id = ${req.params.id}
           RETURNING *`;
         return res.json(sanitizarOficio(updated));
@@ -874,19 +766,15 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
          (rol 'area')—, o turnárselo a sí mismo (usuario_asignado_id ===
          su propio id), con una instrucción opcional para quien lo atienda
          y, opcionalmente, el documento de Turno (doc3) ya digitalizado:
-         si el encargado lo adjunta aquí, quien reciba el sub-turnado ya
-         no tiene que volver a subirlo, solo visualizarlo; si no lo
-         adjunta, queda pendiente de que lo suba quien atienda.
-
-         El filtro `area = ${area}` de la consulta es la garantía de que
-         esto NO se convierte en un turnado entre áreas: solo alcanza a
-         personas de su propia área. */
+         si el encargado lo adjunta aquí, se registra que él mismo lo
+         subió (doc3_subido_por), y quien reciba el sub-turnado ya no
+         tiene que volver a subirlo, solo visualizarlo; si no lo adjunta,
+         queda pendiente de que lo suba quien atienda. */
       if (!usuario_asignado_id)
         return res.status(400).json({ mensaje: 'Debes seleccionar un usuario.' });
 
       let usuarioObj = null;
       if (Number(usuario_asignado_id) === id) {
-        // El encargado de turnar se autoasigna el oficio.
         usuarioObj = { id, username: req.user.username };
       } else {
         [usuarioObj] = await sql`
@@ -909,12 +797,12 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           usuario_asignado_nombre = ${usuarioObj.username},
           instrucciones_turno     = ${instrucciones_turno !== undefined ? (instrucciones_turno || null) : oficio.instrucciones_turno},
           ruta_doc3                = COALESCE(${ruta_doc3}, ruta_doc3),
+          doc3_subido_por          = COALESCE(${ruta_doc3 ? req.user.username : null}, doc3_subido_por),
           updated_at              = NOW()
         WHERE id = ${req.params.id}
         RETURNING *`;
       return res.json(sanitizarOficio(updated));
 
-    /* ── USUARIO_AREA: solo puede marcar atendido y subir docs ── */
     } else if (rol === 'usuario_area') {
       if (oficio.usuario_asignado_id !== id)
         return res.status(403).json({ mensaje: 'Sin acceso.' });
@@ -922,10 +810,6 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       const { obs_area, estatus: estatusBody } = req.body;
       const nuevoEstatus = estatusBody === 'atendido' ? 'atendido' : null;
 
-      // Igual que para el encargado de turnar: el documento de Turno
-      // (doc3) solo es obligatorio al marcar como atendido si aún nadie
-      // lo había subido (ni el encargado que lo sub-turnó, ni un intento
-      // previo de este mismo usuario).
       if (nuevoEstatus === 'atendido' && !oficio.ruta_doc3 && !files.doc3?.[0])
         return res.status(400).json({ mensaje: 'Falta el documento de Turno.' });
 
@@ -934,11 +818,13 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
 
       const [updated] = await sql`
         UPDATE oficios SET
-          obs_area   = COALESCE(${obs_area    ?? null}, obs_area),
-          estatus    = COALESCE(${nuevoEstatus}, estatus),
-          ruta_doc3  = COALESCE(${ruta_doc3},   ruta_doc3),
-          ruta_doc4  = COALESCE(${ruta_doc4},   ruta_doc4),
-          updated_at = NOW()
+          obs_area        = COALESCE(${obs_area    ?? null}, obs_area),
+          estatus         = COALESCE(${nuevoEstatus}, estatus),
+          ruta_doc3       = COALESCE(${ruta_doc3},   ruta_doc3),
+          ruta_doc4       = COALESCE(${ruta_doc4},   ruta_doc4),
+          doc3_subido_por = COALESCE(${ruta_doc3 ? req.user.username : null}, doc3_subido_por),
+          doc4_subido_por = COALESCE(${ruta_doc4 ? req.user.username : null}, doc4_subido_por),
+          updated_at      = NOW()
         WHERE id = ${req.params.id}
         RETURNING *`;
       return res.json(sanitizarOficio(updated));
@@ -952,8 +838,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
   }
 });
 
-/* ══ DELETE /api/oficios/:id ══
-   Admin legado, o el área que ORIGINÓ el registro, puede borrarlo. ══ */
+/* ══ DELETE /api/oficios/:id ══ */
 app.delete('/api/oficios/:id', verifyToken, async (req, res) => {
   try {
     const [row] = await sql`SELECT area_origen FROM oficios WHERE id = ${req.params.id}`;
@@ -971,14 +856,7 @@ app.delete('/api/oficios/:id', verifyToken, async (req, res) => {
   }
 });
 
-/* ══ POST /api/oficios/generar-pdf ══
-   Recibe hasta 4 IDs de oficios (en el orden de selección del usuario),
-   arma los datos (Fecha, Referencia, Remitente, Asunto, Folio) y se los
-   envía al Apps Script del Sheet, que llena las celdas y devuelve el
-   link del PDF generado (rango A1:Y44 de la hoja "cds").
-   El PDF generado queda etiquetado con el ÁREA de quien lo generó, para
-   que cada área solo vea (y pueda borrar) los PDFs que ella misma creó.
-══ */
+/* ══ POST /api/oficios/generar-pdf ══ */
 app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
   try {
     const { ids } = req.body;
@@ -989,7 +867,6 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
     if (!process.env.APPS_SCRIPT_URL)
       return res.status(500).json({ mensaje: 'APPS_SCRIPT_URL no está configurada en el servidor.' });
 
-    // Se respeta el orden en que el usuario seleccionó los registros
     const oficios = [];
     for (const id of ids) {
       const [row] = await sql`SELECT * FROM oficios WHERE id = ${id}`;
@@ -1015,7 +892,6 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'El Apps Script devolvió un error.');
 
-    // Guardar en historial de PDFs generados, etiquetado con el área de quien lo generó
     const [guardado] = await sql`
       INSERT INTO pdfs_generados (oficio_ids, folios, url, file_id, generado_por, area)
       VALUES (${ids}, ${data.folios}, ${data.url}, ${data.fileId || null}, ${req.user.username}, ${req.user.area || null})
@@ -1029,13 +905,7 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
   }
 });
 
-/* ══ DELETE /api/pdfs-generados/:id ══
-   Elimina el registro del historial y, si es posible, también el
-   archivo real en Drive (a través del mismo Apps Script). Si borrar
-   el archivo de Drive falla (p. ej. ya no existe), igual se quita del
-   sistema para que el usuario pueda limpiar errores sin quedar atorado.
-   Solo el admin legado o la misma área que generó el PDF pueden borrarlo.
-══ */
+/* ══ DELETE /api/pdfs-generados/:id ══ */
 app.delete('/api/pdfs-generados/:id', verifyToken, async (req, res) => {
   try {
     const [row] = await sql`SELECT * FROM pdfs_generados WHERE id = ${req.params.id}`;
@@ -1068,15 +938,7 @@ app.delete('/api/pdfs-generados/:id', verifyToken, async (req, res) => {
   }
 });
 
-/* ══ GET /api/pdfs-generados ══
-   Historial de PDFs generados (más recientes primero).
-   - admin → ve todos los PDFs generados por cualquier área (supervisión).
-   - area / usuario_area → solo ve los PDFs generados por SU PROPIA área.
-   Los PDFs generados antes de esta actualización no tienen área asignada
-   (area IS NULL); solo el admin los sigue viendo, para no exponerlos a
-   la primera área que entre. Si algún área necesita rescatar uno de esos
-   PDFs viejos, un admin puede reasignarle el área desde la base de datos.
-══ */
+/* ══ GET /api/pdfs-generados ══ */
 app.get('/api/pdfs-generados', verifyToken, async (req, res) => {
   try {
     const { rol, area } = req.user;
@@ -1091,8 +953,6 @@ app.get('/api/pdfs-generados', verifyToken, async (req, res) => {
 
 function formatearFechaMX(fecha) {
   if (!fecha) return '';
-  // Neon puede devolver un objeto Date de JS (no un string) para columnas DATE.
-  // Se usa UTC para evitar que el huso horario local recorra el día ±1.
   const d = fecha instanceof Date ? fecha : new Date(fecha);
   if (isNaN(d.getTime())) return '';
   const pad = n => String(n).padStart(2, '0');

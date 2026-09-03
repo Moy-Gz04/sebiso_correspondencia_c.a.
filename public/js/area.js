@@ -285,12 +285,39 @@ async function cargarOficios(estatus = 'todos') {
     const res = await apiFetch(url);
     if (!res.ok) throw new Error();
     DATOS = await res.json();
-    renderLista(DATOS);
+    actualizarBadgeAsignados();
+
+    if (filtroActual === 'asignados_mi') {
+      renderLista(filtrarAsignadosAMi(DATOS));
+    } else {
+      renderLista(DATOS);
+    }
   } catch {
     lista.innerHTML = `<div class="cargando-msg error">
       <i class="ti ti-alert-circle"></i> No se pudo conectar con el servidor.
     </div>`;
   }
+}
+
+/* Documentos de respuesta (Turno / Seguimiento): una tarjeta por
+   documento con su etiqueta fija (Turno / Seguimiento), el nombre del
+   archivo tal como se subió y, si el servidor lo indica, quién lo
+   adjuntó (doc3_subido_por / doc4_subido_por vía sanitizarDoc en el
+   backend). Así queda claro, por ejemplo, que quien sub-turnó el
+   oficio fue quien adjuntó el Turno, y que la contestación (Seguimiento)
+   la debe subir quien lo atienda. */
+function tarjetaDoc(r, slot, etiqueta) {
+  const doc = r[slot];
+  if (!doc) return '';
+  return `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, '${slot}')">
+    <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
+    <div class="doc-admin-info">
+      <span class="doc-admin-nombre">${etiqueta}</span>
+      <span class="doc-admin-meta">${doc.nombre}</span>
+      ${doc.subido_por ? `<span class="doc-admin-subido-por"><i class="ti ti-user"></i> Subido por ${doc.subido_por}</span>` : ''}
+    </div>
+    <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
+  </div>`;
 }
 
 function construirTarjeta(r, i) {
@@ -317,30 +344,16 @@ function construirTarjeta(r, i) {
          <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
 
+  // Sin documentos del oficio: se omite la sección por completo (el
+  // administrador nunca adjunta nada aquí, así que el aviso de "no se
+  // adjuntaron documentos" no aporta nada y solo generaba ruido).
   const docsAdminHTML = (doc1HTML || doc2HTML)
     ? `<p class="t-docs-titulo">Documentos del Oficio</p>
        <div class="docs-admin-grid">${doc1HTML}${doc2HTML}</div>`
-    : '<span style="font-size:12.5px;color:#999;font-style:italic;display:flex;align-items:center;gap:6px;"><i class=\'ti ti-file-off\'></i> No se adjuntaron documentos al oficio</span>';
+    : '';
 
-  const doc3HTML = r.doc3
-    ? `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, 'doc3')">
-         <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
-         <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${r.doc3.nombre}</span>
-           <span class="doc-admin-meta">Documento de respuesta</span>
-         </div>
-         <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
-       </div>` : '';
-
-  const doc4HTML = r.doc4
-    ? `<div class="doc-admin-card" onclick="verDocSeguro(${r.id}, 'doc4')">
-         <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
-         <div class="doc-admin-info">
-           <span class="doc-admin-nombre">${r.doc4.nombre}</span>
-           <span class="doc-admin-meta">Documento de respuesta</span>
-         </div>
-         <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
-       </div>` : '';
+  const doc3HTML = tarjetaDoc(r, 'doc3', 'Turno');
+  const doc4HTML = tarjetaDoc(r, 'doc4', 'Seguimiento');
 
   const docsRespuestaHTML = (doc3HTML || doc4HTML)
     ? `<p class="t-docs-titulo" style="margin-top:14px">Documentos de Respuesta</p>
@@ -552,14 +565,49 @@ function filtrar(btn, estatus) {
   cargarOficios(estatus);
 }
 
+/* ── Filtro "Para Atender": oficios asignados a mí ──
+   Distinto de los chips por estatus (turnado/sub_turnado/...): filtra,
+   sobre TODOS los oficios de la bandeja, solo los que están asignados
+   a este usuario (usuario_asignado_id === mi id) y siguen pendientes
+   de que yo los atienda (sub_turnado o rechazado). Así cada encargado
+   ve de un vistazo lo que le toca resolver a él, sin mezclarlo con lo
+   que asignó a otros. El numerito junto al chip (actualizarBadgeAsignados)
+   se mantiene siempre al día, incluso si el filtro activo es otro. */
+function filtrarAsignadosAMi(lista) {
+  return lista.filter(r =>
+    r.usuario_asignado_id === USUARIO.id &&
+    ['sub_turnado', 'rechazado'].includes(r.estatus)
+  );
+}
+
+function actualizarBadgeAsignados() {
+  const badge = document.getElementById('badge-asignados');
+  if (!badge) return;
+  const total = filtrarAsignadosAMi(DATOS).length;
+  badge.textContent = total;
+  badge.style.display = total > 0 ? 'inline-flex' : 'none';
+}
+
+function filtrarPorAsignados(btn) {
+  document.querySelectorAll('.chip').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  filtroActual = 'asignados_mi';
+  const buscador = document.getElementById('buscador');
+  if (buscador) buscador.value = '';
+  const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
+  if (btnLimpiar) btnLimpiar.style.display = 'none';
+  cargarOficios('todos');
+}
+
 /* Búsqueda en tiempo real sobre los datos ya cargados: N. Control,
    N. Referencia, remitente y también el Asunto (descripción). */
 function buscar(texto) {
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = texto.trim() ? 'flex' : 'none';
   const q = texto.trim().toLowerCase();
-  if (!q) { renderLista(DATOS); return; }
-  const filtrados = DATOS.filter(r =>
+  const base = filtroActual === 'asignados_mi' ? filtrarAsignadosAMi(DATOS) : DATOS;
+  if (!q) { renderLista(base); return; }
+  const filtrados = base.filter(r =>
     (r.n_control || '').toLowerCase().includes(q) ||
     (r.n_referencia || '').toLowerCase().includes(q) ||
     (r.remitente || '').toLowerCase().includes(q) ||
@@ -573,7 +621,7 @@ function limpiarBusqueda() {
   if (buscador) buscador.value = '';
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = 'none';
-  renderLista(DATOS);
+  renderLista(filtroActual === 'asignados_mi' ? filtrarAsignadosAMi(DATOS) : DATOS);
 }
 
 /* ── Ver documento de forma segura ──
@@ -629,9 +677,10 @@ function mostrarFecha() {
 
    Desde aquí el encargado de turnar también puede adjuntar el
    documento de Turno (doc3) del oficio que va a asignar: si lo
-   adjunta, quien reciba el sub-turnado ya no tiene que subirlo, solo
-   podrá visualizarlo al atender; si no lo adjunta, queda pendiente de
-   que lo suba quien atienda el oficio.
+   adjunta, el servidor deja constancia de que fue él quien lo subió
+   (doc3_subido_por), y quien reciba el sub-turnado ya no tiene que
+   subirlo, solo podrá visualizarlo al atender; si no lo adjunta,
+   queda pendiente de que lo suba quien atienda el oficio.
    ════════════════════════════════════════════════════ */
 let subturnandoId = null;
 
@@ -648,7 +697,7 @@ async function abrirSubturnar(id) {
 
   // Documento de Turno: campo de subida siempre disponible aquí (permite
   // reemplazar el archivo aunque ya exista uno), con un aviso si el
-  // oficio ya trae uno adjunto.
+  // oficio ya trae uno adjunto (y quién lo subió).
   const doc3Input   = document.getElementById('subturnar-doc3');
   const doc3Nombre  = document.getElementById('nombre-subturnar-doc3');
   const doc3InfoBox = document.getElementById('subturnar-doc3-info');
@@ -660,7 +709,7 @@ async function abrirSubturnar(id) {
       doc3InfoBox.className = 'modal-info-box';
       doc3InfoBox.innerHTML = `
         <i class="ti ti-circle-check" style="font-size:16px;flex-shrink:0;margin-top:1px;"></i>
-        <span>Este oficio ya tiene un documento de Turno adjunto (<strong>${oficio.doc3.nombre}</strong>). Puedes dejarlo así o subir uno nuevo para reemplazarlo.</span>`;
+        <span>Este oficio ya tiene un documento de Turno adjunto (<strong>${oficio.doc3.nombre}</strong>${oficio.doc3.subido_por ? `, subido por <strong>${oficio.doc3.subido_por}</strong>` : ''}). Puedes dejarlo así o subir uno nuevo para reemplazarlo.</span>`;
     } else {
       doc3InfoBox.style.display = 'none';
       doc3InfoBox.innerHTML = '';
@@ -765,7 +814,7 @@ async function guardarSubturnar() {
     const meAutoasigne = Number(usuarioId) === USUARIO.id;
 
     cerrarSubturnar();
-    cargarOficios(filtroActual);
+    cargarOficios(filtroActual === 'asignados_mi' ? 'todos' : filtroActual);
     await sbisAlert({
       titulo:  meAutoasigne ? 'Oficio autoasignado' : 'Oficio turnado',
       mensaje: meAutoasigne
@@ -808,8 +857,9 @@ function abrirAtender(id) {
         <div class="doc-admin-card doc-solo-vista" onclick="verDocSeguro(${id}, 'doc3')">
           <div class="doc-admin-icon"><i class="ti ti-file-type-pdf"></i></div>
           <div class="doc-admin-info">
-            <span class="doc-admin-nombre">${r.doc3.nombre}</span>
-            <span class="doc-admin-meta">Turno — ya adjunto, clic para ver</span>
+            <span class="doc-admin-nombre">Turno</span>
+            <span class="doc-admin-meta">${r.doc3.nombre} — ya adjunto, clic para ver</span>
+            ${r.doc3.subido_por ? `<span class="doc-admin-subido-por"><i class="ti ti-user"></i> Subido por ${r.doc3.subido_por}</span>` : ''}
           </div>
           <div class="doc-admin-abrir"><i class="ti ti-external-link"></i></div>
         </div>`;
@@ -880,7 +930,7 @@ async function guardarAtencion() {
       throw new Error(d.mensaje || 'No se pudo guardar.');
     }
     cerrarAtender();
-    cargarOficios(filtroActual);
+    cargarOficios(filtroActual === 'asignados_mi' ? 'todos' : filtroActual);
     await sbisAlert({
       titulo:  'Oficio atendido',
       mensaje: 'Se notificó a Administración para su revisión.',
@@ -920,6 +970,6 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('pageshow', (evento) => {
   if (evento.persisted) {
     if (!iniciarSesion()) return;
-    cargarOficios(filtroActual);
+    cargarOficios(filtroActual === 'asignados_mi' ? 'todos' : filtroActual);
   }
 });

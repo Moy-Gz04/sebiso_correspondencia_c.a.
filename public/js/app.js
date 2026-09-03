@@ -492,12 +492,16 @@ function construirTarjeta(r, i) {
     ? (doc1HTML || '') + (doc2HTML || '')
     : '<span style="font-size:12.5px;color:#999;font-style:italic;display:flex;align-items:center;gap:6px;"><i class=\'ti ti-file-off\'></i> No se proporcionaron archivos al momento de registrar</span>';
 
+  // Documentos de respuesta del área: Turno (doc3) y Seguimiento (doc4),
+  // con el nombre del archivo y quién lo adjuntó, cuando el servidor lo
+  // reporta (doc3_subido_por / doc4_subido_por).
   const doc3HTML = r.doc3
     ? `<div class="doc-area-card" onclick="verDocSeguro(${r.id}, 'doc3')">
          <div class="doc-area-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-area-info">
-           <span class="doc-area-nombre">${r.doc3.nombre}</span>
-           <span class="doc-area-meta">Documento del área</span>
+           <span class="doc-area-nombre">Turno</span>
+           <span class="doc-area-meta">${r.doc3.nombre}</span>
+           ${r.doc3.subido_por ? `<span class="doc-area-subido-por"><i class="ti ti-user"></i> Subido por ${r.doc3.subido_por}</span>` : ''}
          </div>
          <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
@@ -506,8 +510,9 @@ function construirTarjeta(r, i) {
     ? `<div class="doc-area-card" onclick="verDocSeguro(${r.id}, 'doc4')">
          <div class="doc-area-icon"><i class="ti ti-file-type-pdf"></i></div>
          <div class="doc-area-info">
-           <span class="doc-area-nombre">${r.doc4.nombre}</span>
-           <span class="doc-area-meta">Documento del área</span>
+           <span class="doc-area-nombre">Seguimiento</span>
+           <span class="doc-area-meta">${r.doc4.nombre}</span>
+           ${r.doc4.subido_por ? `<span class="doc-area-subido-por"><i class="ti ti-user"></i> Subido por ${r.doc4.subido_por}</span>` : ''}
          </div>
          <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
@@ -819,12 +824,7 @@ async function eliminar(id) {
   }
 }
 
-/* ── Ver documento de forma segura ──
-   Ya no se maneja la URL real del documento en el cliente. Se pide al
-   servidor un token de un solo uso y corta duración (3 min) y se
-   navega a ese enlace, que es el único que redirige al documento real.
-   La pestaña se abre ANTES de esperar la respuesta para no chocar con
-   los bloqueadores de pop-ups de los navegadores. */
+/* ── Ver documento de forma segura ── */
 async function verDocSeguro(oficioId, slot) {
   const nuevaVentana = window.open('', '_blank');
   try {
@@ -1326,13 +1326,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-/* ── Romper el acceso vía botón "Atrás" tras cerrar sesión ──
-   Algunos navegadores restauran esta página desde su caché en memoria
-   (bfcache) al usar Atrás/Adelante, sin volver a pedirla al servidor
-   ni volver a ejecutar "DOMContentLoaded". Si eso ocurre después de
-   haber cerrado sesión, se revalida el token guardado y, si ya no es
-   válido, se manda de inmediato a login — así no queda visible ni un
-   instante una pantalla que ya no debería ser accesible. */
+/* ── Romper el acceso vía botón "Atrás" tras cerrar sesión ── */
 window.addEventListener('pageshow', (evento) => {
   if (evento.persisted) {
     if (!iniciarSesion()) return;
