@@ -1154,6 +1154,12 @@ img { max-width: 100%; }
   background: var(--tarjeta-arena-hover);
   border-bottom-color: var(--tarjeta-arena-borde);
 }
+/* --txt2 se usa en varios textos inline (p.ej. "→ Área" / "por Fulano"
+   del badge de estatus en Historial); al redefinirlo aquí, cualquier
+   texto dentro de esta cabecera que use var(--txt2) hereda el tono
+   correcto en vez del gris pensado para fondo blanco, así nunca se
+   pierde al pasar el cursor (hover) ni al quedar abierta la tarjeta. */
+.lista .tarjeta:nth-child(odd) .t-header { --txt2: #6B4A22; }
 .lista .tarjeta:nth-child(odd) .th-label      { color: #6B4A22; }
 .lista .tarjeta:nth-child(odd) .th-val        { color: #3D1420; }
 .lista .tarjeta:nth-child(odd) .th-val.mono   { color: var(--tarjeta-guinda); }
@@ -1172,6 +1178,7 @@ img { max-width: 100%; }
   background: var(--tarjeta-guinda-hover);
   border-bottom-color: #8a3350;
 }
+.lista .tarjeta:nth-child(even) .t-header { --txt2: #E8CFA0; }
 .lista .tarjeta:nth-child(even) .th-label      { color: #E8CFA0; }
 .lista .tarjeta:nth-child(even) .th-val        { color: #FBF3E4; }
 .lista .tarjeta:nth-child(even) .th-val.mono   { color: #F0D9A8; }
