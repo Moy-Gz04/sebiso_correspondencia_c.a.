@@ -602,6 +602,16 @@ function quitarDocExistente(slot) {
   renderSlotDoc(atendiendoId, r, slot, slot === 'doc3');
 }
 
+/* Muestra el Asunto (descripción) del oficio en la cabecera del modal,
+   fijo en la parte superior (position:sticky en .modal-header), para
+   que quien atiende siempre tenga a la vista qué está contestando sin
+   depender de haber leído la tarjeta antes de abrir el modal. */
+function pintarAsuntoAtender(r) {
+  const el = document.getElementById('atender-asunto');
+  if (!el) return;
+  el.textContent = r?.descripcion?.trim() || 'Sin descripción registrada';
+}
+
 function abrirAtender(id) {
   atendiendoId = id;
   docsQuitados = { doc3: false, doc4: false };
@@ -609,6 +619,7 @@ function abrirAtender(id) {
   document.getElementById('atender-obs').value        = r?.obs_area || '';
   document.getElementById('atender-error').textContent = '';
 
+  pintarAsuntoAtender(r);
   renderSlotDoc(id, r, 'doc3', true);
   renderSlotDoc(id, r, 'doc4', false);
 

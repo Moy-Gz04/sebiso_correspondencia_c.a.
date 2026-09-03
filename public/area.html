@@ -102,8 +102,10 @@
     .modal-header {
       background: linear-gradient(135deg, var(--guinda,#6B0F2B) 0%, var(--guinda-oscuro,#3D1420) 100%); color:#fff;
       padding: 18px 28px;
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+      position: sticky; top: 0; z-index: 5;
     }
+    .modal-header-top { display:flex; align-items:center; justify-content:space-between; }
     .modal-header h2 {
       margin:0; font-family:'Montserrat',sans-serif; font-size:1.35rem; font-weight:600;
       display:flex; align-items:center; gap:10px;
@@ -114,6 +116,18 @@
       border-radius:4px; transition:background 0.2s, transform .15s;
     }
     .modal-header button:hover { background:rgba(255,255,255,0.15); transform: rotate(90deg); }
+    .modal-header-asunto {
+      display:flex; align-items:flex-start; gap:8px;
+      background: rgba(255,255,255,0.14); border-radius:8px;
+      padding:9px 13px; font-size:12.5px; line-height:1.45; color:#fff;
+    }
+    .modal-header-asunto i { font-size:15px; margin-top:1px; flex-shrink:0; opacity:.9; }
+    .modal-header-asunto-txt { min-width:0; }
+    .modal-header-asunto-label {
+      display:block; font-size:9.5px; font-weight:700; text-transform:uppercase;
+      letter-spacing:0.6px; opacity:.8; margin-bottom:2px;
+    }
+    .modal-header-asunto-val { font-weight:600; word-break:break-word; }
     .modal-body { padding: 28px 28px 0; }
     .modal-campo { margin-bottom: 18px; }
     .modal-campo label {
@@ -352,8 +366,17 @@
   <div id="modal-atender">
     <div class="modal-box" style="max-width:600px;">
       <div class="modal-header">
-        <h2><i class="ti ti-circle-check"></i> Atender Oficio</h2>
-        <button onclick="cerrarAtender()" title="Cerrar"><i class="ti ti-x"></i></button>
+        <div class="modal-header-top">
+          <h2><i class="ti ti-circle-check"></i> Atender Oficio</h2>
+          <button onclick="cerrarAtender()" title="Cerrar"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="modal-header-asunto">
+          <i class="ti ti-file-text"></i>
+          <div class="modal-header-asunto-txt">
+            <span class="modal-header-asunto-label">Asunto</span>
+            <span class="modal-header-asunto-val" id="atender-asunto">—</span>
+          </div>
+        </div>
       </div>
       <div class="modal-body">
         <div class="modal-info-box" id="atender-instruccion" style="display:none;">
