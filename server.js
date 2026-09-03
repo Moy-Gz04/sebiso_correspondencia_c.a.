@@ -141,7 +141,7 @@ const EXTENSIONES_PERMITIDAS = [
   '.tif', '.tiff', '.heic', '.heif', '.svg',
 ];
 
-const TAMANO_MAXIMO_MB = 10;
+const TAMANO_MAXIMO_MB = 50;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -976,7 +976,7 @@ app.use('/api', (req, res) => res.status(404).json({ mensaje: 'Ruta no encontrad
 /* ══ Manejador de errores global ══
    Sin este manejador, un error ocurrido en un middleware ANTES de
    llegar a la ruta —el caso más común es multer, al procesar un
-   archivo adjunto que excede el tamaño máximo (10 MB) o que no pasa
+   archivo adjunto que excede el tamaño máximo (50 MB) o que no pasa
    el fileFilter— terminaba respondido con la página de error HTML por
    defecto de Express, y el frontend truena al intentar interpretarla
    como JSON ("Unexpected token '<', "<!DOCTYPE "... is not valid
