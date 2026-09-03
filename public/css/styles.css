@@ -19,7 +19,7 @@
   --borde:          #E4D6C8;
   --txt:            #201017;
   --txt2:           #6B5563;
-  --fondo:          #F7F1E8;
+  --fondo:          #ffffff;
   --fondo-par:      #FFFDF9;
   --blanco:         #ffffff;
 
@@ -28,12 +28,28 @@
   --alerta-claro:   #F3E4DE;
   --alerta-borde:   #E0BDAE;
 
+  /* Tarjetas alternadas (ver sección TARJETAS DE REGISTRO) */
+  --tarjeta-arena:        #DDC9A3;
+  --tarjeta-arena-borde:  #C7AE81;
+  --tarjeta-arena-hover:  #E8D9BC;
+  --tarjeta-guinda:       #691B31;
+  --tarjeta-guinda-borde: #4A0F20;
+  --tarjeta-guinda-hover: #7A2039;
+
   --fuente-titulo:  'Montserrat', Georgia, sans-serif;
   --fuente-cuerpo:  'Montserrat', 'Segoe UI', sans-serif;
   --fuente-mono:    'JetBrains Mono', 'Courier New', monospace;
   --radio:          16px;
   --radio-sm:       10px;
   --radio-pill:     999px;
+
+  /* Pesos tipográficos — Montserrat
+     Títulos: Bold/SemiBold · Subtítulos: SemiBold · Texto normal: Regular
+     Botones y menús: Medium/SemiBold · Números/destacados: Bold */
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
 
   /* Sombras "3D" reutilizables */
   --sombra-suave:   0 1px 2px rgba(61,20,32,.05), 0 2px 8px rgba(95,33,50,.06);
@@ -46,13 +62,14 @@
 
 html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
+/* ── Fondo totalmente blanco ──
+   Antes había un tinte gris-rosado con degradados radiales decorativos;
+   se retira por completo para dejar la página en blanco puro y que el
+   contraste de tarjetas y contenido sea lo único que aporte color. */
 body {
   font-family: var(--fuente-cuerpo);
-  background: #ede3e7;
-  background-image:
-    radial-gradient(ellipse 60% 40% at 15% 0%, rgba(169,130,76,.06) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 100% 10%, rgba(95,33,50,.05) 0%, transparent 60%);
-  background-attachment: fixed;
+  font-weight: var(--fw-regular);
+  background: #ffffff;
   color: var(--txt);
   min-height: 100vh;
   display: flex;
@@ -86,7 +103,7 @@ img { max-width: 100%; }
    ENCABEZADO
    ═══════════════════════════════════════════════════ */
 .header-institucional {
-  background: linear-gradient(180deg, #ffffff 0%, var(--fondo-par) 100%);
+  background: #ffffff;
   box-shadow: 0 2px 14px rgba(95,33,50,.10);
   position: relative;
   z-index: 200;
@@ -105,7 +122,9 @@ img { max-width: 100%; }
   border-bottom: 1px solid var(--borde);
 }
 
-/* ── Sello institucional / logo — marco elegante con profundidad ── */
+/* ── Sello institucional / logo — marco elegante con profundidad ──
+   (se conserva: es el escudo oficial de la Secretaría, no un icono
+   decorativo de los que se están retirando) */
 .header-emblema {
   width: 50px;
   height: 50px;
@@ -162,7 +181,7 @@ img { max-width: 100%; }
   align-items: center;
   gap: 7px;
   font-size: 0.68rem;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.16em;
   color: var(--dorado-oscuro);
   text-transform: uppercase;
@@ -180,7 +199,7 @@ img { max-width: 100%; }
 .header-secretaria {
   font-family: var(--fuente-titulo);
   font-size: 1.5rem;
-  font-weight: 800;
+  font-weight: var(--fw-bold);
   color: var(--guinda-oscuro);
   line-height: 1.18;
   letter-spacing: -0.01em;
@@ -201,7 +220,7 @@ img { max-width: 100%; }
 /* ── Chip de usuario — icono elegante en vez de emoji ── */
 #header-usuario {
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--guinda) !important;
   display: inline-flex;
   align-items: center;
@@ -230,6 +249,7 @@ img { max-width: 100%; }
 
 .header-fecha {
   font-size: 0.78rem;
+  font-weight: var(--fw-regular);
   color: var(--txt2);
   text-align: right;
   white-space: nowrap;
@@ -248,7 +268,7 @@ img { max-width: 100%; }
   cursor: pointer;
   font-family: var(--fuente-cuerpo);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.04em;
   display: flex;
   align-items: center;
@@ -332,7 +352,7 @@ img { max-width: 100%; }
 .menu-label {
   font-family: var(--fuente-titulo);
   font-size: 1.1rem;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--dorado);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -353,7 +373,7 @@ img { max-width: 100%; }
   display: block;
   padding: 8px 20px;
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.04em;
   color: rgba(255,255,255,.80);
   text-decoration: none;
@@ -368,7 +388,7 @@ img { max-width: 100%; }
 .menu-item.active {
   background: linear-gradient(135deg, var(--dorado) 0%, var(--dorado-oscuro) 100%);
   color: var(--guinda-oscuro);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   box-shadow: 0 3px 10px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,.25);
 }
 
@@ -380,6 +400,7 @@ img { max-width: 100%; }
   padding: 32px 24px 56px;
   width: 100%;
   overflow-x: hidden;
+  background: #ffffff;
 }
 
 .contenido-wrapper {
@@ -391,7 +412,11 @@ img { max-width: 100%; }
   gap: 16px;
 }
 
-/* ── Título de sección ── */
+/* ── Título de sección ──
+   El icono circular decorativo (envelope / copiar / agregar
+   documento, etc. según la página) se retiró del marcado en cada
+   HTML para una vista más limpia; el bloque de título queda solo
+   con el eyebrow y el H1. */
 .seccion-titulo-bloque {
   display: flex;
   align-items: center;
@@ -411,36 +436,12 @@ img { max-width: 100%; }
   background: var(--dorado);
 }
 
-.titulo-icono {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.3rem;
-  color: var(--guinda);
-  background: var(--guinda-claro);
-  border: 1.3px solid var(--borde);
-  position: relative;
-  box-shadow: var(--sombra-suave);
-}
-.titulo-icono::after {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  border: 1px solid var(--dorado);
-  border-radius: 50%;
-  opacity: .5;
-}
-
 .seccion-titulo-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
 .seccion-titulo-eyebrow {
   font-family: var(--fuente-mono);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--dorado-oscuro);
@@ -449,7 +450,7 @@ img { max-width: 100%; }
 .seccion-titulo-h1 {
   font-family: var(--fuente-titulo);
   font-size: 1.9rem;
-  font-weight: 800;
+  font-weight: var(--fw-bold);
   color: var(--guinda-oscuro);
   letter-spacing: -0.01em;
   line-height: 1.15;
@@ -503,6 +504,7 @@ img { max-width: 100%; }
   flex: 1;
   min-width: 0;
   font-family: var(--fuente-cuerpo);
+  font-weight: var(--fw-regular);
   font-size: 14px;
   color: var(--txt);
   background: transparent;
@@ -543,7 +545,7 @@ img { max-width: 100%; }
 
 .chip {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.04em;
   color: var(--guinda);
   background: var(--blanco);
@@ -566,16 +568,17 @@ img { max-width: 100%; }
 
 .filtro-total {
   font-size: 12.5px;
+  font-weight: var(--fw-regular);
   color: var(--txt2);
 }
 
-.filtro-total strong { color: var(--guinda); }
+.filtro-total strong { color: var(--guinda); font-weight: var(--fw-bold); }
 
 /* ═══════════════════════════════════════════════════
    PANEL DE PDFs GENERADOS — estilizado, redondeado, selección múltiple
    ═══════════════════════════════════════════════════ */
 .panel-pdfs {
-  background: linear-gradient(180deg, #ffffff 0%, var(--fondo-par) 100%);
+  background: #ffffff;
   border: 1px solid var(--borde);
   border-radius: var(--radio);
   padding: 16px 20px;
@@ -597,7 +600,7 @@ img { max-width: 100%; }
 
 .panel-pdfs-titulo {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--dorado-oscuro);
@@ -619,7 +622,7 @@ img { max-width: 100%; }
   align-items: center;
   gap: 6px;
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: var(--fw-medium);
   color: var(--txt2);
   cursor: pointer;
   user-select: none;
@@ -640,7 +643,7 @@ img { max-width: 100%; }
   border-radius: var(--radio-pill);
   padding: 8px 18px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   font-family: var(--fuente-cuerpo);
   cursor: pointer;
   box-shadow: 0 3px 10px rgba(163,45,45,.30);
@@ -692,7 +695,7 @@ img { max-width: 100%; }
   border: none;
   color: var(--guinda);
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -724,7 +727,7 @@ img { max-width: 100%; }
   border-left: 4px solid transparent;
   border-radius: var(--radio);
   overflow: hidden;
-  transition: box-shadow .2s, border-color .2s, transform .15s;
+  transition: box-shadow .2s, border-color .2s, transform .15s, background .2s;
   animation: fadeUp .3s ease both;
   box-shadow: var(--sombra-suave);
 }
@@ -767,7 +770,7 @@ img { max-width: 100%; }
 
 .th-label {
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--dorado-oscuro);
@@ -776,6 +779,7 @@ img { max-width: 100%; }
 
 .th-val {
   font-size: 13.5px;
+  font-weight: var(--fw-regular);
   color: var(--txt);
   white-space: nowrap;
   overflow: hidden;
@@ -794,12 +798,13 @@ img { max-width: 100%; }
   font-family: var(--fuente-mono);
   font-size: 14px;
   color: var(--guinda);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   letter-spacing: 0.01em;
 }
 
 .th-val.muted {
   font-size: 11.5px;
+  font-weight: var(--fw-regular);
   color: var(--txt2);
 }
 
@@ -810,7 +815,7 @@ img { max-width: 100%; }
   gap: 4px;
   font-family: var(--fuente-mono);
   font-size: 10px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.02em;
   color: var(--alerta);
   background: var(--alerta-claro);
@@ -831,7 +836,7 @@ img { max-width: 100%; }
   align-items: center;
   font-family: var(--fuente-mono);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   letter-spacing: 0.08em;
   padding: 5px 13px;
   border-radius: var(--radio-pill);
@@ -890,7 +895,10 @@ img { max-width: 100%; }
 .btn-toggle i { transition: transform .22s; }
 .tarjeta.abierta .btn-toggle i { transform: rotate(180deg); }
 
-/* ── Cuerpo expandible ── */
+/* ── Cuerpo expandible ──
+   Siempre blanco, sin importar el color de la cabecera de la tarjeta:
+   así el contenido interno (fechas, documentos, observaciones) nunca
+   pierde contraste con la franja alterna de color. */
 .t-body {
   display: none;
   padding: 20px 22px;
@@ -914,7 +922,7 @@ img { max-width: 100%; }
 
 .t-extra-label {
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--dorado-oscuro);
@@ -922,6 +930,7 @@ img { max-width: 100%; }
 
 .t-extra-val {
   font-size: 13.5px;
+  font-weight: var(--fw-regular);
   color: var(--txt);
   word-break: break-word;
 }
@@ -933,7 +942,7 @@ img { max-width: 100%; }
 
 .t-docs-titulo {
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--txt2);
@@ -953,7 +962,7 @@ img { max-width: 100%; }
   border: none;
   border-radius: var(--radio-pill);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-family: var(--fuente-cuerpo);
   padding: 8px 18px;
   cursor: pointer;
@@ -1016,14 +1025,14 @@ img { max-width: 100%; }
 }
 
 .doc-area-nombre {
-  font-size: 13.5px; font-weight: 600;
+  font-size: 13.5px; font-weight: var(--fw-semibold);
   color: #222;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-family: var(--fuente-cuerpo);
 }
 
 .doc-area-meta {
-  font-size: 11.5px; color: #999;
+  font-size: 11.5px; font-weight: var(--fw-regular); color: #999;
   font-family: var(--fuente-cuerpo);
 }
 
@@ -1054,7 +1063,7 @@ img { max-width: 100%; }
 
 .obs-label {
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--dorado-oscuro);
@@ -1065,6 +1074,7 @@ img { max-width: 100%; }
   min-height: 76px;
   resize: vertical;
   font-size: 13px;
+  font-weight: var(--fw-regular);
   font-family: var(--fuente-cuerpo);
   color: var(--txt);
   background: var(--fondo-par);
@@ -1090,7 +1100,7 @@ img { max-width: 100%; }
 
 .acc-titulo {
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--dorado-oscuro);
@@ -1102,7 +1112,7 @@ img { max-width: 100%; }
   border: none;
   border-radius: var(--radio-pill);
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   font-family: var(--fuente-cuerpo);
   padding: 10px 18px;
   cursor: pointer;
@@ -1124,12 +1134,63 @@ img { max-width: 100%; }
 .btn-finalizar { background: linear-gradient(135deg, #229150 0%, var(--verde-ok) 100%); color: #fff; }
 .btn-eliminar  { background: linear-gradient(135deg, #c23a3a 0%, var(--rojo-elim) 100%); color: #fff; }
 
+/* ═══════════════════════════════════════════════════
+   TARJETAS ALTERNADAS — dos tonos institucionales
+   Las tarjetas de la lista alternan de color (1 y 1) para
+   diferenciarse de un vistazo sin depender solo del estatus:
+   impares en arena dorada (#DDC9A3), pares en guinda profundo
+   (#691B31). El cuerpo expandible (.t-body) sigue siendo blanco
+   siempre — solo la cabecera colapsada cambia de tono — así que
+   aquí solo se adapta el color del texto/iconos que viven
+   directamente sobre esa cabecera, para que nunca se pierdan
+   contra el fondo de la tarjeta.
+   ═══════════════════════════════════════════════════ */
+.lista .tarjeta:nth-child(odd) {
+  background: var(--tarjeta-arena);
+  border-color: var(--tarjeta-arena-borde);
+}
+.lista .tarjeta:nth-child(odd) .t-header:hover,
+.lista .tarjeta:nth-child(odd).abierta .t-header {
+  background: var(--tarjeta-arena-hover);
+  border-bottom-color: var(--tarjeta-arena-borde);
+}
+.lista .tarjeta:nth-child(odd) .th-label      { color: #6B4A22; }
+.lista .tarjeta:nth-child(odd) .th-val        { color: #3D1420; }
+.lista .tarjeta:nth-child(odd) .th-val.mono   { color: var(--tarjeta-guinda); }
+.lista .tarjeta:nth-child(odd) .th-val.muted  { color: #7A5F3E; }
+.lista .tarjeta:nth-child(odd) .btn-toggle    { border-color: var(--tarjeta-arena-borde); color: #6B4A22; }
+.lista .tarjeta:nth-child(odd).abierta .btn-toggle {
+  background: var(--tarjeta-guinda); color: var(--dorado-claro); border-color: var(--tarjeta-guinda);
+}
+
+.lista .tarjeta:nth-child(even) {
+  background: var(--tarjeta-guinda);
+  border-color: var(--tarjeta-guinda-borde);
+}
+.lista .tarjeta:nth-child(even) .t-header:hover,
+.lista .tarjeta:nth-child(even).abierta .t-header {
+  background: var(--tarjeta-guinda-hover);
+  border-bottom-color: #8a3350;
+}
+.lista .tarjeta:nth-child(even) .th-label      { color: #E8CFA0; }
+.lista .tarjeta:nth-child(even) .th-val        { color: #FBF3E4; }
+.lista .tarjeta:nth-child(even) .th-val.mono   { color: #F0D9A8; }
+.lista .tarjeta:nth-child(even) .th-val.muted  { color: rgba(251,243,228,.7); }
+.lista .tarjeta:nth-child(even) .btn-toggle    { border-color: rgba(246,238,212,.4); color: var(--dorado-claro); }
+.lista .tarjeta:nth-child(even).abierta .btn-toggle {
+  background: var(--tarjeta-arena); color: #3D1420; border-color: var(--tarjeta-arena);
+}
+/* Prioridad/rechazo siguen viéndose sobre cualquiera de las dos tarjetas */
+.lista .tarjeta:nth-child(even).tarjeta-urgente   { border-left-color: var(--alerta) !important; }
+.lista .tarjeta:nth-child(even).tarjeta-rechazada { border-left-color: #d98b7c !important; }
+
 /* ── Cargando ── */
 .cargando-msg {
   padding: 36px;
   text-align: center;
   color: var(--txt2);
   font-size: 0.95rem;
+  font-weight: var(--fw-regular);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1169,7 +1230,7 @@ img { max-width: 100%; }
   background: none;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--guinda);
   font-family: var(--fuente-cuerpo);
   display: flex; align-items: center; justify-content: center;
@@ -1199,9 +1260,11 @@ img { max-width: 100%; }
   height: 3px;
   background: linear-gradient(90deg, var(--dorado) 0%, transparent 100%);
 }
+.modal-header h2 { font-weight: var(--fw-bold); }
 
 .modal-footer button,
 .sbis-btn {
+  font-weight: var(--fw-semibold);
   box-shadow: 0 3px 10px rgba(0,0,0,0.12);
   transition: filter .15s, transform .15s, box-shadow .15s !important;
 }
@@ -1226,6 +1289,7 @@ img { max-width: 100%; }
   justify-content: space-between;
   align-items: center;
   font-size: 0.73rem;
+  font-weight: var(--fw-regular);
   color: rgba(255,255,255,.48);
   letter-spacing: 0.03em;
   gap: 16px;
@@ -1322,7 +1386,6 @@ img { max-width: 100%; }
   .main-contenido { padding: 16px 10px 32px; }
 
   .seccion-titulo-bloque { gap: 10px; margin-bottom: 10px; padding-bottom: 10px; }
-  .titulo-icono           { width: 38px; height: 38px; min-width: 38px; font-size: 1.05rem; }
   .seccion-titulo-h1      { font-size: 1.28rem; }
   .seccion-titulo-eyebrow { font-size: 9px; }
 
