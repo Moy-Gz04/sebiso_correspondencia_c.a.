@@ -272,6 +272,22 @@
       background: var(--guinda-claro, #f5e8ec);
       border-bottom-color: var(--borde, #e8d8de);
     }
+    /* Las tarjetas de Historial alternan color (arena/guinda) igual que
+       en las demás páginas, pero aquí el fondo real de la cabecera lo
+       pinta .t-header-row (el wrapper del checkbox), no .t-header —
+       así que el hover y el estado "abierta" deben adaptarse aquí
+       también; si no, el rosa pálido genérico tapa el color de la
+       tarjeta y el texto se pierde. */
+    .lista .tarjeta:nth-child(odd) .t-header-row:hover,
+    .lista .tarjeta:nth-child(odd).abierta .t-header-row {
+      background: var(--tarjeta-arena-hover, #E8D9BC);
+      border-bottom-color: var(--tarjeta-arena-borde, #C7AE81);
+    }
+    .lista .tarjeta:nth-child(even) .t-header-row:hover,
+    .lista .tarjeta:nth-child(even).abierta .t-header-row {
+      background: var(--tarjeta-guinda-hover, #7A2039);
+      border-bottom-color: #8a3350;
+    }
     .t-header-row .t-header {
       flex: 1 1 auto;
       min-width: 0;
