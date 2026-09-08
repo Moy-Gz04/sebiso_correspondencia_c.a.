@@ -412,6 +412,73 @@
   background: #fff;
 }
 
+/* ── Bloqueo de acceso (exclusivo de esta página) ──
+   Fondo sólido (no semitransparente, a diferencia de los modales) para
+   que nada del contenido de la página quede visible detrás mientras
+   está activo. z-index por encima de todo lo demás, incluido el modal
+   de captura. */
+.bloqueo-acceso {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--fondo, #f7f3ee);
+  z-index: 99999;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.bloqueo-acceso.visible { display: flex; }
+.bloqueo-acceso-caja {
+  background: #fff;
+  border-radius: 16px;
+  padding: 44px 36px;
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(0,0,0,.14);
+  font-family: var(--fuente-cuerpo);
+}
+.bloqueo-acceso-icono {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fce4ec;
+  color: #c62828;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+}
+.bloqueo-acceso-titulo {
+  font-size: 1.3rem;
+  font-weight: var(--fw-bold);
+  color: #1a1a1a;
+  margin: 0 0 8px;
+}
+.bloqueo-acceso-msg {
+  font-size: 13.5px;
+  color: #666;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+.bloqueo-acceso-btn {
+  background: linear-gradient(135deg, var(--guinda) 0%, var(--guinda-oscuro) 100%);
+  color: #f8eed4;
+  border: none;
+  border-radius: var(--radio-pill);
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
+  font-family: var(--fuente-cuerpo);
+  padding: 10px 26px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: filter .15s, transform .12s;
+}
+.bloqueo-acceso-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
 /* ── Responsivo ── */
 @media (max-width: 768px) {
   .no-of-barra { flex-direction: column; align-items: stretch; }

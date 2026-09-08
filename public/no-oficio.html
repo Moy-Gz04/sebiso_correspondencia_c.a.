@@ -291,6 +291,23 @@
     </div>
   </div>
 
+  <!-- Bloqueo de acceso: exclusivo de esta página. Se muestra por JS
+       (verificarAcceso, en no-oficio.js) cuando el usuario tiene el
+       rol/área correctos pero no está en la lista de cuentas
+       autorizadas a navegar en "No. de Oficio". Cubre toda la pantalla
+       con un fondo sólido para que nada del contenido quede visible
+       detrás. -->
+  <div class="bloqueo-acceso" id="bloqueo-acceso">
+    <div class="bloqueo-acceso-caja">
+      <div class="bloqueo-acceso-icono"><i class="ti ti-lock"></i></div>
+      <p class="bloqueo-acceso-titulo">Acceso restringido</p>
+      <p class="bloqueo-acceso-msg">Tu usuario no tiene permisos para navegar en esta página.</p>
+      <button class="bloqueo-acceso-btn" onclick="location.href='/area'">
+        <i class="ti ti-arrow-left"></i> Volver
+      </button>
+    </div>
+  </div>
+
   <footer class="footer-institucional">
     <div class="footer-banda-tricolor">
       <div class="banda guinda"></div>
