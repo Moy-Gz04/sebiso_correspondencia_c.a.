@@ -365,43 +365,6 @@ function pintarLibres() {
 }
 
 /* ════════════════════════════════════════════════════
-   "Tarjeta Libre del Día"
-   Reserva el siguiente número consecutivo automático y
-   lo deja directamente en el pool de Tarjetas Libres, con
-   la fecha de hoy, sin crear un registro en la tabla
-   principal (útil cuando un número queda inutilizado y
-   se libera de inmediato para reasignarse después).
-   ════════════════════════════════════════════════════ */
-async function abrirLibreDelDia() {
-  const ok = await sbisConfirm({
-    titulo: '¿Reservar el siguiente número como Libre del Día?',
-    mensaje: 'Se tomará el siguiente No. Tarjeta Informativa consecutivo y quedará disponible de inmediato en "Tarjetas Libres", fechado hoy, sin registrar ningún dato adicional.',
-    btnOk: 'Reservar',
-    tipo: 'confirm',
-  });
-  if (!ok) return;
-
-  try {
-    const res = await fetch(`${API}/tarjeta-informativa/libre-del-dia`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${TOKEN}` },
-    });
-    if (res.status === 401) { cerrarSesion(); return; }
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.mensaje || 'No se pudo reservar el número.');
-
-    await cargarLibres();
-    await sbisAlert({
-      titulo: `No. Tarjeta Informativa ${data.no_tarjeta} liberado`,
-      mensaje: 'Quedó disponible en "Tarjetas Libres" con la fecha de hoy.',
-      tipo: 'success',
-    });
-  } catch (err) {
-    await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
-  }
-}
-
-/* ════════════════════════════════════════════════════
    Modal: Nuevo / Editar No. Tarjeta Informativa
    ════════════════════════════════════════════════════ */
 let EDITANDO_ID = null;

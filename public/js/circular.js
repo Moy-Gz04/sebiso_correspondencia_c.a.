@@ -365,43 +365,6 @@ function pintarLibres() {
 }
 
 /* ════════════════════════════════════════════════════
-   "Circular Libre del Día"
-   Reserva el siguiente número consecutivo automático y
-   lo deja directamente en el pool de Circulares Libres, con
-   la fecha de hoy, sin crear un registro en la tabla
-   principal (útil cuando un número queda inutilizado y
-   se libera de inmediato para reasignarse después).
-   ════════════════════════════════════════════════════ */
-async function abrirLibreDelDia() {
-  const ok = await sbisConfirm({
-    titulo: '¿Reservar el siguiente número como Libre del Día?',
-    mensaje: 'Se tomará el siguiente No. Circular consecutivo y quedará disponible de inmediato en "Circulares Libres", fechado hoy, sin registrar ningún dato adicional.',
-    btnOk: 'Reservar',
-    tipo: 'confirm',
-  });
-  if (!ok) return;
-
-  try {
-    const res = await fetch(`${API}/circular/libre-del-dia`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${TOKEN}` },
-    });
-    if (res.status === 401) { cerrarSesion(); return; }
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.mensaje || 'No se pudo reservar el número.');
-
-    await cargarLibres();
-    await sbisAlert({
-      titulo: `No. Circular ${data.no_circular} liberado`,
-      mensaje: 'Quedó disponible en "Circulares Libres" con la fecha de hoy.',
-      tipo: 'success',
-    });
-  } catch (err) {
-    await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
-  }
-}
-
-/* ════════════════════════════════════════════════════
    Modal: Nuevo / Editar No. Circular
    ════════════════════════════════════════════════════ */
 let EDITANDO_ID = null;
