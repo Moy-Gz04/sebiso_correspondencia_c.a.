@@ -27,6 +27,11 @@ function tieneAccesoNoOficio(usuario) {
 
 function mostrarBloqueoAcceso() {
   document.getElementById('bloqueo-acceso')?.classList.add('visible');
+  // Oculta el contenido de la página (tabla, panel de libres, etc.),
+  // pero el header y el menú de navegación quedan intactos: viven
+  // fuera de <main> y nunca se tocan aquí.
+  const contenido = document.getElementById('contenido-wrapper');
+  if (contenido) contenido.style.display = 'none';
 }
 
 function verificarAcceso() {

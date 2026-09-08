@@ -413,16 +413,15 @@
 }
 
 /* ── Bloqueo de acceso (exclusivo de esta página) ──
-   Fondo sólido (no semitransparente, a diferencia de los modales) para
-   que nada del contenido de la página quede visible detrás mientras
-   está activo. z-index por encima de todo lo demás, incluido el modal
-   de captura. */
+   A diferencia de un overlay de pantalla completa, este bloque vive
+   DENTRO de <main>, antes de .contenido-wrapper (que se oculta por JS
+   cuando el bloqueo está activo — ver mostrarBloqueoAcceso en
+   no-oficio.js). Así el header y el menú de navegación de arriba
+   quedan siempre visibles y usables, y el usuario puede irse a otra
+   página desde ahí sin quedar atrapado. */
 .bloqueo-acceso {
   display: none;
-  position: fixed;
-  inset: 0;
-  background: var(--fondo, #f7f3ee);
-  z-index: 99999;
+  min-height: 50vh;
   align-items: center;
   justify-content: center;
   padding: 24px;
