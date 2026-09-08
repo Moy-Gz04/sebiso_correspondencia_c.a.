@@ -12,7 +12,7 @@ import path              from 'path';
 import { fileURLToPath } from 'url';
 import { neon }          from '@neondatabase/serverless';
 import dotenv            from 'dotenv';
-import bcrypt            from 'bcryptjs';
+import bcrypt             from 'bcryptjs';
 import jwt                from 'jsonwebtoken';
 import { randomUUID }     from 'crypto';
 
@@ -105,10 +105,10 @@ app.use('/api', limitadorApi);
    "back/forward cache" (bfcache) que algunos navegadores usan para el
    botón Atrás/Adelante. Esto se combina con la revalidación de sesión
    en el evento "pageshow" de cada página (ver historial.js, area.js,
-   usuario.js, captura.js): así, después de Cerrar Sesión, la tecla
-   Atrás no puede dejar visible una versión cacheada de una pantalla
-   que ya no debería ser accesible. */
-const PAGINAS = ['login', 'historial', 'area', 'captura', 'usuario'];
+   usuario.js, captura.js, no-oficio.js, minutario.js): así, después de
+   Cerrar Sesión, la tecla Atrás no puede dejar visible una versión
+   cacheada de una pantalla que ya no debería ser accesible. */
+const PAGINAS = ['login', 'historial', 'area', 'captura', 'usuario', 'no-oficio', 'minutario'];
 
 function sinCache(res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -304,6 +304,16 @@ function tieneGestionCompleta(user) {
 function onlyCoordOrAdmin(req, res, next) {
   if (!tieneGestionCompleta(req.user))
     return res.status(403).json({ mensaje: 'Solo Coordinación Administrativa puede crear Nuevos Registros.' });
+  next();
+}
+
+/* Mismo criterio que onlyCoordOrAdmin, con mensaje genérico: protege
+   TODAS las rutas de No. de Oficio / Minutario (ver más abajo), que
+   son exclusivas de Coordinación Administrativa (o el admin legado),
+   igual que Nuevo Registro e Historial. */
+function onlyGestionCompleta(req, res, next) {
+  if (!tieneGestionCompleta(req.user))
+    return res.status(403).json({ mensaje: 'Sin acceso a No. de Oficio / Minutario.' });
   next();
 }
 
@@ -859,6 +869,169 @@ app.delete('/api/oficios/:id', verifyToken, async (req, res) => {
     await sql`DELETE FROM oficios WHERE id = ${req.params.id}`;
     console.log(`🗑️   Oficio ${req.params.id} eliminado`);
     res.json({ mensaje: 'Eliminado correctamente.' });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo eliminar el registro.');
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   NO. DE OFICIO / MINUTARIO
+   Folio consecutivo de oficios EMITIDOS por la Secretaría —
+   independiente del historial de correspondencia RECIBIDA (tabla
+   "oficios" de arriba). Minutario reutiliza exactamente los mismos
+   registros: solo agrega Fecha de Sello / Hora de Sello, capturables
+   ahí después de creado el No. de Oficio.
+
+   Exclusivo de Coordinación Administrativa (o el admin legado), igual
+   que Nuevo Registro e Historial — ver onlyGestionCompleta arriba.
+
+   Reglas del consecutivo:
+     • "Automático" siempre toma el siguiente valor de no_oficio_seq,
+       que NUNCA retrocede, ni siquiera si se elimina el último
+       registro creado — así un número liberado no se vuelve a
+       repartir por accidente.
+     • Al eliminar un registro, su número pasa a "no_oficio_liberados"
+       (los "Oficios libres") y deja de existir en la tabla principal.
+     • "Asignar Anteriores" toma un número de ese pool a propósito y
+       lo saca de ahí al usarlo.
+   ══════════════════════════════════════════════════════════════ */
+
+async function siguienteNoOficioAutomatico() {
+  const [{ siguiente }] = await sql`SELECT nextval('no_oficio_seq') AS siguiente`;
+  return String(siguiente).padStart(4, '0');
+}
+
+/* ══ GET /api/no-oficio — lista completa (usada tanto por la vista
+   "No. de Oficio" como por "Minutario") ══ */
+app.get('/api/no-oficio', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM no_oficio ORDER BY no_oficio ASC`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron obtener los registros.');
+  }
+});
+
+/* ══ GET /api/no-oficio/liberados — pool de números liberados, para el
+   selector de "Asignar Anteriores" ══ */
+app.get('/api/no-oficio/liberados', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM no_oficio_liberados ORDER BY no_oficio ASC`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo obtener el listado de oficios libres.');
+  }
+});
+
+/* ══ POST /api/no-oficio ══
+   Body: { modo: 'automatico' | 'anterior', no_oficio (solo si modo es
+   'anterior'), fecha, a_quien_se_dirige, asunto, area_solicitante,
+   solicitante, hora }. */
+app.post('/api/no-oficio', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const {
+      modo, no_oficio: numeroElegido,
+      fecha, a_quien_se_dirige, asunto, area_solicitante, solicitante, hora
+    } = req.body;
+
+    if (!fecha || !a_quien_se_dirige?.trim())
+      return res.status(400).json({ mensaje: 'Fecha y A quién se dirige son obligatorios.' });
+
+    let numero;
+    if (modo === 'anterior') {
+      if (!numeroElegido)
+        return res.status(400).json({ mensaje: 'Selecciona un número de la lista de Oficios Libres.' });
+
+      const [libre] = await sql`SELECT no_oficio FROM no_oficio_liberados WHERE no_oficio = ${numeroElegido}`;
+      if (!libre)
+        return res.status(400).json({ mensaje: 'Ese número ya no está disponible. Actualiza la lista de Oficios Libres.' });
+
+      await sql`DELETE FROM no_oficio_liberados WHERE no_oficio = ${numeroElegido}`;
+      numero = numeroElegido;
+    } else {
+      numero = await siguienteNoOficioAutomatico();
+    }
+
+    const [nuevo] = await sql`
+      INSERT INTO no_oficio (
+        no_oficio, fecha, a_quien_se_dirige, asunto,
+        area_solicitante, solicitante, hora, creado_por
+      ) VALUES (
+        ${numero},
+        ${fecha},
+        ${a_quien_se_dirige.trim()},
+        ${asunto            || null},
+        ${area_solicitante  || null},
+        ${solicitante       || null},
+        ${hora              || null},
+        ${req.user.username}
+      )
+      RETURNING *`;
+
+    console.log(`✅  No. de Oficio creado por ${req.user.username}: ${numero} (${modo === 'anterior' ? 'reasignado' : 'automático'})`);
+    res.status(201).json(nuevo);
+  } catch (err) {
+    // Carrera improbable: dos capturas simultáneas eligiendo el mismo
+    // número liberado. La restricción UNIQUE de no_oficio lo evita a
+    // nivel de base de datos; aquí solo se traduce a un mensaje claro.
+    if (err.code === '23505') {
+      return res.status(409).json({ mensaje: 'Ese número acaba de ser tomado por otra captura. Intenta de nuevo.' });
+    }
+    manejarError(res, err, 'Error al guardar el No. de Oficio.');
+  }
+});
+
+/* ══ PUT /api/no-oficio/:id ══
+   Edición de cualquier campo, incluidos Fecha de Sello / Hora de Sello
+   (los únicos que edita la vista Minutario). Solo se actualizan los
+   campos presentes en el body. */
+app.put('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [existente] = await sql`SELECT * FROM no_oficio WHERE id = ${req.params.id}`;
+    if (!existente) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    const {
+      fecha, a_quien_se_dirige, asunto, area_solicitante,
+      solicitante, hora, fecha_sello, hora_sello
+    } = req.body;
+
+    const [actualizado] = await sql`
+      UPDATE no_oficio SET
+        fecha             = COALESCE(${fecha             ?? null}, fecha),
+        a_quien_se_dirige = COALESCE(${a_quien_se_dirige  ?? null}, a_quien_se_dirige),
+        asunto            = ${asunto            !== undefined ? (asunto            || null) : existente.asunto},
+        area_solicitante  = ${area_solicitante  !== undefined ? (area_solicitante  || null) : existente.area_solicitante},
+        solicitante       = ${solicitante       !== undefined ? (solicitante       || null) : existente.solicitante},
+        hora              = ${hora              !== undefined ? (hora              || null) : existente.hora},
+        fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : existente.fecha_sello},
+        hora_sello        = ${hora_sello        !== undefined ? (hora_sello        || null) : existente.hora_sello},
+        updated_at        = NOW()
+      WHERE id = ${req.params.id}
+      RETURNING *`;
+
+    res.json(actualizado);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo actualizar el registro.');
+  }
+});
+
+/* ══ DELETE /api/no-oficio/:id ══
+   Elimina el registro y libera su número: NO se reasigna en automático
+   después (no_oficio_seq nunca retrocede), solo queda disponible para
+   "Asignar Anteriores". */
+app.delete('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [row] = await sql`SELECT no_oficio FROM no_oficio WHERE id = ${req.params.id}`;
+    if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    await sql`DELETE FROM no_oficio WHERE id = ${req.params.id}`;
+    await sql`
+      INSERT INTO no_oficio_liberados (no_oficio, liberado_por)
+      VALUES (${row.no_oficio}, ${req.user.username})
+      ON CONFLICT (no_oficio) DO NOTHING`;
+
+    console.log(`🗑️   No. de Oficio ${row.no_oficio} eliminado por ${req.user.username} — número liberado`);
+    res.json({ mensaje: `Eliminado. El número ${row.no_oficio} quedó libre para reutilizarse.` });
   } catch (err) {
     manejarError(res, err, 'No se pudo eliminar el registro.');
   }

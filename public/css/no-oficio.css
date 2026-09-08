@@ -1,0 +1,234 @@
+/* ═══════════════════════════════════════════════════
+   SBIS — No. de Oficio / Minutario
+   Vista de tabla simple (compartida por ambas páginas)
+   + modal de captura (solo en No. de Oficio).
+   ═══════════════════════════════════════════════════ */
+
+/* ── Barra de acciones superior ── */
+.no-of-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: var(--blanco);
+  border: 0.5px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 16px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--sombra-suave);
+  animation: fadeUp .3s ease both;
+}
+
+.no-of-barra-txt { display: flex; flex-direction: column; gap: 2px; }
+.no-of-barra-total { font-size: 12.5px; color: var(--txt2); }
+.no-of-barra-total strong { color: var(--guinda); font-weight: var(--fw-bold); }
+
+.btn-nuevo-no-of {
+  background: linear-gradient(135deg, var(--guinda) 0%, var(--guinda-oscuro) 100%);
+  color: #f8eed4;
+  border: none;
+  border-radius: var(--radio-pill);
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
+  font-family: var(--fuente-cuerpo);
+  padding: 11px 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: filter .15s, transform .12s, box-shadow .15s;
+  box-shadow: 0 3px 10px rgba(95,33,50,.22);
+  white-space: nowrap;
+}
+.btn-nuevo-no-of:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(95,33,50,.28); }
+.btn-nuevo-no-of:active { transform: scale(.97); }
+
+/* ── Panel "Oficios Libres" ── */
+.panel-libres {
+  background: var(--dorado-claro);
+  border: 1px solid #e3c98a;
+  border-radius: var(--radio);
+  padding: 14px 20px;
+  margin-bottom: 14px;
+  display: none;
+  animation: fadeUp .3s ease both;
+}
+.panel-libres.visible { display: block; }
+.panel-libres-titulo {
+  font-size: 11.5px;
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #8A5F1E;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.panel-libres-lista { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-libre {
+  font-family: var(--fuente-mono);
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  color: #8A5F1E;
+  background: #fff;
+  border: 1px solid #e3c98a;
+  border-radius: var(--radio-pill);
+  padding: 5px 14px;
+}
+.panel-libres-vacio { font-size: 12.5px; color: #8A5F1E; font-style: italic; }
+
+/* ── Tabla ── */
+.tabla-wrap {
+  background: var(--blanco);
+  border: 0.5px solid var(--borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+  box-shadow: var(--sombra-suave);
+  animation: fadeUp .3s ease .05s both;
+}
+.tabla-scroll { overflow-x: auto; }
+
+.tabla-simple { width: 100%; border-collapse: collapse; min-width: 900px; }
+
+.tabla-simple thead th {
+  background: linear-gradient(135deg, var(--guinda) 0%, var(--guinda-oscuro) 100%);
+  color: var(--dorado-claro);
+  font-size: 10.5px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 13px 16px;
+  white-space: nowrap;
+}
+
+.tabla-simple tbody td {
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--txt);
+  border-bottom: 0.5px solid var(--borde);
+  vertical-align: middle;
+}
+
+.tabla-simple tbody tr:last-child td { border-bottom: none; }
+.tabla-simple tbody tr:nth-child(odd)  { background: var(--fondo-par); }
+.tabla-simple tbody tr:hover           { background: var(--guinda-claro); }
+
+.td-numero {
+  font-family: var(--fuente-mono);
+  font-weight: var(--fw-bold);
+  color: var(--guinda);
+}
+
+.td-asunto { max-width: 320px; white-space: normal; word-break: break-word; }
+.td-vacio  { color: #bbb; font-style: italic; }
+
+.td-acciones { text-align: right; white-space: nowrap; }
+
+.btn-fila-eliminar {
+  background: linear-gradient(135deg, #c23a3a 0%, var(--rojo-elim) 100%);
+  color: #fff;
+  border: none;
+  border-radius: var(--radio-pill);
+  font-size: 11.5px;
+  font-weight: var(--fw-semibold);
+  font-family: var(--fuente-cuerpo);
+  padding: 7px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: filter .15s, transform .12s;
+}
+.btn-fila-eliminar:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+/* ── Campos editables en Minutario (Fecha / Hora de Sello) ── */
+.td-sello { min-width: 150px; }
+.input-sello {
+  width: 100%;
+  min-width: 128px;
+  font-family: var(--fuente-cuerpo);
+  font-size: 12.5px;
+  color: var(--txt);
+  background: var(--fondo-par);
+  border: 0.5px solid var(--borde);
+  border-radius: 7px;
+  padding: 7px 9px;
+  outline: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.input-sello:focus {
+  border-color: var(--guinda);
+  background: var(--guinda-claro);
+  box-shadow: 0 0 0 3px rgba(107,15,43,.09);
+}
+.input-sello.guardando { opacity: .6; }
+
+.fila-vacia td {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--txt2);
+  font-size: 13.5px;
+}
+
+/* ── Modal: Nuevo No. de Oficio ── */
+#modal-nuevo-no-of {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.50);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+}
+#modal-nuevo-no-of.visible { display: flex; }
+
+.modal-modo-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.modo-opcion {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1.5px solid var(--borde);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  font-size: 12.5px;
+  font-weight: var(--fw-semibold);
+  color: var(--txt2);
+}
+.modo-opcion input { accent-color: var(--guinda); width: 16px; height: 16px; cursor: pointer; }
+.modo-opcion.activo {
+  border-color: var(--guinda);
+  background: var(--guinda-claro);
+  color: var(--guinda);
+}
+
+.campo-select-libres {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d8ccd0;
+  border-radius: 7px;
+  padding: 9px 11px;
+  font-size: 13.5px;
+  font-family: var(--fuente-cuerpo);
+  color: #222;
+  background: #fff;
+}
+
+/* ── Responsivo ── */
+@media (max-width: 768px) {
+  .no-of-barra { flex-direction: column; align-items: stretch; }
+  .btn-nuevo-no-of { justify-content: center; }
+  .modal-modo-toggle { flex-direction: column; }
+}
