@@ -84,6 +84,40 @@ function sbisAlert({ titulo = 'Aviso', mensaje = '', btnOk = 'Aceptar', tipo = '
 }
 
 /* ════════════════════════════════════════════════════
+   Módulos disponibles dentro del submenú del Minutario.
+   Cada uno tiene su propia tabla/API/consecutivo, pero
+   comparten exactamente la misma mecánica de captura de
+   sello, filtros y tabla — solo cambia de dónde se leen
+   y a dónde se guardan los datos.
+   ════════════════════════════════════════════════════ */
+const MODULOS = {
+  'no-oficio': {
+    api: 'no-oficio',
+    campoNumero: 'no_oficio',
+    columna: 'No. Oficio',
+    vacioMsg: 'Sin registros todavía. Créalos desde "No. de Oficio".',
+  },
+  'circular': {
+    api: 'circular',
+    campoNumero: 'no_circular',
+    columna: 'No. Circular',
+    vacioMsg: 'Sin registros todavía. Créalos desde "No. Circular".',
+  },
+  'tarjeta-informativa': {
+    api: 'tarjeta-informativa',
+    campoNumero: 'no_tarjeta',
+    columna: 'No. Tarjeta Informativa',
+    vacioMsg: 'Sin registros todavía. Créalos desde "No. Tarjeta Informativa".',
+  },
+};
+
+let TIPO_ACTIVO = 'no-oficio';
+
+function moduloActivo() {
+  return MODULOS[TIPO_ACTIVO];
+}
+
+/* ════════════════════════════════════════════════════
    Datos
    ════════════════════════════════════════════════════ */
 let REGISTROS = [];
@@ -129,17 +163,59 @@ function fechaISO(f) {
   return valorFechaInput(f);
 }
 
+/* Caché por tipo de módulo, así cambiar de pestaña no vuelve a pedir
+   al servidor los datos que ya se cargaron en esta visita. */
+const CACHE_REGISTROS = {};
+
+function actualizarBadge(tipo, cantidad) {
+  const el = document.getElementById(`tab-badge-${tipo}`);
+  if (el) el.textContent = cantidad;
+}
+
+async function cargarModulo(tipo, { forzar = false } = {}) {
+  if (CACHE_REGISTROS[tipo] && !forzar) return CACHE_REGISTROS[tipo];
+  const cfg = MODULOS[tipo];
+  const res = await fetch(`${API}/${cfg.api}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
+  if (res.status === 401) { cerrarSesion(); return []; }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.mensaje || 'Error al cargar los registros.');
+  CACHE_REGISTROS[tipo] = data;
+  actualizarBadge(tipo, data.length);
+  return data;
+}
+
 async function cargarTabla() {
   try {
-    const res = await fetch(`${API}/no-oficio`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
-    if (res.status === 401) { cerrarSesion(); return; }
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.mensaje || 'Error al cargar los registros.');
-    REGISTROS = data;
+    REGISTROS = await cargarModulo(TIPO_ACTIVO);
     pintarTabla();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
+}
+
+/* Cambia el tipo de registro visible en el submenú (No. de Oficio /
+   Circular / Tarjeta Informativa) sin salir de la página. */
+async function cambiarTipo(tipo) {
+  if (!MODULOS[tipo] || tipo === TIPO_ACTIVO) return;
+  TIPO_ACTIVO = tipo;
+
+  document.querySelectorAll('#minutario-tabs .minutario-tab').forEach(btn => {
+    btn.classList.toggle('activo', btn.dataset.tipo === tipo);
+  });
+  document.getElementById('th-numero').textContent = MODULOS[tipo].columna;
+
+  limpiarFiltros();
+  await cargarTabla();
+}
+
+/* Precarga en segundo plano los otros dos módulos solo para mostrar
+   el contador en cada pestaña del submenú, sin bloquear la vista
+   principal ni afectar la tabla visible. */
+function precargarBadges() {
+  Object.keys(MODULOS).forEach(tipo => {
+    if (tipo === TIPO_ACTIVO) return;
+    cargarModulo(tipo).catch(() => {});
+  });
 }
 
 /* Aplica búsqueda de texto libre (sobre todos los campos visibles,
@@ -155,7 +231,7 @@ function registrosFiltrados() {
     if (!q) return true;
 
     const campos = [
-      r.no_oficio,
+      r[moduloActivo().campoNumero],
       formatearFecha(r.fecha),
       r.a_quien_se_dirige,
       r.asunto,
@@ -190,13 +266,15 @@ function pintarTabla() {
   const tbody     = document.getElementById('tabla-body');
   const filtrados = registrosFiltrados();
   const hayFiltro = !!(FILTRO_TEXTO.trim() || FILTRO_DESDE || FILTRO_HASTA);
+  const cfg       = moduloActivo();
 
   document.getElementById('tot').textContent = REGISTROS.length;
   document.getElementById('tot-filtrado').textContent = filtrados.length;
   document.getElementById('tot-filtrado-wrap').style.display = hayFiltro ? 'inline' : 'none';
+  actualizarBadge(TIPO_ACTIVO, REGISTROS.length);
 
   if (!REGISTROS.length) {
-    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="9">Sin registros todavía. Créalos desde "No. de Oficio".</td></tr>`;
+    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="9">${cfg.vacioMsg}</td></tr>`;
     return;
   }
   if (!filtrados.length) {
@@ -206,7 +284,7 @@ function pintarTabla() {
 
   tbody.innerHTML = filtrados.map(r => `
     <tr data-id="${r.id}">
-      <td class="td-numero">${r.no_oficio}</td>
+      <td class="td-numero">${r[cfg.campoNumero]}</td>
       <td>${formatearFecha(r.fecha)}</td>
       <td>${r.a_quien_se_dirige || ''}</td>
       <td class="td-asunto">${r.asunto || '<span class="td-vacio">—</span>'}</td>
@@ -229,7 +307,7 @@ function pintarTabla() {
 async function guardarSello(id, campo, input) {
   input.classList.add('guardando');
   try {
-    const res = await fetch(`${API}/no-oficio/${id}`, {
+    const res = await fetch(`${API}/${moduloActivo().api}/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
       body: JSON.stringify({ [campo]: input.value }),
@@ -242,6 +320,7 @@ async function guardarSello(id, campo, input) {
     // (así no se pierde el foco si el usuario sigue capturando).
     const idx = REGISTROS.findIndex(r => r.id === id);
     if (idx !== -1) REGISTROS[idx] = data;
+    if (CACHE_REGISTROS[TIPO_ACTIVO] && idx !== -1) CACHE_REGISTROS[TIPO_ACTIVO][idx] = data;
   } catch (err) {
     await sbisAlert({ titulo: 'No se pudo guardar', mensaje: err.message, tipo: 'error' });
   } finally {
@@ -259,6 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
   mostrarFecha();
   iniciarHeartbeat();
   cargarTabla();
+  precargarBadges();
 });
 
 window.addEventListener('pageshow', (evento) => {

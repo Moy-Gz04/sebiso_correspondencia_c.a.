@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>No. de Oficio — Secretaría de Bienestar e Inclusión Social</title>
+  <title>No. Tarjeta Informativa — Secretaría de Bienestar e Inclusión Social</title>
   <link rel="stylesheet" href="css/styles.css"/>
   <link rel="stylesheet" href="css/no-oficio.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
@@ -115,9 +115,9 @@
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/historial'">Historial</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
         <li><a style="cursor:pointer" class="menu-item" onclick="location.href='/area'">Bandeja de Oficios</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item active" onclick="location.href='/no-oficio'">No. de Oficio</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/no-oficio'">No. de Oficio</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/circular'">No. Circular</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/tarjeta-informativa'">No. Tarjeta Informativa</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item active" onclick="location.href='/tarjeta-informativa'">No. Tarjeta Informativa</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/minutario'">Minutario</a></li>
       </ul>
     </div>
@@ -125,30 +125,12 @@
 
   <main class="main-contenido">
 
-    <!-- Bloqueo de acceso: exclusivo de esta página. Se muestra por JS
-         (verificarAcceso, en no-oficio.js) cuando el usuario tiene el
-         rol/área correctos pero no está en la lista de cuentas
-         autorizadas a navegar en "No. de Oficio". Vive DENTRO de
-         <main>, no como overlay de pantalla completa: el header y el
-         menú de navegación quedan libres para que el usuario pueda
-         moverse a otra página desde ahí. -->
-    <div class="bloqueo-acceso" id="bloqueo-acceso">
-      <div class="bloqueo-acceso-caja">
-        <div class="bloqueo-acceso-icono"><i class="ti ti-lock"></i></div>
-        <p class="bloqueo-acceso-titulo">Acceso restringido</p>
-        <p class="bloqueo-acceso-msg">Tu usuario no tiene permisos para navegar en esta página.</p>
-        <button class="bloqueo-acceso-btn" onclick="location.href='/area'">
-          <i class="ti ti-arrow-left"></i> Volver
-        </button>
-      </div>
-    </div>
-
     <div class="contenido-wrapper" id="contenido-wrapper">
 
       <div class="seccion-titulo-bloque">
         <div class="seccion-titulo-txt">
           <span class="seccion-titulo-eyebrow">Folio consecutivo</span>
-          <h1 class="seccion-titulo-h1">No. de Oficio</h1>
+          <h1 class="seccion-titulo-h1">No. Tarjeta Informativa</h1>
         </div>
       </div>
 
@@ -156,7 +138,7 @@
            botón que despliega/oculta la lista completa de chips. -->
       <div class="panel-libres" id="panel-libres">
         <button type="button" class="panel-libres-titulo" id="panel-libres-toggle" onclick="togglePanelLibres()">
-          <i class="ti ti-recycle"></i> Oficios Libres — números liberados disponibles para reasignar
+          <i class="ti ti-recycle"></i> Tarjetas Libres — números liberados disponibles para reasignar
           <span class="panel-libres-total" id="panel-libres-total">0</span>
           <i class="ti ti-chevron-down panel-libres-chevron"></i>
         </button>
@@ -169,11 +151,11 @@
           <span class="no-of-barra-total"><strong id="tot">0</strong> registros<span id="tot-filtrado-wrap"> (<strong id="tot-filtrado">0</strong> mostrados)</span></span>
         </div>
         <div class="no-of-barra-acciones">
-          <button class="btn-libre-del-dia" onclick="abrirLibreDelDia()" title="Reserva el siguiente número consecutivo y lo deja disponible en Oficios Libres, con la fecha de hoy">
-            <i class="ti ti-calendar-star"></i> Oficio Libre del Día
+          <button class="btn-libre-del-dia" onclick="abrirLibreDelDia()" title="Reserva el siguiente número consecutivo y lo deja disponible en Tarjetas Libres, con la fecha de hoy">
+            <i class="ti ti-calendar-star"></i> Tarjeta Libre del Día
           </button>
           <button class="btn-nuevo-no-of" onclick="abrirNuevo()">
-            <i class="ti ti-plus"></i> Nuevo No. de Oficio
+            <i class="ti ti-plus"></i> Nuevo No. Tarjeta Informativa
           </button>
         </div>
       </div>
@@ -203,7 +185,7 @@
           <table class="tabla-simple">
             <thead>
               <tr>
-                <th>No. Oficio</th>
+                <th>No. Tarjeta Informativa</th>
                 <th>Fecha</th>
                 <th>A quién se dirige</th>
                 <th>Asunto</th>
@@ -227,14 +209,14 @@
   <div id="modal-nuevo-no-of">
     <div class="modal-box">
       <div class="modal-header">
-        <h2><i class="ti ti-file-plus" id="modal-nuevo-icono"></i> <span id="modal-nuevo-titulo">Nuevo No. de Oficio</span></h2>
+        <h2><i class="ti ti-file-plus" id="modal-nuevo-icono"></i> <span id="modal-nuevo-titulo">Nuevo No. Tarjeta Informativa</span></h2>
         <button onclick="cerrarNuevo()" title="Cerrar"><i class="ti ti-x"></i></button>
       </div>
 
       <div class="modal-body">
 
         <div class="modal-campo col-full" style="margin-bottom:18px;" id="bloque-modo-asignacion">
-          <label>¿Cómo se asigna el No. de Oficio?</label>
+          <label>¿Cómo se asigna el No. Tarjeta Informativa?</label>
           <div class="modal-modo-toggle">
             <label class="modo-opcion activo" id="modo-op-auto">
               <input type="radio" name="modo" value="automatico" checked onchange="onModoChange()"/>
@@ -324,7 +306,7 @@
     </div>
   </footer>
 
-  <script src="js/no-oficio.js"></script>
+  <script src="js/tarjeta-informativa.js"></script>
   <script src="js/lluvia.js"></script>
 </body>
 </html>

@@ -108,7 +108,7 @@ app.use('/api', limitadorApi);
    usuario.js, captura.js, no-oficio.js, minutario.js): así, después de
    Cerrar Sesión, la tecla Atrás no puede dejar visible una versión
    cacheada de una pantalla que ya no debería ser accesible. */
-const PAGINAS = ['login', 'historial', 'area', 'captura', 'usuario', 'no-oficio', 'minutario'];
+const PAGINAS = ['login', 'historial', 'area', 'captura', 'usuario', 'no-oficio', 'circular', 'tarjeta-informativa', 'minutario'];
 
 function sinCache(res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1070,6 +1070,300 @@ app.delete('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, r
 
     console.log(`🗑️   No. de Oficio ${row.no_oficio} eliminado por ${req.user.username} — número liberado`);
     res.json({ mensaje: `Eliminado. El número ${row.no_oficio} quedó libre para reutilizarse.` });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo eliminar el registro.');
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   NO. CIRCULAR
+   Exactamente la misma mecánica que NO. DE OFICIO de arriba —
+   consecutivo propio (circular_seq) que nunca retrocede, pool de
+   liberados (circular_liberados), "Circular Libre del Día" — pero
+   con su propia tabla y numeración, totalmente independiente. El
+   Minutario muestra estos registros en su propia pestaña.
+   ══════════════════════════════════════════════════════════════ */
+
+async function siguienteCircularAutomatico() {
+  const [{ siguiente }] = await sql`SELECT nextval('circular_seq') AS siguiente`;
+  return String(siguiente).padStart(4, '0');
+}
+
+app.get('/api/circular', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM circular ORDER BY id DESC`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron obtener los registros.');
+  }
+});
+
+app.get('/api/circular/liberados', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM circular_liberados ORDER BY no_circular ASC`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo obtener el listado de circulares libres.');
+  }
+});
+
+app.post('/api/circular', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const {
+      modo, no_circular: numeroElegido,
+      fecha, a_quien_se_dirige, asunto, area_solicitante, solicitante, hora
+    } = req.body;
+
+    if (!fecha || !a_quien_se_dirige?.trim())
+      return res.status(400).json({ mensaje: 'Fecha y A quién se dirige son obligatorios.' });
+
+    let numero;
+    if (modo === 'anterior') {
+      if (!numeroElegido)
+        return res.status(400).json({ mensaje: 'Selecciona un número de la lista de Circulares Libres.' });
+
+      const [libre] = await sql`SELECT no_circular FROM circular_liberados WHERE no_circular = ${numeroElegido}`;
+      if (!libre)
+        return res.status(400).json({ mensaje: 'Ese número ya no está disponible. Actualiza la lista de Circulares Libres.' });
+
+      await sql`DELETE FROM circular_liberados WHERE no_circular = ${numeroElegido}`;
+      numero = numeroElegido;
+    } else {
+      numero = await siguienteCircularAutomatico();
+    }
+
+    const [nuevo] = await sql`
+      INSERT INTO circular (
+        no_circular, fecha, a_quien_se_dirige, asunto,
+        area_solicitante, solicitante, hora, creado_por
+      ) VALUES (
+        ${numero},
+        ${fecha},
+        ${a_quien_se_dirige.trim()},
+        ${asunto            || null},
+        ${area_solicitante  || null},
+        ${solicitante       || null},
+        ${hora              || null},
+        ${req.user.username}
+      )
+      RETURNING *`;
+
+    console.log(`✅  No. Circular creado por ${req.user.username}: ${numero} (${modo === 'anterior' ? 'reasignado' : 'automático'})`);
+    res.status(201).json(nuevo);
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ mensaje: 'Ese número acaba de ser tomado por otra captura. Intenta de nuevo.' });
+    }
+    manejarError(res, err, 'Error al guardar el No. Circular.');
+  }
+});
+
+app.post('/api/circular/libre-del-dia', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const numero = await siguienteCircularAutomatico();
+
+    const [liberado] = await sql`
+      INSERT INTO circular_liberados (no_circular, liberado_por, liberado_en)
+      VALUES (${numero}, ${req.user.username}, NOW())
+      ON CONFLICT (no_circular) DO NOTHING
+      RETURNING *`;
+
+    console.log(`🆓  No. Circular ${numero} reservado como "Libre del Día" por ${req.user.username}`);
+    res.status(201).json(liberado || { no_circular: numero, liberado_por: req.user.username });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo reservar el número como libre del día.');
+  }
+});
+
+app.put('/api/circular/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [existente] = await sql`SELECT * FROM circular WHERE id = ${req.params.id}`;
+    if (!existente) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    const {
+      fecha, a_quien_se_dirige, asunto, area_solicitante,
+      solicitante, hora, fecha_sello, hora_sello
+    } = req.body;
+
+    const [actualizado] = await sql`
+      UPDATE circular SET
+        fecha             = COALESCE(${fecha             ?? null}, fecha),
+        a_quien_se_dirige = COALESCE(${a_quien_se_dirige  ?? null}, a_quien_se_dirige),
+        asunto            = ${asunto            !== undefined ? (asunto            || null) : existente.asunto},
+        area_solicitante  = ${area_solicitante  !== undefined ? (area_solicitante  || null) : existente.area_solicitante},
+        solicitante       = ${solicitante       !== undefined ? (solicitante       || null) : existente.solicitante},
+        hora              = ${hora              !== undefined ? (hora              || null) : existente.hora},
+        fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : existente.fecha_sello},
+        hora_sello        = ${hora_sello        !== undefined ? (hora_sello        || null) : existente.hora_sello},
+        updated_at        = NOW()
+      WHERE id = ${req.params.id}
+      RETURNING *`;
+
+    res.json(actualizado);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo actualizar el registro.');
+  }
+});
+
+app.delete('/api/circular/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [row] = await sql`SELECT no_circular FROM circular WHERE id = ${req.params.id}`;
+    if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    await sql`DELETE FROM circular WHERE id = ${req.params.id}`;
+    await sql`
+      INSERT INTO circular_liberados (no_circular, liberado_por, liberado_en)
+      VALUES (${row.no_circular}, ${req.user.username}, NOW())
+      ON CONFLICT (no_circular) DO NOTHING`;
+
+    console.log(`🗑️   No. Circular ${row.no_circular} eliminado por ${req.user.username} — número liberado`);
+    res.json({ mensaje: `Eliminado. El número ${row.no_circular} quedó libre para reutilizarse.` });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo eliminar el registro.');
+  }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   NO. TARJETA INFORMATIVA
+   Misma mecánica que NO. DE OFICIO / NO. CIRCULAR, con su propia
+   tabla, secuencia (tarjeta_informativa_seq) y pool de liberados
+   (tarjeta_informativa_liberados), totalmente independiente.
+   ══════════════════════════════════════════════════════════════ */
+
+async function siguienteTarjetaAutomatico() {
+  const [{ siguiente }] = await sql`SELECT nextval('tarjeta_informativa_seq') AS siguiente`;
+  return String(siguiente).padStart(4, '0');
+}
+
+app.get('/api/tarjeta-informativa', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM tarjeta_informativa ORDER BY id DESC`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron obtener los registros.');
+  }
+});
+
+app.get('/api/tarjeta-informativa/liberados', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM tarjeta_informativa_liberados ORDER BY no_tarjeta ASC`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo obtener el listado de tarjetas libres.');
+  }
+});
+
+app.post('/api/tarjeta-informativa', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const {
+      modo, no_tarjeta: numeroElegido,
+      fecha, a_quien_se_dirige, asunto, area_solicitante, solicitante, hora
+    } = req.body;
+
+    if (!fecha || !a_quien_se_dirige?.trim())
+      return res.status(400).json({ mensaje: 'Fecha y A quién se dirige son obligatorios.' });
+
+    let numero;
+    if (modo === 'anterior') {
+      if (!numeroElegido)
+        return res.status(400).json({ mensaje: 'Selecciona un número de la lista de Tarjetas Libres.' });
+
+      const [libre] = await sql`SELECT no_tarjeta FROM tarjeta_informativa_liberados WHERE no_tarjeta = ${numeroElegido}`;
+      if (!libre)
+        return res.status(400).json({ mensaje: 'Ese número ya no está disponible. Actualiza la lista de Tarjetas Libres.' });
+
+      await sql`DELETE FROM tarjeta_informativa_liberados WHERE no_tarjeta = ${numeroElegido}`;
+      numero = numeroElegido;
+    } else {
+      numero = await siguienteTarjetaAutomatico();
+    }
+
+    const [nuevo] = await sql`
+      INSERT INTO tarjeta_informativa (
+        no_tarjeta, fecha, a_quien_se_dirige, asunto,
+        area_solicitante, solicitante, hora, creado_por
+      ) VALUES (
+        ${numero},
+        ${fecha},
+        ${a_quien_se_dirige.trim()},
+        ${asunto            || null},
+        ${area_solicitante  || null},
+        ${solicitante       || null},
+        ${hora              || null},
+        ${req.user.username}
+      )
+      RETURNING *`;
+
+    console.log(`✅  No. Tarjeta Informativa creado por ${req.user.username}: ${numero} (${modo === 'anterior' ? 'reasignado' : 'automático'})`);
+    res.status(201).json(nuevo);
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ mensaje: 'Ese número acaba de ser tomado por otra captura. Intenta de nuevo.' });
+    }
+    manejarError(res, err, 'Error al guardar la No. Tarjeta Informativa.');
+  }
+});
+
+app.post('/api/tarjeta-informativa/libre-del-dia', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const numero = await siguienteTarjetaAutomatico();
+
+    const [liberado] = await sql`
+      INSERT INTO tarjeta_informativa_liberados (no_tarjeta, liberado_por, liberado_en)
+      VALUES (${numero}, ${req.user.username}, NOW())
+      ON CONFLICT (no_tarjeta) DO NOTHING
+      RETURNING *`;
+
+    console.log(`🆓  No. Tarjeta Informativa ${numero} reservado como "Libre del Día" por ${req.user.username}`);
+    res.status(201).json(liberado || { no_tarjeta: numero, liberado_por: req.user.username });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo reservar el número como libre del día.');
+  }
+});
+
+app.put('/api/tarjeta-informativa/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [existente] = await sql`SELECT * FROM tarjeta_informativa WHERE id = ${req.params.id}`;
+    if (!existente) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    const {
+      fecha, a_quien_se_dirige, asunto, area_solicitante,
+      solicitante, hora, fecha_sello, hora_sello
+    } = req.body;
+
+    const [actualizado] = await sql`
+      UPDATE tarjeta_informativa SET
+        fecha             = COALESCE(${fecha             ?? null}, fecha),
+        a_quien_se_dirige = COALESCE(${a_quien_se_dirige  ?? null}, a_quien_se_dirige),
+        asunto            = ${asunto            !== undefined ? (asunto            || null) : existente.asunto},
+        area_solicitante  = ${area_solicitante  !== undefined ? (area_solicitante  || null) : existente.area_solicitante},
+        solicitante       = ${solicitante       !== undefined ? (solicitante       || null) : existente.solicitante},
+        hora              = ${hora              !== undefined ? (hora              || null) : existente.hora},
+        fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : existente.fecha_sello},
+        hora_sello        = ${hora_sello        !== undefined ? (hora_sello        || null) : existente.hora_sello},
+        updated_at        = NOW()
+      WHERE id = ${req.params.id}
+      RETURNING *`;
+
+    res.json(actualizado);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo actualizar el registro.');
+  }
+});
+
+app.delete('/api/tarjeta-informativa/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [row] = await sql`SELECT no_tarjeta FROM tarjeta_informativa WHERE id = ${req.params.id}`;
+    if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    await sql`DELETE FROM tarjeta_informativa WHERE id = ${req.params.id}`;
+    await sql`
+      INSERT INTO tarjeta_informativa_liberados (no_tarjeta, liberado_por, liberado_en)
+      VALUES (${row.no_tarjeta}, ${req.user.username}, NOW())
+      ON CONFLICT (no_tarjeta) DO NOTHING`;
+
+    console.log(`🗑️   No. Tarjeta Informativa ${row.no_tarjeta} eliminado por ${req.user.username} — número liberado`);
+    res.json({ mensaje: `Eliminado. El número ${row.no_tarjeta} quedó libre para reutilizarse.` });
   } catch (err) {
     manejarError(res, err, 'No se pudo eliminar el registro.');
   }
