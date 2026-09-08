@@ -301,6 +301,34 @@ function aplicarEstadoPanelLibres() {
   lista.hidden = !PANEL_LIBRES_EXPANDIDO;
 }
 
+/* Agrupa los números liberados por mes (mes + año), usando la fecha
+   en que se liberaron. Sirve tanto para el panel de "Circulares
+   Libres" como para el <select> de "Asignar Anteriores": con cientos
+   de números, ubicarlos sueltos era poco práctico, así que se
+   organizan cronológicamente (enero, febrero, ...) y los que no
+   traen una fecha válida quedan al final bajo "Sin fecha". */
+const NOMBRES_MES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function agruparLibresPorMes(lista) {
+  const grupos = new Map();
+  lista.forEach(item => {
+    const d = new Date(item.liberado_en);
+    let clave, etiqueta;
+    if (isNaN(d.getTime())) {
+      clave = 'zzzz-sin-fecha';
+      etiqueta = 'Sin fecha';
+    } else {
+      clave = `${d.getUTCFullYear()}-${String(d.getUTCMonth()).padStart(2, '0')}`;
+      etiqueta = `${NOMBRES_MES[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+    }
+    if (!grupos.has(clave)) grupos.set(clave, { etiqueta, items: [] });
+    grupos.get(clave).items.push(item);
+  });
+  return [...grupos.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, grupo]) => grupo);
+}
+
 function pintarLibres() {
   const panel = document.getElementById('panel-libres');
   const lista = document.getElementById('panel-libres-lista');
@@ -308,21 +336,32 @@ function pintarLibres() {
 
   total.textContent = LIBRES.length;
 
+  const grupos = agruparLibresPorMes(LIBRES);
+
   if (!LIBRES.length) {
     panel.classList.remove('visible');
     lista.innerHTML = '';
   } else {
     panel.classList.add('visible');
-    lista.innerHTML = LIBRES.map(l => `
-      <span class="chip-libre">
-        ${l.no_circular}<span class="chip-libre-sep">-</span><span class="chip-libre-fecha">${formatearFechaCorta(l.liberado_en)}</span>
-      </span>`).join('');
+    lista.innerHTML = grupos.map(g => `
+      <div class="panel-libres-grupo">
+        <div class="panel-libres-grupo-titulo">${g.etiqueta}<span class="panel-libres-grupo-total">${g.items.length}</span></div>
+        <div class="panel-libres-grupo-chips">
+          ${g.items.map(l => `
+            <span class="chip-libre">
+              ${l.no_circular}<span class="chip-libre-sep">-</span><span class="chip-libre-fecha">${formatearFechaCorta(l.liberado_en)}</span>
+            </span>`).join('')}
+        </div>
+      </div>`).join('');
   }
   aplicarEstadoPanelLibres();
 
   const sel = document.getElementById('nof-libre');
   sel.innerHTML = '<option value="">— Selecciona un número —</option>' +
-    LIBRES.map(l => `<option value="${l.no_circular}">${l.no_circular} — liberado ${formatearFechaCorta(l.liberado_en)}</option>`).join('');
+    grupos.map(g => `
+      <optgroup label="${g.etiqueta}">
+        ${g.items.map(l => `<option value="${l.no_circular}">${l.no_circular} — liberado ${formatearFechaCorta(l.liberado_en)}</option>`).join('')}
+      </optgroup>`).join('');
 }
 
 /* ════════════════════════════════════════════════════

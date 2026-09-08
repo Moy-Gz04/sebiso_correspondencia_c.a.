@@ -73,7 +73,9 @@
    contrae la lista de chips (que puede crecer mucho — cientos de
    números liberados — y antes siempre quedaba visible ocupando toda
    la pantalla). Solo el título permanece visible hasta que el usuario
-   decide desplegarlo. */
+   decide desplegarlo. Dentro, los números se agrupan por mes (ver
+   agruparLibresPorMes en no-oficio.js/circular.js/tarjeta-informativa.js)
+   para poder ubicar uno sin tener que recorrer cientos de chips. */
 .panel-libres {
   background: var(--dorado-claro);
   border: 1px solid #e3c98a;
@@ -118,11 +120,43 @@
 
 .panel-libres-lista {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   padding-bottom: 14px;
 }
 .panel-libres-lista[hidden] { display: none; }
+
+/* Cada bloque de mes: encabezado (nombre + total) seguido de sus
+   chips en flex-wrap. */
+.panel-libres-grupo + .panel-libres-grupo { margin-top: 6px; }
+.panel-libres-grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--fuente-cuerpo);
+  font-size: 11px;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #6e4a17;
+  padding: 5px 0;
+  border-bottom: 1px dashed #e3c98a;
+  margin-bottom: 8px;
+}
+.panel-libres-grupo-total {
+  font-family: var(--fuente-mono);
+  font-weight: var(--fw-bold);
+  background: #fff;
+  border: 1px solid #e3c98a;
+  border-radius: var(--radio-pill);
+  padding: 0 8px;
+  font-size: 10px;
+}
+.panel-libres-grupo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
 .chip-libre {
   font-family: var(--fuente-mono);
