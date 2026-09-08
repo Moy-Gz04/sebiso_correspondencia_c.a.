@@ -92,7 +92,14 @@ img { max-width: 100%; }
   position: fixed;
   inset: 0;
   overflow: hidden;
-  z-index: -1;
+  /* z-index: 0 (no negativo) — con z-index negativo, este bloque queda
+     por debajo del "lienzo" del documento y el navegador nunca lo
+     considera al hacer clic/toque, aunque no haya nada más ahí (es una
+     particularidad de cómo se resuelve el hit-testing en la raíz de la
+     página). Con 0, .main-contenido y .footer-institucional (que llevan
+     su propio z-index:1 más abajo) lo siguen tapando visualmente donde
+     corresponde, pero ahora sí es tocable en los espacios vacíos. */
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -487,6 +494,17 @@ img { max-width: 100%; }
      tarjetas. Las tarjetas y demás bloques de contenido siguen con
      su propio fondo opaco, así que la lectura nunca se ve afectada. */
   background: transparent;
+  /* pointer-events: none — aunque este bloque es transparente, su caja
+     (sobre todo el padding) seguiría "tapando" el clic/toque antes de
+     que llegue a una flor visible detrás. Al quitarle los eventos de
+     puntero y devolvérselos únicamente a .contenido-wrapper (ver abajo),
+     el padding vacío deja pasar el toque hacia la lluvia de flores.
+     position+z-index: mantiene el contenido (tarjetas, botones, texto)
+     pintado por encima de .lluvia-flores (z-index:0), para que las
+     flores sigan viéndose solo detrás, nunca sobre el contenido. */
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .contenido-wrapper {
@@ -496,6 +514,10 @@ img { max-width: 100%; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  /* Recupera los eventos de puntero que .main-contenido cedió arriba,
+     para que buscador, filtros, tarjetas, botones, etc. sigan
+     respondiendo con normalidad. */
+  pointer-events: auto;
 }
 
 /* ── Título de sección ──
@@ -804,7 +826,12 @@ img { max-width: 100%; }
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Igual que en .main-contenido: el espacio entre tarjetas (gap) sigue
+     siendo parte de la caja de .lista, así que sin esto también
+     bloquearía el toque sobre una flor que caiga justo ahí. */
+  pointer-events: none;
 }
+.lista > .tarjeta { pointer-events: auto; }
 
 .tarjeta {
   background: var(--blanco);
@@ -1372,7 +1399,9 @@ img { max-width: 100%; }
 /* ═══════════════════════════════════════════════════
    PIE DE PÁGINA
    ═══════════════════════════════════════════════════ */
-.footer-institucional { background: var(--guinda-oscuro); margin-top: auto; }
+/* position+z-index: igual que en .main-contenido, para que el pie de
+   página (opaco) siga pintándose por encima de .lluvia-flores. */
+.footer-institucional { background: var(--guinda-oscuro); margin-top: auto; position: relative; z-index: 1; }
 
 .footer-contenido {
   max-width: 1200px;

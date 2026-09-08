@@ -172,9 +172,15 @@
       justify-content: center;
       padding: 40px 20px;
       width: 100%;
+      /* pointer-events: none — esta caja centra la tarjeta pero ocupa
+         casi toda la pantalla; sin esto, su padding "vacío" (donde se
+         ven las flores cayendo detrás) tapa el toque antes de que
+         llegue a la flor. Se le devuelve el evento solo a .login-card. */
+      pointer-events: none;
     }
 
     .login-card {
+      pointer-events: auto;
       width: 100%;
       max-width: 420px;
       display: flex;
