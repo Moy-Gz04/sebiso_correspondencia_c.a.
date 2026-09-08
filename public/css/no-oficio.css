@@ -68,29 +68,62 @@
 .btn-libre-del-dia:hover { background: var(--guinda-claro); transform: translateY(-1px); }
 .btn-libre-del-dia:active { transform: scale(.97); }
 
-/* ── Panel "Oficios Libres" ── */
+/* ── Panel "Oficios Libres" ──
+   Colapsado por defecto: el título es ahora un botón que expande o
+   contrae la lista de chips (que puede crecer mucho — cientos de
+   números liberados — y antes siempre quedaba visible ocupando toda
+   la pantalla). Solo el título permanece visible hasta que el usuario
+   decide desplegarlo. */
 .panel-libres {
   background: var(--dorado-claro);
   border: 1px solid #e3c98a;
   border-radius: var(--radio);
-  padding: 14px 20px;
+  padding: 6px 20px;
   margin-bottom: 14px;
   display: none;
   animation: fadeUp .3s ease both;
 }
 .panel-libres.visible { display: block; }
+
 .panel-libres-titulo {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 8px 0;
+  margin: 0;
+  font-family: var(--fuente-cuerpo);
   font-size: 11.5px;
   font-weight: var(--fw-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #8A5F1E;
-  margin-bottom: 10px;
   display: flex;
   align-items: center;
   gap: 7px;
+  cursor: pointer;
+  text-align: left;
 }
-.panel-libres-lista { display: flex; flex-wrap: wrap; gap: 8px; }
+.panel-libres-titulo:hover { color: #6e4a17; }
+.panel-libres-total {
+  font-family: var(--fuente-mono);
+  font-weight: var(--fw-bold);
+  background: #fff;
+  border: 1px solid #e3c98a;
+  border-radius: var(--radio-pill);
+  padding: 1px 9px;
+  font-size: 11px;
+}
+.panel-libres-chevron { margin-left: auto; transition: transform .2s; font-size: 15px; }
+.panel-libres.expandido .panel-libres-chevron { transform: rotate(180deg); }
+
+.panel-libres-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 14px;
+}
+.panel-libres-lista[hidden] { display: none; }
+
 .chip-libre {
   font-family: var(--fuente-mono);
   font-size: 12px;
@@ -199,7 +232,14 @@
 }
 .btn-limpiar-filtros:hover { background: #e2e2e2; color: #333; }
 
-/* ── Tabla ── */
+/* ── Tabla ──
+   Nota sobre "filas chuecas": el bug era .td-acciones con
+   display:flex directamente en un <td> — en una tabla, un <td> con
+   display:flex deja de participar del layout de tabla como celda
+   normal en algunos navegadores, y la fila se ve desalineada/torcida
+   respecto a las demás. Ahora el <td> vuelve a ser una celda normal
+   (solo alineación de texto) y el flex vive en un <div> envolvente
+   (.fila-acciones) DENTRO de la celda — ver no-oficio.js. */
 .tabla-wrap {
   background: var(--blanco);
   border: 0.5px solid var(--borde);
@@ -229,7 +269,8 @@
   font-size: 13px;
   color: var(--txt);
   border-bottom: 0.5px solid var(--borde);
-  vertical-align: middle;
+  vertical-align: top;
+  overflow-wrap: break-word;
 }
 
 .tabla-simple tbody tr:last-child td { border-bottom: none; }
@@ -240,12 +281,20 @@
   font-family: var(--fuente-mono);
   font-weight: var(--fw-bold);
   color: var(--guinda);
+  white-space: nowrap;
 }
 
 .td-asunto { max-width: 320px; white-space: normal; word-break: break-word; }
 .td-vacio  { color: #bbb; font-style: italic; }
 
-.td-acciones { text-align: right; white-space: nowrap; display: flex; gap: 8px; justify-content: flex-end; }
+.td-acciones { text-align: right; white-space: nowrap; width: 1%; }
+
+.fila-acciones {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
 
 .btn-fila-editar {
   background: #fff;
@@ -372,5 +421,5 @@
   .campo-filtro-fecha, .btn-limpiar-filtros { width: 100%; }
   .btn-limpiar-filtros { justify-content: center; }
   .modal-modo-toggle { flex-direction: column; }
-  .td-acciones { flex-direction: column; align-items: flex-end; }
+  .fila-acciones { flex-direction: column; align-items: flex-end; }
 }

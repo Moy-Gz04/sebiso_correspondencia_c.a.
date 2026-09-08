@@ -7,7 +7,7 @@ import express           from 'express';
 import cors              from 'cors';
 import helmet            from 'helmet';
 import rateLimit         from 'express-rate-limit';
-import multer            from 'multer';
+import multer             from 'multer';
 import path              from 'path';
 import { fileURLToPath } from 'url';
 import { neon }          from '@neondatabase/serverless';
@@ -907,10 +907,15 @@ async function siguienteNoOficioAutomatico() {
 }
 
 /* ══ GET /api/no-oficio — lista completa (usada tanto por la vista
-   "No. de Oficio" como por "Minutario") ══ */
+   "No. de Oficio" como por "Minutario") ══
+   Orden: del último GENERADO al primero — no alfabético por
+   no_oficio (eso mezclaba mal los números con sufijo, como "0003-1"
+   antes que "1"), sino por "id" descendente, que refleja el orden real
+   en que cada registro se creó en el sistema (tanto los importados del
+   histórico como los capturados a partir de ahora). */
 app.get('/api/no-oficio', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const rows = await sql`SELECT * FROM no_oficio ORDER BY no_oficio ASC`;
+    const rows = await sql`SELECT * FROM no_oficio ORDER BY id DESC`;
     res.json(rows);
   } catch (err) {
     manejarError(res, err, 'No se pudieron obtener los registros.');

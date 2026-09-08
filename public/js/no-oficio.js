@@ -235,12 +235,14 @@ function pintarTabla() {
       <td>${r.solicitante || '<span class="td-vacio">—</span>'}</td>
       <td>${formatearHora(r.hora) || '<span class="td-vacio">—</span>'}</td>
       <td class="td-acciones">
-        <button class="btn-fila-editar" onclick="editarFila(${r.id})">
-          <i class="ti ti-pencil"></i> Editar
-        </button>
-        <button class="btn-fila-eliminar" onclick="eliminarFila(${r.id}, '${r.no_oficio}')">
-          <i class="ti ti-trash"></i> Eliminar
-        </button>
+        <div class="fila-acciones">
+          <button class="btn-fila-editar" onclick="editarFila(${r.id})">
+            <i class="ti ti-pencil"></i> Editar
+          </button>
+          <button class="btn-fila-eliminar" onclick="eliminarFila(${r.id}, '${r.no_oficio}')">
+            <i class="ti ti-trash"></i> Eliminar
+          </button>
+        </div>
       </td>
     </tr>`).join('');
 }
@@ -256,9 +258,32 @@ async function cargarLibres() {
   } catch { /* silencioso: no bloquea la tabla principal */ }
 }
 
+/* El panel de Oficios Libres arranca colapsado (solo el título con el
+   total es visible): con cientos de números liberados, mostrarlos
+   todos de entrada tapaba el resto de la pantalla. Se despliega solo
+   al hacer clic en el título (togglePanelLibres) y ese estado se
+   conserva mientras se siga en la página, aunque la lista se
+   refresque (p. ej. tras "Oficio Libre del Día" o un Eliminar). */
+let PANEL_LIBRES_EXPANDIDO = false;
+
+function togglePanelLibres() {
+  PANEL_LIBRES_EXPANDIDO = !PANEL_LIBRES_EXPANDIDO;
+  aplicarEstadoPanelLibres();
+}
+
+function aplicarEstadoPanelLibres() {
+  const panel = document.getElementById('panel-libres');
+  const lista = document.getElementById('panel-libres-lista');
+  panel.classList.toggle('expandido', PANEL_LIBRES_EXPANDIDO);
+  lista.hidden = !PANEL_LIBRES_EXPANDIDO;
+}
+
 function pintarLibres() {
   const panel = document.getElementById('panel-libres');
   const lista = document.getElementById('panel-libres-lista');
+  const total = document.getElementById('panel-libres-total');
+
+  total.textContent = LIBRES.length;
 
   if (!LIBRES.length) {
     panel.classList.remove('visible');
@@ -270,6 +295,7 @@ function pintarLibres() {
         ${l.no_oficio}<span class="chip-libre-sep">-</span><span class="chip-libre-fecha">${formatearFechaCorta(l.liberado_en)}</span>
       </span>`).join('');
   }
+  aplicarEstadoPanelLibres();
 
   const sel = document.getElementById('nof-libre');
   sel.innerHTML = '<option value="">— Selecciona un número —</option>' +

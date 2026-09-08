@@ -131,10 +131,15 @@
         </div>
       </div>
 
-      <!-- Panel: Oficios Libres -->
+      <!-- Panel: Oficios Libres — colapsado por defecto; el título es un
+           botón que despliega/oculta la lista completa de chips. -->
       <div class="panel-libres" id="panel-libres">
-        <div class="panel-libres-titulo"><i class="ti ti-recycle"></i> Oficios Libres — números liberados disponibles para reasignar</div>
-        <div class="panel-libres-lista" id="panel-libres-lista"></div>
+        <button type="button" class="panel-libres-titulo" id="panel-libres-toggle" onclick="togglePanelLibres()">
+          <i class="ti ti-recycle"></i> Oficios Libres — números liberados disponibles para reasignar
+          <span class="panel-libres-total" id="panel-libres-total">0</span>
+          <i class="ti ti-chevron-down panel-libres-chevron"></i>
+        </button>
+        <div class="panel-libres-lista" id="panel-libres-lista" hidden></div>
       </div>
 
       <!-- Barra de acciones -->
