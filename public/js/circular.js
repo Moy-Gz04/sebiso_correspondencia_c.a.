@@ -15,6 +15,25 @@ function tieneGestionCompleta(usuario) {
     (usuario?.rol === 'area' && usuario?.area === AREA_CON_GESTION_COMPLETA);
 }
 
+/* Restricción adicional, exclusiva de esta página: aunque el usuario
+   tenga el rol/área correctos (Coordinación Administrativa o admin),
+   solo estas dos cuentas pueden navegar en "No. Circular". No aplica
+   a Minutario ni a ninguna otra vista del sistema. Comparación sin
+   distinguir mayúsculas/minúsculas. */
+const USUARIOS_PERMITIDOS_CIRCULAR = ['sara', 'moyaispuro'];
+function tieneAccesoCircular(usuario) {
+  return USUARIOS_PERMITIDOS_CIRCULAR.includes((usuario?.username || '').trim().toLowerCase());
+}
+
+function mostrarBloqueoAcceso() {
+  document.getElementById('bloqueo-acceso')?.classList.add('visible');
+  // Oculta el contenido de la página (tabla, panel de libres, etc.),
+  // pero el header y el menú de navegación quedan intactos: viven
+  // fuera de <main> y nunca se tocan aquí.
+  const contenido = document.getElementById('contenido-wrapper');
+  if (contenido) contenido.style.display = 'none';
+}
+
 function verificarAcceso() {
   TOKEN   = localStorage.getItem('sbis_token');
   USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');
@@ -25,6 +44,10 @@ function verificarAcceso() {
   }
   if (!tieneGestionCompleta(USUARIO)) {
     window.location.href = '/area';
+    return false;
+  }
+  if (!tieneAccesoCircular(USUARIO)) {
+    mostrarBloqueoAcceso();
     return false;
   }
   return true;

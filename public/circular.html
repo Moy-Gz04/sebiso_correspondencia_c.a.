@@ -125,6 +125,24 @@
 
   <main class="main-contenido">
 
+    <!-- Bloqueo de acceso: exclusivo de esta página. Se muestra por JS
+         (verificarAcceso, en circular.js) cuando el usuario tiene el
+         rol/área correctos pero no está en la lista de cuentas
+         autorizadas a navegar en "No. Circular". Vive DENTRO de
+         <main>, no como overlay de pantalla completa: el header y el
+         menú de navegación quedan libres para que el usuario pueda
+         moverse a otra página desde ahí. -->
+    <div class="bloqueo-acceso" id="bloqueo-acceso">
+      <div class="bloqueo-acceso-caja">
+        <div class="bloqueo-acceso-icono"><i class="ti ti-lock"></i></div>
+        <p class="bloqueo-acceso-titulo">Acceso restringido</p>
+        <p class="bloqueo-acceso-msg">Tu usuario no tiene permisos para navegar en esta página.</p>
+        <button class="bloqueo-acceso-btn" onclick="location.href='/area'">
+          <i class="ti ti-arrow-left"></i> Volver
+        </button>
+      </div>
+    </div>
+
     <div class="contenido-wrapper" id="contenido-wrapper">
 
       <div class="seccion-titulo-bloque">
