@@ -108,6 +108,8 @@ img { max-width: 100%; }
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   will-change: transform, opacity;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 @keyframes caerFlorCempasuchil {
@@ -117,8 +119,46 @@ img { max-width: 100%; }
   100% { transform: translateY(112vh) translateX(var(--deriva, 24px)) rotate(var(--giro-final, 300deg)); opacity: 0; }
 }
 
+/* ── Explosión tipo fuegos artificiales al tocar una flor ──
+   Generadas por JS (ver js/lluvia.js): un destello breve en el
+   punto de contacto y una ráfaga de chispas de colores cálidos
+   que se disparan en direcciones aleatorias (--dx / --dy) y se
+   desvanecen, simulando un pequeño fuego artificial. */
+.chispa-fuego {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 4px currentColor;
+  animation: explotarChispa .6s cubic-bezier(.15,.8,.4,1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes explotarChispa {
+  0%   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+  65%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(.25); opacity: 0; }
+}
+
+.destello-fuego {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, #fff8dc 0%, rgba(255,193,79,.85) 45%, transparent 75%);
+  pointer-events: none;
+  animation: destelloFuego .35s ease-out forwards;
+}
+
+@keyframes destelloFuego {
+  0%   { transform: translate(-50%, -50%) scale(.3);  opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(5.5); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .flor-lluvia { animation: none; opacity: 0; }
+  .chispa-fuego, .destello-fuego { animation: none; opacity: 0; }
 }
 
 @keyframes fadeInDown {
