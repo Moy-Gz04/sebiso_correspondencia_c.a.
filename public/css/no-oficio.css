@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════
    SBIS — No. de Oficio / Minutario
    Vista de tabla simple (compartida por ambas páginas)
-   + modal de captura (solo en No. de Oficio).
+   + modal de captura (solo en No. de Oficio) + barra de
+   búsqueda y filtros de fecha (compartida por ambas).
    ═══════════════════════════════════════════════════ */
 
 /* ── Barra de acciones superior ── */
@@ -24,6 +25,8 @@
 .no-of-barra-total { font-size: 12.5px; color: var(--txt2); }
 .no-of-barra-total strong { color: var(--guinda); font-weight: var(--fw-bold); }
 
+.no-of-barra-acciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
 .btn-nuevo-no-of {
   background: linear-gradient(135deg, var(--guinda) 0%, var(--guinda-oscuro) 100%);
   color: #f8eed4;
@@ -43,6 +46,27 @@
 }
 .btn-nuevo-no-of:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(95,33,50,.28); }
 .btn-nuevo-no-of:active { transform: scale(.97); }
+
+/* ── Botón "Oficio Libre del Día" (acción secundaria, junto al de
+   Nuevo No. de Oficio) ── */
+.btn-libre-del-dia {
+  background: #fff;
+  color: var(--guinda);
+  border: 1.5px solid var(--guinda);
+  border-radius: var(--radio-pill);
+  font-size: 13px;
+  font-weight: var(--fw-semibold);
+  font-family: var(--fuente-cuerpo);
+  padding: 10px 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background .15s, color .15s, transform .12s;
+  white-space: nowrap;
+}
+.btn-libre-del-dia:hover { background: var(--guinda-claro); transform: translateY(-1px); }
+.btn-libre-del-dia:active { transform: scale(.97); }
 
 /* ── Panel "Oficios Libres" ── */
 .panel-libres {
@@ -76,8 +100,104 @@
   border: 1px solid #e3c98a;
   border-radius: var(--radio-pill);
   padding: 5px 14px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
 }
+.chip-libre-sep { opacity: .55; font-weight: var(--fw-semibold); }
+.chip-libre-fecha { font-weight: var(--fw-semibold); opacity: .8; font-size: 11px; }
 .panel-libres-vacio { font-size: 12.5px; color: #8A5F1E; font-style: italic; }
+
+/* ── Barra de búsqueda y filtros de fecha (No. de Oficio y Minutario) ── */
+.no-of-filtros {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: var(--blanco);
+  border: 0.5px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 14px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--sombra-suave);
+  animation: fadeUp .3s ease .02s both;
+}
+
+.campo-buscador-wrap {
+  flex: 1 1 260px;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-pill);
+  padding: 9px 16px;
+  background: var(--fondo-par);
+  transition: border-color .15s, box-shadow .15s;
+}
+.campo-buscador-wrap:focus-within {
+  border-color: var(--guinda);
+  box-shadow: 0 0 0 3px rgba(95,33,50,.09);
+  background: #fff;
+}
+.campo-buscador-wrap i { color: var(--txt2); font-size: 15px; }
+.campo-buscador-wrap input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--fuente-cuerpo);
+  font-size: 13px;
+  color: var(--txt);
+}
+.campo-buscador-wrap input::placeholder { color: #aaa; }
+
+.campo-filtro-fecha {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.campo-filtro-fecha label {
+  font-size: 10.5px;
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--txt2);
+}
+.campo-filtro-fecha input {
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: var(--fuente-cuerpo);
+  font-size: 12.5px;
+  color: var(--txt);
+  background: var(--fondo-par);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.campo-filtro-fecha input:focus {
+  border-color: var(--guinda);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(95,33,50,.09);
+}
+
+.btn-limpiar-filtros {
+  background: #f0f0f0;
+  color: #555;
+  border: none;
+  border-radius: var(--radio-pill);
+  font-size: 12.5px;
+  font-weight: var(--fw-semibold);
+  font-family: var(--fuente-cuerpo);
+  padding: 9px 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.btn-limpiar-filtros:hover { background: #e2e2e2; color: #333; }
 
 /* ── Tabla ── */
 .tabla-wrap {
@@ -125,7 +245,24 @@
 .td-asunto { max-width: 320px; white-space: normal; word-break: break-word; }
 .td-vacio  { color: #bbb; font-style: italic; }
 
-.td-acciones { text-align: right; white-space: nowrap; }
+.td-acciones { text-align: right; white-space: nowrap; display: flex; gap: 8px; justify-content: flex-end; }
+
+.btn-fila-editar {
+  background: #fff;
+  color: var(--guinda);
+  border: 1.5px solid var(--guinda);
+  border-radius: var(--radio-pill);
+  font-size: 11.5px;
+  font-weight: var(--fw-semibold);
+  font-family: var(--fuente-cuerpo);
+  padding: 6.5px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background .15s, transform .12s;
+}
+.btn-fila-editar:hover { background: var(--guinda-claro); transform: translateY(-1px); }
 
 .btn-fila-eliminar {
   background: linear-gradient(135deg, #c23a3a 0%, var(--rojo-elim) 100%);
@@ -229,6 +366,11 @@
 /* ── Responsivo ── */
 @media (max-width: 768px) {
   .no-of-barra { flex-direction: column; align-items: stretch; }
-  .btn-nuevo-no-of { justify-content: center; }
+  .no-of-barra-acciones { flex-direction: column; }
+  .btn-nuevo-no-of, .btn-libre-del-dia { justify-content: center; }
+  .no-of-filtros { flex-direction: column; align-items: stretch; }
+  .campo-filtro-fecha, .btn-limpiar-filtros { width: 100%; }
+  .btn-limpiar-filtros { justify-content: center; }
   .modal-modo-toggle { flex-direction: column; }
+  .td-acciones { flex-direction: column; align-items: flex-end; }
 }

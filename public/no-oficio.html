@@ -140,10 +140,34 @@
       <!-- Barra de acciones -->
       <div class="no-of-barra">
         <div class="no-of-barra-txt">
-          <span class="no-of-barra-total">Total: <strong id="tot">0</strong> registros</span>
+          <span class="no-of-barra-total"><strong id="tot">0</strong> registros<span id="tot-filtrado-wrap"> (<strong id="tot-filtrado">0</strong> mostrados)</span></span>
         </div>
-        <button class="btn-nuevo-no-of" onclick="abrirNuevo()">
-          <i class="ti ti-plus"></i> Nuevo No. de Oficio
+        <div class="no-of-barra-acciones">
+          <button class="btn-libre-del-dia" onclick="abrirLibreDelDia()" title="Reserva el siguiente número consecutivo y lo deja disponible en Oficios Libres, con la fecha de hoy">
+            <i class="ti ti-calendar-star"></i> Oficio Libre del Día
+          </button>
+          <button class="btn-nuevo-no-of" onclick="abrirNuevo()">
+            <i class="ti ti-plus"></i> Nuevo No. de Oficio
+          </button>
+        </div>
+      </div>
+
+      <!-- Barra de búsqueda y filtros -->
+      <div class="no-of-filtros">
+        <div class="campo-buscador-wrap">
+          <i class="ti ti-search"></i>
+          <input type="text" id="buscador" placeholder="Buscar por número, fecha, destinatario, asunto, área, solicitante u hora…" oninput="onFiltroChange()"/>
+        </div>
+        <div class="campo-filtro-fecha">
+          <label>Desde</label>
+          <input type="date" id="filtro-desde" oninput="onFiltroChange()"/>
+        </div>
+        <div class="campo-filtro-fecha">
+          <label>Hasta</label>
+          <input type="date" id="filtro-hasta" oninput="onFiltroChange()"/>
+        </div>
+        <button class="btn-limpiar-filtros" onclick="limpiarFiltros()" title="Limpiar búsqueda y filtros de fecha">
+          <i class="ti ti-filter-x"></i> Limpiar
         </button>
       </div>
 
@@ -173,17 +197,17 @@
     </div>
   </main>
 
-  <!-- ══ MODAL: NUEVO NO. DE OFICIO ══ -->
+  <!-- ══ MODAL: NUEVO / EDITAR NO. DE OFICIO ══ -->
   <div id="modal-nuevo-no-of">
     <div class="modal-box">
       <div class="modal-header">
-        <h2><i class="ti ti-file-plus"></i> Nuevo No. de Oficio</h2>
+        <h2><i class="ti ti-file-plus" id="modal-nuevo-icono"></i> <span id="modal-nuevo-titulo">Nuevo No. de Oficio</span></h2>
         <button onclick="cerrarNuevo()" title="Cerrar"><i class="ti ti-x"></i></button>
       </div>
 
       <div class="modal-body">
 
-        <div class="modal-campo col-full" style="margin-bottom:18px;">
+        <div class="modal-campo col-full" style="margin-bottom:18px;" id="bloque-modo-asignacion">
           <label>¿Cómo se asigna el No. de Oficio?</label>
           <div class="modal-modo-toggle">
             <label class="modo-opcion activo" id="modo-op-auto">
@@ -240,7 +264,7 @@
           <i class="ti ti-x"></i> Cancelar
         </button>
         <button class="btn-modal-guardar" id="nof-btn-guardar" onclick="guardarNuevo()">
-          <i class="ti ti-device-floppy"></i> Guardar
+          <i class="ti ti-device-floppy"></i> <span id="nof-btn-guardar-txt">Guardar</span>
         </button>
       </div>
     </div>

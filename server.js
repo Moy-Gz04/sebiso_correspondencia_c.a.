@@ -891,7 +891,12 @@ app.delete('/api/oficios/:id', verifyToken, async (req, res) => {
        registro creado — así un número liberado no se vuelve a
        repartir por accidente.
      • Al eliminar un registro, su número pasa a "no_oficio_liberados"
-       (los "Oficios libres") y deja de existir en la tabla principal.
+       (los "Oficios libres") junto con la fecha en que quedó libre
+       (liberado_en), y deja de existir en la tabla principal.
+     • "Oficio Libre del Día" reserva el siguiente consecutivo y lo
+       manda directo al pool de liberados, fechado hoy, sin crear
+       ningún registro en no_oficio — para cuando un número se
+       inutiliza y hay que dejarlo disponible de inmediato.
      • "Asignar Anteriores" toma un número de ese pool a propósito y
        lo saca de ahí al usarlo.
    ══════════════════════════════════════════════════════════════ */
@@ -913,7 +918,8 @@ app.get('/api/no-oficio', verifyToken, onlyGestionCompleta, async (req, res) => 
 });
 
 /* ══ GET /api/no-oficio/liberados — pool de números liberados, para el
-   selector de "Asignar Anteriores" ══ */
+   selector de "Asignar Anteriores" y el panel "Oficios Libres" (que
+   muestra junto a cada número la fecha en que quedó disponible) ══ */
 app.get('/api/no-oficio/liberados', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
     const rows = await sql`SELECT * FROM no_oficio_liberados ORDER BY no_oficio ASC`;
@@ -981,6 +987,31 @@ app.post('/api/no-oficio', verifyToken, onlyGestionCompleta, async (req, res) =>
   }
 });
 
+/* ══ POST /api/no-oficio/libre-del-dia ══
+   Reserva el siguiente número consecutivo automático (mismo contador
+   que "Automático" en el modal de captura, no_oficio_seq) y lo deja
+   directamente en el pool de "Oficios Libres" con la fecha de hoy,
+   SIN crear ningún registro en no_oficio. Pensado para cuando un
+   número se inutiliza (p. ej. un oficio impreso y desechado) y hay
+   que dejarlo disponible de inmediato para reasignarse después, sin
+   perder ni repetir el consecutivo. ══ */
+app.post('/api/no-oficio/libre-del-dia', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const numero = await siguienteNoOficioAutomatico();
+
+    const [liberado] = await sql`
+      INSERT INTO no_oficio_liberados (no_oficio, liberado_por, liberado_en)
+      VALUES (${numero}, ${req.user.username}, NOW())
+      ON CONFLICT (no_oficio) DO NOTHING
+      RETURNING *`;
+
+    console.log(`🆓  No. de Oficio ${numero} reservado como "Libre del Día" por ${req.user.username}`);
+    res.status(201).json(liberado || { no_oficio: numero, liberado_por: req.user.username });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo reservar el número como libre del día.');
+  }
+});
+
 /* ══ PUT /api/no-oficio/:id ══
    Edición de cualquier campo, incluidos Fecha de Sello / Hora de Sello
    (los únicos que edita la vista Minutario). Solo se actualizan los
@@ -1018,7 +1049,9 @@ app.put('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, res)
 /* ══ DELETE /api/no-oficio/:id ══
    Elimina el registro y libera su número: NO se reasigna en automático
    después (no_oficio_seq nunca retrocede), solo queda disponible para
-   "Asignar Anteriores". */
+   "Asignar Anteriores". Se registra también la fecha/hora en que
+   quedó libre (liberado_en), para mostrarla junto al número en el
+   panel de "Oficios Libres" (p. ej. "236-08/12/25"). */
 app.delete('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
     const [row] = await sql`SELECT no_oficio FROM no_oficio WHERE id = ${req.params.id}`;
@@ -1026,8 +1059,8 @@ app.delete('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, r
 
     await sql`DELETE FROM no_oficio WHERE id = ${req.params.id}`;
     await sql`
-      INSERT INTO no_oficio_liberados (no_oficio, liberado_por)
-      VALUES (${row.no_oficio}, ${req.user.username})
+      INSERT INTO no_oficio_liberados (no_oficio, liberado_por, liberado_en)
+      VALUES (${row.no_oficio}, ${req.user.username}, NOW())
       ON CONFLICT (no_oficio) DO NOTHING`;
 
     console.log(`🗑️   No. de Oficio ${row.no_oficio} eliminado por ${req.user.username} — número liberado`);

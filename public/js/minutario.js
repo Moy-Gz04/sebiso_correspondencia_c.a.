@@ -88,6 +88,12 @@ function sbisAlert({ titulo = 'Aviso', mensaje = '', btnOk = 'Aceptar', tipo = '
    ════════════════════════════════════════════════════ */
 let REGISTROS = [];
 
+/* Estado de los filtros (búsqueda + rango de fechas). Se aplican en
+   conjunto sobre REGISTROS cada vez que se repinta la tabla. */
+let FILTRO_TEXTO  = '';
+let FILTRO_DESDE  = '';
+let FILTRO_HASTA  = '';
+
 function formatearFecha(f) {
   if (!f) return '';
   const d = new Date(f);
@@ -117,6 +123,12 @@ function valorHoraInput(h) {
   return h.slice(0, 5);
 }
 
+/* Alias de valorFechaInput usado también para comparar contra el
+   rango de fechas del filtro (mismo formato ISO yyyy-mm-dd). */
+function fechaISO(f) {
+  return valorFechaInput(f);
+}
+
 async function cargarTabla() {
   try {
     const res = await fetch(`${API}/no-oficio`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
@@ -130,16 +142,69 @@ async function cargarTabla() {
   }
 }
 
+/* Aplica búsqueda de texto libre (sobre todos los campos visibles,
+   incluidos Fecha/Hora de Sello) y el rango de fechas seleccionado
+   (sobre la fecha del oficio). */
+function registrosFiltrados() {
+  const q = FILTRO_TEXTO.trim().toLowerCase();
+
+  return REGISTROS.filter(r => {
+    if (FILTRO_DESDE && (!r.fecha || fechaISO(r.fecha) < FILTRO_DESDE)) return false;
+    if (FILTRO_HASTA && (!r.fecha || fechaISO(r.fecha) > FILTRO_HASTA)) return false;
+
+    if (!q) return true;
+
+    const campos = [
+      r.no_oficio,
+      formatearFecha(r.fecha),
+      r.a_quien_se_dirige,
+      r.asunto,
+      r.area_solicitante,
+      r.solicitante,
+      formatearHora(r.hora),
+      formatearFecha(r.fecha_sello),
+      formatearHora(r.hora_sello),
+    ];
+    return campos.some(c => String(c || '').toLowerCase().includes(q));
+  });
+}
+
+function onFiltroChange() {
+  FILTRO_TEXTO = document.getElementById('buscador').value;
+  FILTRO_DESDE = document.getElementById('filtro-desde').value;
+  FILTRO_HASTA = document.getElementById('filtro-hasta').value;
+  pintarTabla();
+}
+
+function limpiarFiltros() {
+  document.getElementById('buscador').value = '';
+  document.getElementById('filtro-desde').value = '';
+  document.getElementById('filtro-hasta').value = '';
+  FILTRO_TEXTO = '';
+  FILTRO_DESDE = '';
+  FILTRO_HASTA = '';
+  pintarTabla();
+}
+
 function pintarTabla() {
-  const tbody = document.getElementById('tabla-body');
+  const tbody     = document.getElementById('tabla-body');
+  const filtrados = registrosFiltrados();
+  const hayFiltro = !!(FILTRO_TEXTO.trim() || FILTRO_DESDE || FILTRO_HASTA);
+
   document.getElementById('tot').textContent = REGISTROS.length;
+  document.getElementById('tot-filtrado').textContent = filtrados.length;
+  document.getElementById('tot-filtrado-wrap').style.display = hayFiltro ? 'inline' : 'none';
 
   if (!REGISTROS.length) {
     tbody.innerHTML = `<tr class="fila-vacia"><td colspan="9">Sin registros todavía. Créalos desde "No. de Oficio".</td></tr>`;
     return;
   }
+  if (!filtrados.length) {
+    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="9">Ningún registro coincide con la búsqueda o el rango de fechas.</td></tr>`;
+    return;
+  }
 
-  tbody.innerHTML = REGISTROS.map(r => `
+  tbody.innerHTML = filtrados.map(r => `
     <tr data-id="${r.id}">
       <td class="td-numero">${r.no_oficio}</td>
       <td>${formatearFecha(r.fecha)}</td>

@@ -97,9 +97,28 @@
 
       <div class="no-of-barra">
         <div class="no-of-barra-txt">
-          <span class="no-of-barra-total">Total: <strong id="tot">0</strong> registros</span>
+          <span class="no-of-barra-total"><strong id="tot">0</strong> registros<span id="tot-filtrado-wrap"> (<strong id="tot-filtrado">0</strong> mostrados)</span></span>
           <span class="no-of-barra-total" style="font-style:italic;">Captura la Fecha y Hora de Sello directamente en la tabla — se guarda al momento.</span>
         </div>
+      </div>
+
+      <!-- Barra de búsqueda y filtros -->
+      <div class="no-of-filtros">
+        <div class="campo-buscador-wrap">
+          <i class="ti ti-search"></i>
+          <input type="text" id="buscador" placeholder="Buscar por número, fecha, destinatario, asunto, área, solicitante u hora…" oninput="onFiltroChange()"/>
+        </div>
+        <div class="campo-filtro-fecha">
+          <label>Desde</label>
+          <input type="date" id="filtro-desde" oninput="onFiltroChange()"/>
+        </div>
+        <div class="campo-filtro-fecha">
+          <label>Hasta</label>
+          <input type="date" id="filtro-hasta" oninput="onFiltroChange()"/>
+        </div>
+        <button class="btn-limpiar-filtros" onclick="limpiarFiltros()" title="Limpiar búsqueda y filtros de fecha">
+          <i class="ti ti-filter-x"></i> Limpiar
+        </button>
       </div>
 
       <div class="tabla-wrap">

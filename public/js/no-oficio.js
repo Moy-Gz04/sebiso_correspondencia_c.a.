@@ -114,6 +114,12 @@ function sbisConfirm({ titulo = '¿Estás seguro?', mensaje = '', btnOk = 'Acept
 let REGISTROS = [];
 let LIBRES    = [];
 
+/* Estado de los filtros (búsqueda + rango de fechas). Se aplican en
+   conjunto sobre REGISTROS cada vez que se repinta la tabla. */
+let FILTRO_TEXTO  = '';
+let FILTRO_DESDE  = '';
+let FILTRO_HASTA  = '';
+
 function formatearFecha(f) {
   if (!f) return '';
   const d = new Date(f);
@@ -122,9 +128,29 @@ function formatearFecha(f) {
   return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 }
 
+/* Fecha corta con año a 2 dígitos, usada en los chips de "Oficios
+   Libres": p. ej. 08/12/25. */
+function formatearFechaCorta(f) {
+  if (!f) return '';
+  const d = new Date(f);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${String(d.getUTCFullYear()).slice(-2)}`;
+}
+
 function formatearHora(h) {
   if (!h) return '';
   return h.slice(0, 5);
+}
+
+/* Fecha en formato ISO (yyyy-mm-dd) para comparar contra los filtros
+   de rango, sin importar la zona horaria del navegador. */
+function fechaISO(f) {
+  if (!f) return '';
+  const d = new Date(f);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
 async function cargarTabla() {
@@ -140,16 +166,66 @@ async function cargarTabla() {
   }
 }
 
+/* Aplica búsqueda de texto libre (sobre todos los campos visibles) y
+   el rango de fechas seleccionado. */
+function registrosFiltrados() {
+  const q = FILTRO_TEXTO.trim().toLowerCase();
+
+  return REGISTROS.filter(r => {
+    if (FILTRO_DESDE && (!r.fecha || fechaISO(r.fecha) < FILTRO_DESDE)) return false;
+    if (FILTRO_HASTA && (!r.fecha || fechaISO(r.fecha) > FILTRO_HASTA)) return false;
+
+    if (!q) return true;
+
+    const campos = [
+      r.no_oficio,
+      formatearFecha(r.fecha),
+      r.a_quien_se_dirige,
+      r.asunto,
+      r.area_solicitante,
+      r.solicitante,
+      formatearHora(r.hora),
+    ];
+    return campos.some(c => String(c || '').toLowerCase().includes(q));
+  });
+}
+
+function onFiltroChange() {
+  FILTRO_TEXTO = document.getElementById('buscador').value;
+  FILTRO_DESDE = document.getElementById('filtro-desde').value;
+  FILTRO_HASTA = document.getElementById('filtro-hasta').value;
+  pintarTabla();
+}
+
+function limpiarFiltros() {
+  document.getElementById('buscador').value = '';
+  document.getElementById('filtro-desde').value = '';
+  document.getElementById('filtro-hasta').value = '';
+  FILTRO_TEXTO = '';
+  FILTRO_DESDE = '';
+  FILTRO_HASTA = '';
+  pintarTabla();
+}
+
 function pintarTabla() {
-  const tbody = document.getElementById('tabla-body');
+  const tbody     = document.getElementById('tabla-body');
+  const filtrados = registrosFiltrados();
+  const hayFiltro = !!(FILTRO_TEXTO.trim() || FILTRO_DESDE || FILTRO_HASTA);
+
   document.getElementById('tot').textContent = REGISTROS.length;
+  document.getElementById('tot-filtrado').textContent = filtrados.length;
+  document.getElementById('tot-filtrado-wrap').style.display = hayFiltro ? 'inline' : 'none';
 
   if (!REGISTROS.length) {
     tbody.innerHTML = `<tr class="fila-vacia"><td colspan="8">Sin registros todavía.</td></tr>`;
     return;
   }
+  if (!filtrados.length) {
+    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="8">Ningún registro coincide con la búsqueda o el rango de fechas.</td></tr>`;
+    return;
+  }
 
-  tbody.innerHTML = REGISTROS.map(r => `
+  tbody.innerHTML = filtrados.map(r => `
     <tr>
       <td class="td-numero">${r.no_oficio}</td>
       <td>${formatearFecha(r.fecha)}</td>
@@ -159,6 +235,9 @@ function pintarTabla() {
       <td>${r.solicitante || '<span class="td-vacio">—</span>'}</td>
       <td>${formatearHora(r.hora) || '<span class="td-vacio">—</span>'}</td>
       <td class="td-acciones">
+        <button class="btn-fila-editar" onclick="editarFila(${r.id})">
+          <i class="ti ti-pencil"></i> Editar
+        </button>
         <button class="btn-fila-eliminar" onclick="eliminarFila(${r.id}, '${r.no_oficio}')">
           <i class="ti ti-trash"></i> Eliminar
         </button>
@@ -186,17 +265,59 @@ function pintarLibres() {
     lista.innerHTML = '';
   } else {
     panel.classList.add('visible');
-    lista.innerHTML = LIBRES.map(l => `<span class="chip-libre">${l.no_oficio}</span>`).join('');
+    lista.innerHTML = LIBRES.map(l => `
+      <span class="chip-libre">
+        ${l.no_oficio}<span class="chip-libre-sep">-</span><span class="chip-libre-fecha">${formatearFechaCorta(l.liberado_en)}</span>
+      </span>`).join('');
   }
 
   const sel = document.getElementById('nof-libre');
   sel.innerHTML = '<option value="">— Selecciona un número —</option>' +
-    LIBRES.map(l => `<option value="${l.no_oficio}">${l.no_oficio}</option>`).join('');
+    LIBRES.map(l => `<option value="${l.no_oficio}">${l.no_oficio} — liberado ${formatearFechaCorta(l.liberado_en)}</option>`).join('');
 }
 
 /* ════════════════════════════════════════════════════
-   Modal: Nuevo No. de Oficio
+   "Oficio Libre del Día"
+   Reserva el siguiente número consecutivo automático y
+   lo deja directamente en el pool de Oficios Libres, con
+   la fecha de hoy, sin crear un registro en la tabla
+   principal (útil cuando un número queda inutilizado y
+   se libera de inmediato para reasignarse después).
    ════════════════════════════════════════════════════ */
+async function abrirLibreDelDia() {
+  const ok = await sbisConfirm({
+    titulo: '¿Reservar el siguiente número como Libre del Día?',
+    mensaje: 'Se tomará el siguiente No. de Oficio consecutivo y quedará disponible de inmediato en "Oficios Libres", fechado hoy, sin registrar ningún dato adicional.',
+    btnOk: 'Reservar',
+    tipo: 'confirm',
+  });
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${API}/no-oficio/libre-del-dia`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+    });
+    if (res.status === 401) { cerrarSesion(); return; }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.mensaje || 'No se pudo reservar el número.');
+
+    await cargarLibres();
+    await sbisAlert({
+      titulo: `No. de Oficio ${data.no_oficio} liberado`,
+      mensaje: 'Quedó disponible en "Oficios Libres" con la fecha de hoy.',
+      tipo: 'success',
+    });
+  } catch (err) {
+    await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   Modal: Nuevo / Editar No. de Oficio
+   ════════════════════════════════════════════════════ */
+let EDITANDO_ID = null;
+
 function onModoChange() {
   const modo = document.querySelector('input[name="modo"]:checked').value;
   document.getElementById('modo-op-auto').classList.toggle('activo', modo === 'automatico');
@@ -218,8 +339,39 @@ function limpiarModalNuevo() {
 }
 
 function abrirNuevo() {
+  EDITANDO_ID = null;
+  document.getElementById('modal-nuevo-titulo').textContent = 'Nuevo No. de Oficio';
+  document.getElementById('modal-nuevo-icono').className = 'ti ti-file-plus';
+  document.getElementById('nof-btn-guardar-txt').textContent = 'Guardar';
+  document.getElementById('bloque-modo-asignacion').style.display = '';
   limpiarModalNuevo();
   cargarLibres();
+  document.getElementById('modal-nuevo-no-of').classList.add('visible');
+}
+
+/* Abre el mismo modal en modo edición: precarga los datos del
+   registro y oculta el bloque de "¿Cómo se asigna el número?" (el
+   número ya está asignado y no cambia desde aquí). Al guardar, envía
+   un PUT en vez de un POST. */
+function editarFila(id) {
+  const r = REGISTROS.find(x => x.id === id);
+  if (!r) return;
+
+  EDITANDO_ID = id;
+  document.getElementById('modal-nuevo-titulo').textContent = `Editar No. de Oficio ${r.no_oficio}`;
+  document.getElementById('modal-nuevo-icono').className = 'ti ti-pencil';
+  document.getElementById('nof-btn-guardar-txt').textContent = 'Guardar cambios';
+  document.getElementById('bloque-modo-asignacion').style.display = 'none';
+  document.getElementById('campo-select-libres').style.display = 'none';
+  document.getElementById('nof-error').textContent = '';
+
+  document.getElementById('nof-fecha').value = fechaISO(r.fecha);
+  document.getElementById('nof-hora').value = r.hora ? r.hora.slice(0, 5) : '';
+  document.getElementById('nof-dirige').value = r.a_quien_se_dirige || '';
+  document.getElementById('nof-area').value = r.area_solicitante || '';
+  document.getElementById('nof-solicitante').value = r.solicitante || '';
+  document.getElementById('nof-asunto').value = r.asunto || '';
+
   document.getElementById('modal-nuevo-no-of').classList.add('visible');
 }
 
@@ -231,7 +383,8 @@ async function guardarNuevo() {
   const errorEl = document.getElementById('nof-error');
   errorEl.textContent = '';
 
-  const modo      = document.querySelector('input[name="modo"]:checked').value;
+  const editando  = EDITANDO_ID !== null;
+  const modo      = editando ? null : document.querySelector('input[name="modo"]:checked').value;
   const fecha     = document.getElementById('nof-fecha').value;
   const hora      = document.getElementById('nof-hora').value;
   const dirige    = document.getElementById('nof-dirige').value.trim();
@@ -244,7 +397,7 @@ async function guardarNuevo() {
     errorEl.textContent = 'Fecha y "A quién se dirige" son obligatorios.';
     return;
   }
-  if (modo === 'anterior' && !libre) {
+  if (!editando && modo === 'anterior' && !libre) {
     errorEl.textContent = 'Selecciona un número de la lista de Oficios Libres.';
     return;
   }
@@ -253,14 +406,18 @@ async function guardarNuevo() {
   btn.disabled = true;
 
   try {
-    const res = await fetch(`${API}/no-oficio`, {
-      method: 'POST',
+    const url    = editando ? `${API}/no-oficio/${EDITANDO_ID}` : `${API}/no-oficio`;
+    const method = editando ? 'PUT' : 'POST';
+    const body   = editando
+      ? { fecha, hora, a_quien_se_dirige: dirige, area_solicitante: area, solicitante: solicita, asunto }
+      : { modo, no_oficio: modo === 'anterior' ? libre : undefined,
+          fecha, hora, a_quien_se_dirige: dirige,
+          area_solicitante: area, solicitante: solicita, asunto };
+
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-      body: JSON.stringify({
-        modo, no_oficio: modo === 'anterior' ? libre : undefined,
-        fecha, hora, a_quien_se_dirige: dirige,
-        area_solicitante: area, solicitante: solicita, asunto,
-      }),
+      body: JSON.stringify(body),
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
@@ -270,8 +427,8 @@ async function guardarNuevo() {
     await cargarTabla();
     await cargarLibres();
     await sbisAlert({
-      titulo: `No. de Oficio ${data.no_oficio} registrado`,
-      mensaje: 'El registro se guardó correctamente.',
+      titulo: editando ? `No. de Oficio ${data.no_oficio} actualizado` : `No. de Oficio ${data.no_oficio} registrado`,
+      mensaje: editando ? 'Los cambios se guardaron correctamente.' : 'El registro se guardó correctamente.',
       tipo: 'success',
     });
   } catch (err) {
