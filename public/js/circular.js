@@ -17,10 +17,10 @@ function tieneGestionCompleta(usuario) {
 
 /* Restricción adicional, exclusiva de esta página: aunque el usuario
    tenga el rol/área correctos (Coordinación Administrativa o admin),
-   solo estas dos cuentas pueden navegar en "No. Circular". No aplica
+   solo estas cuentas pueden navegar en "No. Circular". No aplica
    a Minutario ni a ninguna otra vista del sistema. Comparación sin
    distinguir mayúsculas/minúsculas. */
-const USUARIOS_PERMITIDOS_CIRCULAR = ['sara', 'moyaispuro'];
+const USUARIOS_PERMITIDOS_CIRCULAR = ['sara', 'moyaispuro', 'mine'];
 function tieneAccesoCircular(usuario) {
   return USUARIOS_PERMITIDOS_CIRCULAR.includes((usuario?.username || '').trim().toLowerCase());
 }

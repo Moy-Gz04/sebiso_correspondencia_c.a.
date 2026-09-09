@@ -17,10 +17,10 @@ function tieneGestionCompleta(usuario) {
 
 /* Restricción adicional, exclusiva de esta página: aunque el usuario
    tenga el rol/área correctos (Coordinación Administrativa o admin),
-   solo estas dos cuentas pueden navegar en "No. Tarjeta Informativa".
+   solo estas cuentas pueden navegar en "No. Tarjeta Informativa".
    No aplica a Minutario ni a ninguna otra vista del sistema.
    Comparación sin distinguir mayúsculas/minúsculas. */
-const USUARIOS_PERMITIDOS_TARJETA = ['sara', 'moyaispuro'];
+const USUARIOS_PERMITIDOS_TARJETA = ['sara', 'moyaispuro', 'mine'];
 function tieneAccesoTarjeta(usuario) {
   return USUARIOS_PERMITIDOS_TARJETA.includes((usuario?.username || '').trim().toLowerCase());
 }

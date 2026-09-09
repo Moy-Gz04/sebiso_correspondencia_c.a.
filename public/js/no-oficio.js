@@ -17,10 +17,10 @@ function tieneGestionCompleta(usuario) {
 
 /* Restricción adicional, exclusiva de esta página: aunque el usuario
    tenga el rol/área correctos (Coordinación Administrativa o admin),
-   solo estas dos cuentas pueden navegar en "No. de Oficio". No aplica
+   solo estas cuentas pueden navegar en "No. de Oficio". No aplica
    a Minutario ni a ninguna otra vista del sistema. Comparación sin
    distinguir mayúsculas/minúsculas. */
-const USUARIOS_PERMITIDOS_NO_OFICIO = ['sara', 'moyaispuro'];
+const USUARIOS_PERMITIDOS_NO_OFICIO = ['sara', 'moyaispuro', 'mine'];
 function tieneAccesoNoOficio(usuario) {
   return USUARIOS_PERMITIDOS_NO_OFICIO.includes((usuario?.username || '').trim().toLowerCase());
 }
