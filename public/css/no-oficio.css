@@ -364,7 +364,13 @@
 }
 .btn-fila-eliminar:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
-/* ── Campos editables en Minutario (Fecha / Hora de Sello) ── */
+/* ── Campos editables en Minutario (Fecha de Sello / Fecha de Firma) ──
+   .sello-lleno se agrega por JS (ver minutario.js → pintarTabla /
+   guardarSello) al input de "Fecha de Firma" en cuanto ya tiene un
+   valor capturado. Solo se pinta de verde el separador "/" del propio
+   input nativo (::-webkit-datetime-edit-text) — el resto del campo
+   conserva su estilo normal — para dar un indicador visual discreto
+   de "esto ya se hizo", tal como lo pidió el usuario. */
 .td-sello { min-width: 150px; }
 .input-sello {
   width: 100%;
@@ -385,6 +391,38 @@
   box-shadow: 0 0 0 3px rgba(107,15,43,.09);
 }
 .input-sello.guardando { opacity: .6; }
+
+.input-sello.sello-lleno::-webkit-datetime-edit-text {
+  color: #1a6e35;
+  font-weight: var(--fw-bold);
+}
+.input-sello.sello-lleno::-moz-selection { color: #1a6e35; }
+
+/* Columna "Nota" del Minutario: campo libre junto a las fechas, con
+   el mismo guardado automático que Fecha de Sello / Fecha de Firma
+   (ver guardarSello en minutario.js). Un poco más ancha que los
+   campos de fecha para dejar espacio a un comentario corto. */
+.td-nota { min-width: 190px; }
+.input-nota {
+  width: 100%;
+  min-width: 170px;
+  font-family: var(--fuente-cuerpo);
+  font-size: 12.5px;
+  color: var(--txt);
+  background: var(--fondo-par);
+  border: 0.5px solid var(--borde);
+  border-radius: 7px;
+  padding: 7px 9px;
+  outline: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.input-nota::placeholder { color: #aaa; }
+.input-nota:focus {
+  border-color: var(--guinda);
+  background: var(--guinda-claro);
+  box-shadow: 0 0 0 3px rgba(107,15,43,.09);
+}
+.input-nota.guardando { opacity: .6; }
 
 .fila-vacia td {
   padding: 40px 20px;

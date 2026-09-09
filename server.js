@@ -879,8 +879,8 @@ app.delete('/api/oficios/:id', verifyToken, async (req, res) => {
    Folio consecutivo de oficios EMITIDOS por la Secretaría —
    independiente del historial de correspondencia RECIBIDA (tabla
    "oficios" de arriba). Minutario reutiliza exactamente los mismos
-   registros: solo agrega Fecha de Sello / Hora de Sello, capturables
-   ahí después de creado el No. de Oficio.
+   registros: solo agrega Fecha de Sello / Fecha de Firma / Nota,
+   capturables ahí después de creado el No. de Oficio.
 
    Exclusivo de Coordinación Administrativa (o el admin legado), igual
    que Nuevo Registro e Historial — ver onlyGestionCompleta arriba.
@@ -1018,9 +1018,11 @@ app.post('/api/no-oficio/libre-del-dia', verifyToken, onlyGestionCompleta, async
 });
 
 /* ══ PUT /api/no-oficio/:id ══
-   Edición de cualquier campo, incluidos Fecha de Sello / Hora de Sello
-   (los únicos que edita la vista Minutario). Solo se actualizan los
-   campos presentes en el body. */
+   Edición de cualquier campo, incluidos Fecha de Sello / Fecha de
+   Firma / Nota (los únicos que edita la vista Minutario). Solo se
+   actualizan los campos presentes en el body. hora_sello se conserva
+   en la base de datos por compatibilidad con capturas anteriores,
+   pero la vista ya no la edita — fue reemplazada por fecha_firma. */
 app.put('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
     const [existente] = await sql`SELECT * FROM no_oficio WHERE id = ${req.params.id}`;
@@ -1028,7 +1030,7 @@ app.put('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, res)
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,
-      solicitante, hora, fecha_sello, hora_sello
+      solicitante, hora, fecha_sello, fecha_firma, hora_sello, nota
     } = req.body;
 
     const [actualizado] = await sql`
@@ -1040,7 +1042,9 @@ app.put('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, res)
         solicitante       = ${solicitante       !== undefined ? (solicitante       || null) : existente.solicitante},
         hora              = ${hora              !== undefined ? (hora              || null) : existente.hora},
         fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : existente.fecha_sello},
+        fecha_firma       = ${fecha_firma       !== undefined ? (fecha_firma       || null) : existente.fecha_firma},
         hora_sello        = ${hora_sello        !== undefined ? (hora_sello        || null) : existente.hora_sello},
+        nota              = ${nota              !== undefined ? (nota              || null) : existente.nota},
         updated_at        = NOW()
       WHERE id = ${req.params.id}
       RETURNING *`;
@@ -1182,7 +1186,7 @@ app.put('/api/circular/:id', verifyToken, onlyGestionCompleta, async (req, res) 
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,
-      solicitante, hora, fecha_sello, hora_sello
+      solicitante, hora, fecha_sello, fecha_firma, hora_sello, nota
     } = req.body;
 
     const [actualizado] = await sql`
@@ -1194,7 +1198,9 @@ app.put('/api/circular/:id', verifyToken, onlyGestionCompleta, async (req, res) 
         solicitante       = ${solicitante       !== undefined ? (solicitante       || null) : existente.solicitante},
         hora              = ${hora              !== undefined ? (hora              || null) : existente.hora},
         fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : existente.fecha_sello},
+        fecha_firma       = ${fecha_firma       !== undefined ? (fecha_firma       || null) : existente.fecha_firma},
         hora_sello        = ${hora_sello        !== undefined ? (hora_sello        || null) : existente.hora_sello},
+        nota              = ${nota              !== undefined ? (nota              || null) : existente.nota},
         updated_at        = NOW()
       WHERE id = ${req.params.id}
       RETURNING *`;
@@ -1328,7 +1334,7 @@ app.put('/api/tarjeta-informativa/:id', verifyToken, onlyGestionCompleta, async 
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,
-      solicitante, hora, fecha_sello, hora_sello
+      solicitante, hora, fecha_sello, fecha_firma, hora_sello, nota
     } = req.body;
 
     const [actualizado] = await sql`
@@ -1340,7 +1346,9 @@ app.put('/api/tarjeta-informativa/:id', verifyToken, onlyGestionCompleta, async 
         solicitante       = ${solicitante       !== undefined ? (solicitante       || null) : existente.solicitante},
         hora              = ${hora              !== undefined ? (hora              || null) : existente.hora},
         fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : existente.fecha_sello},
+        fecha_firma       = ${fecha_firma       !== undefined ? (fecha_firma       || null) : existente.fecha_firma},
         hora_sello        = ${hora_sello        !== undefined ? (hora_sello        || null) : existente.hora_sello},
+        nota              = ${nota              !== undefined ? (nota              || null) : existente.nota},
         updated_at        = NOW()
       WHERE id = ${req.params.id}
       RETURNING *`;

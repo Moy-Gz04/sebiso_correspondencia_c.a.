@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════
    SBIS — Minutario
    Misma tabla que No. de Oficio; aquí solo se captura
-   Fecha de Sello / Hora de Sello por registro, con guardado
-   automático al cambiar cada campo. Exclusivo de
+   Fecha de Sello / Fecha de Firma / Nota por registro, con
+   guardado automático al cambiar cada campo. Exclusivo de
    Coordinación Administrativa (o el admin legado).
    ═══════════════════════════════════════════════════ */
 
@@ -163,6 +163,17 @@ function fechaISO(f) {
   return valorFechaInput(f);
 }
 
+/* Escapa el valor de una nota para poder insertarlo dentro del
+   atributo value="" del input sin romper el HTML si el usuario
+   escribió comillas, & o < / >. */
+function escaparAtributo(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 /* Caché por tipo de módulo, así cambiar de pestaña no vuelve a pedir
    al servidor los datos que ya se cargaron en esta visita. */
 const CACHE_REGISTROS = {};
@@ -219,8 +230,8 @@ function precargarBadges() {
 }
 
 /* Aplica búsqueda de texto libre (sobre todos los campos visibles,
-   incluidos Fecha/Hora de Sello) y el rango de fechas seleccionado
-   (sobre la fecha del oficio). */
+   incluidos Fecha de Sello/Fecha de Firma/Nota) y el rango de fechas
+   seleccionado (sobre la fecha del oficio). */
 function registrosFiltrados() {
   const q = FILTRO_TEXTO.trim().toLowerCase();
 
@@ -239,7 +250,8 @@ function registrosFiltrados() {
       r.solicitante,
       formatearHora(r.hora),
       formatearFecha(r.fecha_sello),
-      formatearHora(r.hora_sello),
+      formatearFecha(r.fecha_firma),
+      r.nota,
     ];
     return campos.some(c => String(c || '').toLowerCase().includes(q));
   });
@@ -274,11 +286,11 @@ function pintarTabla() {
   actualizarBadge(TIPO_ACTIVO, REGISTROS.length);
 
   if (!REGISTROS.length) {
-    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="9">${cfg.vacioMsg}</td></tr>`;
+    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="10">${cfg.vacioMsg}</td></tr>`;
     return;
   }
   if (!filtrados.length) {
-    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="9">Ningún registro coincide con la búsqueda o el rango de fechas.</td></tr>`;
+    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="10">Ningún registro coincide con la búsqueda o el rango de fechas.</td></tr>`;
     return;
   }
 
@@ -296,14 +308,22 @@ function pintarTabla() {
                onchange="guardarSello(${r.id}, 'fecha_sello', this)"/>
       </td>
       <td class="td-sello">
-        <input type="time" class="input-sello" value="${valorHoraInput(r.hora_sello)}"
-               onchange="guardarSello(${r.id}, 'hora_sello', this)"/>
+        <input type="date" class="input-sello${r.fecha_firma ? ' sello-lleno' : ''}" value="${valorFechaInput(r.fecha_firma)}"
+               onchange="guardarSello(${r.id}, 'fecha_firma', this)"/>
+      </td>
+      <td class="td-nota">
+        <input type="text" class="input-nota" maxlength="500" placeholder="Agregar nota…" value="${escaparAtributo(r.nota)}"
+               onchange="guardarSello(${r.id}, 'nota', this)"/>
       </td>
     </tr>`).join('');
 }
 
-/* Guardado automático de un campo de sello al cambiarlo: PUT solo con
-   ese campo, sin necesidad de un botón "Guardar" por fila. */
+/* Guardado automático de un campo de sello (o de la Nota) al
+   cambiarlo: PUT solo con ese campo, sin necesidad de un botón
+   "Guardar" por fila. En el caso de "Fecha de Firma", además se
+   marca (o desmarca) la clase .sello-lleno para que el separador "/"
+   se pinte de verde en cuanto ya quedó capturada una fecha — ver
+   no-oficio.css. */
 async function guardarSello(id, campo, input) {
   input.classList.add('guardando');
   try {
@@ -321,6 +341,10 @@ async function guardarSello(id, campo, input) {
     const idx = REGISTROS.findIndex(r => r.id === id);
     if (idx !== -1) REGISTROS[idx] = data;
     if (CACHE_REGISTROS[TIPO_ACTIVO] && idx !== -1) CACHE_REGISTROS[TIPO_ACTIVO][idx] = data;
+
+    if (campo === 'fecha_firma') {
+      input.classList.toggle('sello-lleno', !!input.value);
+    }
   } catch (err) {
     await sbisAlert({ titulo: 'No se pudo guardar', mensaje: err.message, tipo: 'error' });
   } finally {

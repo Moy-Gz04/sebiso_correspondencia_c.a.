@@ -157,7 +157,7 @@
       <div class="no-of-filtros">
         <div class="campo-buscador-wrap">
           <i class="ti ti-search"></i>
-          <input type="text" id="buscador" placeholder="Buscar por número, fecha, destinatario, asunto, área, solicitante u hora…" oninput="onFiltroChange()"/>
+          <input type="text" id="buscador" placeholder="Buscar por número, fecha, destinatario, asunto, área, solicitante, hora o nota…" oninput="onFiltroChange()"/>
         </div>
         <div class="campo-filtro-fecha">
           <label>Desde</label>
@@ -185,11 +185,12 @@
                 <th>Solicitante</th>
                 <th>Hora</th>
                 <th>Fecha de Sello</th>
-                <th>Hora de Sello</th>
+                <th>Fecha de Firma</th>
+                <th>Nota</th>
               </tr>
             </thead>
             <tbody id="tabla-body">
-              <tr class="fila-vacia"><td colspan="9">Cargando…</td></tr>
+              <tr class="fila-vacia"><td colspan="10">Cargando…</td></tr>
             </tbody>
           </table>
         </div>
