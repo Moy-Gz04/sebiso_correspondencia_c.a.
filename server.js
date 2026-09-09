@@ -908,14 +908,18 @@ async function siguienteNoOficioAutomatico() {
 
 /* ══ GET /api/no-oficio — lista completa (usada tanto por la vista
    "No. de Oficio" como por "Minutario") ══
-   Orden: del último GENERADO al primero — no alfabético por
-   no_oficio (eso mezclaba mal los números con sufijo, como "0003-1"
-   antes que "1"), sino por "id" descendente, que refleja el orden real
-   en que cada registro se creó en el sistema (tanto los importados del
-   histórico como los capturados a partir de ahora). */
+   Orden: por el valor NUMÉRICO de no_oficio, de mayor a menor — no un
+   ORDER BY no_oficio alfabético directo, porque eso compara los
+   números como texto y ordena mal en cuanto varía la cantidad de
+   dígitos o hay un sufijo (p. ej. "0003-1"). Se extrae solo la parte
+   numérica inicial (regexp_replace corta desde el primer carácter que
+   no es dígito) y se compara como entero; "id DESC" solo se usa como
+   criterio de empate para casos idénticos (p. ej. reasignaciones). */
 app.get('/api/no-oficio', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const rows = await sql`SELECT * FROM no_oficio ORDER BY id DESC`;
+    const rows = await sql`
+      SELECT * FROM no_oficio
+      ORDER BY CAST(NULLIF(regexp_replace(no_oficio, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;
     res.json(rows);
   } catch (err) {
     manejarError(res, err, 'No se pudieron obtener los registros.');
@@ -1092,7 +1096,9 @@ async function siguienteCircularAutomatico() {
 
 app.get('/api/circular', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const rows = await sql`SELECT * FROM circular ORDER BY id DESC`;
+    const rows = await sql`
+      SELECT * FROM circular
+      ORDER BY CAST(NULLIF(regexp_replace(no_circular, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;
     res.json(rows);
   } catch (err) {
     manejarError(res, err, 'No se pudieron obtener los registros.');
@@ -1239,7 +1245,9 @@ async function siguienteTarjetaAutomatico() {
 
 app.get('/api/tarjeta-informativa', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const rows = await sql`SELECT * FROM tarjeta_informativa ORDER BY id DESC`;
+    const rows = await sql`
+      SELECT * FROM tarjeta_informativa
+      ORDER BY CAST(NULLIF(regexp_replace(no_tarjeta, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;
     res.json(rows);
   } catch (err) {
     manejarError(res, err, 'No se pudieron obtener los registros.');
