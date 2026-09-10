@@ -371,7 +371,9 @@ function validarForm(form) {
 function limpiarForm() {
   document.getElementById('form-captura').reset();
   document.querySelectorAll('.invalido').forEach(el => el.classList.remove('invalido'));
+  borrarBorrador();
   preRellenar();
+  onDiasChange();
 }
 
 async function enviarForm(e) {
@@ -413,6 +415,10 @@ async function enviarForm(e) {
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.mensaje || 'Error al guardar');
+
+    /* El registro ya quedó guardado en el servidor: se descarta el
+       borrador local para que la próxima captura empiece en blanco. */
+    borrarBorrador();
 
     /* Modal de confirmación de éxito → al cerrar va a historial */
     const yaFueTurnado = !!data.turnado_a;
@@ -458,6 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
   pintarUsuarioHeader(USUARIO?.username || '');
   mostrarFecha();
   preRellenar();
+  /* Recupera lo que se estuviera capturando antes de salir de la
+     página (ver bloque "BORRADOR AUTOMÁTICO" al final del archivo).
+     Va después de preRellenar() para no pisar F. Registro. */
+  restaurarBorrador();
+  activarAutoguardadoBorrador();
   iniciarHeartbeat();
   iniciarContadorUsuariosActivos();
 
@@ -505,4 +516,67 @@ function sincronizarNumeroConReferencia() {
       ultimoValorSincronizado = numero.value;
     }
   });
+}
+
+/* ════════════════════════════════════════════════════
+   BORRADOR AUTOMÁTICO — "memoria" del Nuevo Registro
+   Mientras se captura, lo escrito se guarda en localStorage.
+   Si el usuario cambia de página (p. ej. entra a Historial)
+   y vuelve a Nuevo Registro, el formulario se restaura tal
+   como lo dejó. El borrador se descarta al guardar el
+   registro con éxito o al pulsar "Limpiar".
+
+   No se recuerdan n_control ni f_registro: los pone el
+   sistema, no el usuario.
+   ════════════════════════════════════════════════════ */
+const CAMPOS_BORRADOR = [
+  'f_oficio', 'f_sello', 'dias_entrega', 'numero', 'n_referencia',
+  'remitente', 'dependencia', 'instruccion', 'folio_despacho',
+  'descripcion', 'turnado_a'
+];
+
+/* Clave por usuario: si dos cuentas usan el mismo navegador, cada
+   una recupera su propio borrador y no el de la otra. */
+function claveBorrador() {
+  const quien = (USUARIO?.username || 'anon').trim().toLowerCase();
+  return `sbis_borrador_captura_${quien}`;
+}
+
+function guardarBorrador() {
+  const datos = {};
+  CAMPOS_BORRADOR.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) datos[id] = el.value;
+  });
+  try {
+    localStorage.setItem(claveBorrador(), JSON.stringify({ datos, ts: Date.now() }));
+  } catch { /* almacenamiento no disponible o lleno: se ignora */ }
+}
+
+function restaurarBorrador() {
+  let guardado = null;
+  try {
+    guardado = JSON.parse(localStorage.getItem(claveBorrador()) || 'null');
+  } catch { guardado = null; }
+  if (!guardado || !guardado.datos) return;
+
+  Object.entries(guardado.datos).forEach(([id, valor]) => {
+    const el = document.getElementById(id);
+    if (el && valor != null && valor !== '') el.value = valor;
+  });
+  // Reaplica el aviso "🔴 Urgente" según los días restaurados.
+  onDiasChange();
+}
+
+function borrarBorrador() {
+  try { localStorage.removeItem(claveBorrador()); } catch { /* nada */ }
+}
+
+function activarAutoguardadoBorrador() {
+  const form = document.getElementById('form-captura');
+  if (!form) return;
+  // 'input' cubre inputs de texto y el textarea; 'change' cubre los
+  // <select> y los campos de fecha. Ambos se delegan en el <form>.
+  form.addEventListener('input',  guardarBorrador);
+  form.addEventListener('change', guardarBorrador);
 }
