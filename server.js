@@ -18,6 +18,15 @@ import { randomUUID }     from 'crypto';
 
 dotenv.config();
 
+/* Normaliza APPS_SCRIPT_URL: algunos paneles (p. ej. Render) dejan pegar
+   el valor con el nombre de la variable delante ("APPS_SCRIPT_URL = https://…")
+   o con un salto de línea / espacios al final, lo que hacía reventar a
+   `new URL()` dentro de fetch (ERR_INVALID_URL). Se deja solo la URL. */
+if (process.env.APPS_SCRIPT_URL) {
+  const m = process.env.APPS_SCRIPT_URL.match(/https?:\/\/\S+/);
+  process.env.APPS_SCRIPT_URL = m ? m[0].replace(/['"]+$/, '').trim() : '';
+}
+
 if (!process.env.DATABASE_URL) { console.error('❌  Falta DATABASE_URL'); process.exit(1); }
 if (!process.env.JWT_SECRET)   { console.error('❌  Falta JWT_SECRET');   process.exit(1); }
 
