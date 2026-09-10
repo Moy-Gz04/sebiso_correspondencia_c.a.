@@ -1396,6 +1396,34 @@ img { max-width: 100%; }
 .modal-footer button:active,
 .sbis-btn:active { transform: translateY(0) scale(.97); }
 
+/* ── Modal "Atender Oficio": que nunca se salga de la ventana ──
+   El recuadro se limita a la altura visible; cabecera, línea de error
+   y pie quedan fijos y solo el cuerpo hace scroll, para poder revisar
+   y corregir todos los campos y llegar siempre a los botones. */
+#modal-atender .modal-box {
+  display: flex;
+  flex-direction: column;
+  /* 80px = padding vertical del overlay (40px arriba + 40px abajo) */
+  max-height: calc(100vh - 88px);
+  max-height: calc(100dvh - 88px);
+}
+#modal-atender .modal-header,
+#modal-atender .modal-error,
+#modal-atender .modal-footer { flex-shrink: 0; }
+#modal-atender .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 600px) {
+  /* en móvil el overlay usa padding 20px arriba/abajo */
+  #modal-atender .modal-box {
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+  }
+}
+
 /* ═══════════════════════════════════════════════════
    PIE DE PÁGINA
    ═══════════════════════════════════════════════════ */
