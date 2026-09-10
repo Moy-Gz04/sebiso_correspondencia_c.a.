@@ -20,7 +20,7 @@ function tieneGestionCompleta(usuario) {
    solo estas cuentas pueden navegar en "No. de Oficio". No aplica
    a Minutario ni a ninguna otra vista del sistema. Comparación sin
    distinguir mayúsculas/minúsculas. */
-const USUARIOS_PERMITIDOS_NO_OFICIO = ['sara', 'moyaispuro', 'mine'];
+const USUARIOS_PERMITIDOS_NO_OFICIO = ['sara', 'moyaispuro', 'mine', 'elizabeth'];
 function tieneAccesoNoOficio(usuario) {
   return USUARIOS_PERMITIDOS_NO_OFICIO.includes((usuario?.username || '').trim().toLowerCase());
 }

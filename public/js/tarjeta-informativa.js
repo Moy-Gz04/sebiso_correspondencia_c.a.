@@ -20,7 +20,7 @@ function tieneGestionCompleta(usuario) {
    solo estas cuentas pueden navegar en "No. Tarjeta Informativa".
    No aplica a Minutario ni a ninguna otra vista del sistema.
    Comparación sin distinguir mayúsculas/minúsculas. */
-const USUARIOS_PERMITIDOS_TARJETA = ['sara', 'moyaispuro', 'mine'];
+const USUARIOS_PERMITIDOS_TARJETA = ['sara', 'moyaispuro', 'mine', 'elizabeth'];
 function tieneAccesoTarjeta(usuario) {
   return USUARIOS_PERMITIDOS_TARJETA.includes((usuario?.username || '').trim().toLowerCase());
 }

@@ -20,7 +20,7 @@ function tieneGestionCompleta(usuario) {
    solo estas cuentas pueden navegar en "No. Circular". No aplica
    a Minutario ni a ninguna otra vista del sistema. Comparación sin
    distinguir mayúsculas/minúsculas. */
-const USUARIOS_PERMITIDOS_CIRCULAR = ['sara', 'moyaispuro', 'mine'];
+const USUARIOS_PERMITIDOS_CIRCULAR = ['sara', 'moyaispuro', 'mine', 'elizabeth'];
 function tieneAccesoCircular(usuario) {
   return USUARIOS_PERMITIDOS_CIRCULAR.includes((usuario?.username || '').trim().toLowerCase());
 }
