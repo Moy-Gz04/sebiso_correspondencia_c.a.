@@ -64,6 +64,54 @@
       background: radial-gradient(ellipse 70% 55% at 50% 32%, #6B0F2B 0%, #2a0510 72%);
     }
 
+    /* ══ LLUVIA DE FLORES DE CEMPASÚCHIL — igual que el resto de SBIS ══
+       Misma capa (z-index:0) que .login-halo: cae detrás de la tarjeta
+       (.login-card, z-index:1), generada por js/lluvia.js. Cada flor
+       es "tocable": un click la hace explotar en chispas tipo fuegos
+       artificiales. Reglas propias aquí (no las de css/styles.css)
+       porque esta pantalla tiene su hoja de estilos inline aparte. */
+    .lluvia-flores { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+    .flor-lluvia {
+      position: absolute; top: -6%;
+      background-image: url('img/lluvia.png');
+      background-size: contain; background-repeat: no-repeat; background-position: center;
+      opacity: 0;
+      animation-name: caerFlorCempasuchil; animation-timing-function: linear; animation-iteration-count: infinite;
+      will-change: transform, opacity;
+      pointer-events: auto; cursor: pointer;
+    }
+    @keyframes caerFlorCempasuchil {
+      0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+      8%   { opacity: .8; }
+      90%  { opacity: .7; }
+      100% { transform: translateY(112vh) translateX(var(--deriva, 24px)) rotate(var(--giro-final, 300deg)); opacity: 0; }
+    }
+    .chispa-fuego {
+      position: absolute; border-radius: 50%; pointer-events: none;
+      transform: translate(-50%, -50%); box-shadow: 0 0 4px currentColor;
+      animation: explotarChispa .6s cubic-bezier(.15,.8,.4,1) forwards;
+      will-change: transform, opacity;
+    }
+    @keyframes explotarChispa {
+      0%   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+      65%  { opacity: 1; }
+      100% { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(.25); opacity: 0; }
+    }
+    .destello-fuego {
+      position: absolute; width: 5px; height: 5px; border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, #fff8dc 0%, rgba(255,193,79,.85) 45%, transparent 75%);
+      pointer-events: none; animation: destelloFuego .35s ease-out forwards;
+    }
+    @keyframes destelloFuego {
+      0%   { transform: translate(-50%, -50%) scale(.3);  opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(5.5); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flor-lluvia { animation: none; opacity: 0; }
+      .chispa-fuego, .destello-fuego { animation: none; opacity: 0; }
+    }
+
     /* Halo suave detrás de la tarjeta */
     .login-halo {
       position: absolute;
@@ -276,6 +324,9 @@
   </style>
 </head>
 <body>
+
+  <!-- Lluvia de flores de cempasúchil: capa de fondo decorativa, ver css arriba y js/lluvia.js -->
+  <div class="lluvia-flores" id="lluvia-flores"></div>
 
   <div class="login-wrap">
     <div class="login-halo"></div>
@@ -504,5 +555,6 @@
       }
     });
   </script>
+  <script src="js/lluvia.js"></script>
 </body>
 </html>
