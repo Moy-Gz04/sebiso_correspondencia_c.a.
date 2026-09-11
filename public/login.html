@@ -154,17 +154,33 @@
     }
     .campo-input::placeholder { color: rgba(243,226,217,.4); }
 
-    /* Autocompletado / íconos nativos del navegador — mismo arreglo que
-       PROGRAMAS: sin esto, Chrome/Edge pintan su propio fondo cuadrado
-       y su propio botón de "revelar contraseña" encima del pill. */
+    /* Autocompletado / íconos nativos del navegador. Chrome/Edge pintan
+       su propio fondo sólido encima del input autocompletado (y su
+       propio botón de "revelar contraseña"/"credenciales"), sobre el
+       pill. El truco estándar para neutralizarlo es un box-shadow
+       interior gigante del color de la superficie — pero ESE relleno
+       sólido, al no llevar el degradado del hundido, borra el
+       sombreado neumórfico justo en el área del input, mientras el
+       resto del contenedor (icono, padding, puntas redondeadas) sí lo
+       conserva: la costura entre "adentro sin sombra" y "afuera con
+       sombra" es la medialuna. Se arregla apilando el MISMO sombreado
+       hundido (arriba oscuro / abajo claro) encima del relleno, para
+       que el input autocompletado luzca igual de hundido que el resto
+       del pill, con o sin autocompletar. */
     .campo-input:-webkit-autofill,
     .campo-input:-webkit-autofill:hover,
     .campo-input:-webkit-autofill:focus,
     .campo-input:-webkit-autofill:active {
       -webkit-text-fill-color: var(--neu-text);
       caret-color: var(--neu-text);
-      -webkit-box-shadow: 0 0 0 1000px var(--neu-surface) inset;
-      box-shadow: 0 0 0 1000px var(--neu-surface) inset;
+      -webkit-box-shadow:
+        inset 0 3px 7px var(--neu-dark),
+        inset 0 -3px 7px var(--neu-light),
+        0 0 0 1000px var(--neu-surface) inset;
+      box-shadow:
+        inset 0 3px 7px var(--neu-dark),
+        inset 0 -3px 7px var(--neu-light),
+        0 0 0 1000px var(--neu-surface) inset;
       transition: background-color 5000s ease-in-out 0s;
     }
     .campo-input[type="password"]::-ms-reveal,
