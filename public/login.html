@@ -45,23 +45,28 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-size: 15px; -webkit-text-size-adjust: 100%; }
 
+    /* El degradado de fondo vive en <body>, NO en .login-wrap: así queda
+       por debajo de TODO (z-index implícito más bajo posible) y la
+       lluvia (.lluvia-flores, position:fixed) se ve encima de él, en
+       vez de quedar tapada por un fondo opaco pintado despues en el DOM. */
     body {
       font-family: var(--neu-font);
       min-height: 100vh;
       display: flex;
-      background: var(--neu-bg);
+      background: radial-gradient(ellipse 70% 55% at 50% 32%, #6B0F2B 0%, #2a0510 72%);
       overflow-x: hidden;
     }
 
     .login-wrap {
       position: relative;
+      z-index: 1;
       min-height: 100vh;
       width: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 24px;
-      background: radial-gradient(ellipse 70% 55% at 50% 32%, #6B0F2B 0%, #2a0510 72%);
+      background: transparent;
     }
 
     /* ══ LLUVIA DE FLORES DE CEMPASÚCHIL — igual que el resto de SBIS ══
