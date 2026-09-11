@@ -3,394 +3,215 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#4A0A1D" />
   <title>SBIS — Acceso al Sistema</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
 
   <style>
-    /* ── Variables ── */
+    /* ══════════════════════════════════════════════════════════════
+       LOGIN — Neumorfismo guinda/dorado
+       Mismo lenguaje visual que el login de PROGRAMAS: superficie en
+       relieve de doble sombra, inputs en pill hundidos, acento dorado
+       en foco/botón, tipografía Poppins. Esto reemplaza SOLO esta
+       pantalla — el resto de SBIS (área, historial, capturas...)
+       conserva su identidad de siempre (fondo con flores, Montserrat).
+
+       Nota sobre los sombreados hundidos (.neu-input, .neu-toggle-track):
+       el offset del box-shadow va CASI vertical (x≈0), no diagonal. Un
+       offset diagonal concentra el sombreado cerca de las esquinas y
+       en un pill ancho deja el centro plano ("cortado en piezas"). Con
+       x≈0 el sombreado corre parejo a lo largo de todo el borde sin
+       importar el ancho del campo.
+       ══════════════════════════════════════════════════════════════ */
     :root {
-      --guinda:        #6B0F2B;
-      --guinda-oscuro: #4A0A1D;
-      --guinda-claro:  #f9f0f3;
-      --dorado:        #C8A951;
-      --dorado-oscuro: #9a7d30;
-      --dorado-claro:  #faf4e1;
-      --borde:         #e0c4cc;
-      --txt:           #1a0a10;
-      --txt2:           #7a4255;
-      --blanco:        #ffffff;
-      --error:         #a32d2d;
-      --fuente-titulo: 'Montserrat', Georgia, sans-serif;
-      --fuente-cuerpo: 'Montserrat', 'Segoe UI', sans-serif;
+      --neu-bg:        #4A0A1D;
+      --neu-surface:   #4A0A1D;
+      --neu-light:     rgba(140,51,88,.55);
+      --neu-dark:      rgba(8,1,4,.6);
+      --neu-accent:    #C8A951;
+      --neu-accent-soft: #9a7d30;
+      --neu-heading:   #C8A951;
+      --neu-text:      #F3E2D9;
+      --neu-text-soft: #C89BA8;
+      --neu-btn-text:  #3A0818;
+      --neu-error:     #C8A951;
+      --neu-font:      'Poppins', 'Segoe UI', sans-serif;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-size: 15px; -webkit-text-size-adjust: 100%; }
 
     body {
-      font-family: var(--fuente-cuerpo);
+      font-family: var(--neu-font);
       min-height: 100vh;
       display: flex;
-      flex-direction: column;
-      background: var(--guinda-oscuro);
+      background: var(--neu-bg);
       overflow-x: hidden;
     }
 
-    /* ══ FONDO CON PATRÓN SUTIL ══ */
-    .fondo-patron {
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(200,169,81,.13) 0%, transparent 70%),
-        radial-gradient(ellipse 60% 80% at 100% 100%, rgba(107,15,43,.5) 0%, transparent 60%),
-        linear-gradient(160deg, var(--guinda-oscuro) 0%, #3a0818 40%, #1e0510 100%);
-      z-index: 0;
-    }
-
-    /* Rejilla decorativa */
-    .fondo-patron::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(200,169,81,.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(200,169,81,.04) 1px, transparent 1px);
-      background-size: 40px 40px;
-      mask-image: radial-gradient(ellipse 100% 100% at 50% 50%, black 0%, transparent 75%);
-    }
-
-    /* Partículas doradas flotantes — solo decorativas */
-    .particula {
-      position: fixed;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(200,169,81,.55) 0%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
-      animation: flotar 9s ease-in-out infinite;
-    }
-    @keyframes flotar {
-      0%, 100% { transform: translateY(0) translateX(0); opacity: .5; }
-      50%      { transform: translateY(-26px) translateX(10px); opacity: 1; }
-    }
-
-    /* ══ LLUVIA DE FLORES DE CEMPASÚCHIL — fondo decorativo ══
-       Misma capa (z-index:0) que .fondo-patron / .particula: cae
-       detrás de la tarjeta de acceso (.login-wrapper, z-index:1),
-       generada por js/lluvia.js con tamaño, posición y velocidad
-       aleatorios para que se vea natural. Cada flor es "tocable":
-       un click o toque la hace explotar en una pequeña ráfaga de
-       chispas tipo fuegos artificiales (ver .chispa-fuego /
-       .destello-fuego, generadas también por js/lluvia.js). */
-    .lluvia-flores {
-      position: fixed;
-      inset: 0;
-      overflow: hidden;
-      z-index: 0;
-      pointer-events: none;
-    }
-    .flor-lluvia {
-      position: absolute;
-      top: -6%;
-      background-image: url('img/lluvia.png');
-      background-size: contain;
-      background-repeat: no-repeat;
-      background-position: center;
-      opacity: 0;
-      animation-name: caerFlorCempasuchil;
-      animation-timing-function: linear;
-      animation-iteration-count: infinite;
-      will-change: transform, opacity;
-      pointer-events: auto;
-      cursor: pointer;
-    }
-    @keyframes caerFlorCempasuchil {
-      0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
-      8%   { opacity: .8; }
-      90%  { opacity: .7; }
-      100% { transform: translateY(112vh) translateX(var(--deriva, 24px)) rotate(var(--giro-final, 300deg)); opacity: 0; }
-    }
-
-    /* ── Explosión tipo fuegos artificiales al tocar una flor ── */
-    .chispa-fuego {
-      position: absolute;
-      border-radius: 50%;
-      pointer-events: none;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 4px currentColor;
-      animation: explotarChispa .6s cubic-bezier(.15,.8,.4,1) forwards;
-      will-change: transform, opacity;
-    }
-    @keyframes explotarChispa {
-      0%   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
-      65%  { opacity: 1; }
-      100% { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(.25); opacity: 0; }
-    }
-    .destello-fuego {
-      position: absolute;
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      transform: translate(-50%, -50%);
-      background: radial-gradient(circle, #fff8dc 0%, rgba(255,193,79,.85) 45%, transparent 75%);
-      pointer-events: none;
-      animation: destelloFuego .35s ease-out forwards;
-    }
-    @keyframes destelloFuego {
-      0%   { transform: translate(-50%, -50%) scale(.3);  opacity: 1; }
-      100% { transform: translate(-50%, -50%) scale(5.5); opacity: 0; }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .flor-lluvia { animation: none; opacity: 0; }
-      .chispa-fuego, .destello-fuego { animation: none; opacity: 0; }
-    }
-
-    /* ══ BANDA TRICOLOR SUPERIOR ══ */
-    .banda-top {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      display: flex;
-      height: 5px;
-      z-index: 10;
-    }
-    .banda-top span { flex: 1; }
-    .banda-top .g1 { background: var(--guinda); }
-    .banda-top .g2 { background: var(--dorado); }
-    .banda-top .g3 { background: var(--guinda-oscuro); }
-
-    /* ══ CONTENEDOR CENTRAL ══ */
-    .login-wrapper {
+    .login-wrap {
       position: relative;
-      z-index: 1;
-      flex: 1;
+      min-height: 100vh;
+      width: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 40px 20px;
-      width: 100%;
-      /* pointer-events: none — esta caja centra la tarjeta pero ocupa
-         casi toda la pantalla; sin esto, su padding "vacío" (donde se
-         ven las flores cayendo detrás) tapa el toque antes de que
-         llegue a la flor. Se le devuelve el evento solo a .login-card. */
+      padding: 24px;
+      background: radial-gradient(ellipse 70% 55% at 50% 32%, #6B0F2B 0%, #2a0510 72%);
+    }
+
+    /* Halo suave detrás de la tarjeta */
+    .login-halo {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(560px, 90vw);
+      height: min(560px, 90vw);
+      border-radius: 50%;
+      z-index: 0;
+      background: radial-gradient(circle, rgba(140,51,88,.55) 0%, rgba(140,51,88,0) 70%);
       pointer-events: none;
     }
 
     .login-card {
-      pointer-events: auto;
+      position: relative;
+      z-index: 1;
       width: 100%;
       max-width: 420px;
-      display: flex;
-      flex-direction: column;
-      gap: 0;
-      border-radius: 14px;
-      box-shadow:
-        0 10px 24px rgba(0,0,0,.35),
-        0 28px 64px rgba(0,0,0,.40),
-        0 0 0 1px rgba(200,169,81,.15);
+      background: var(--neu-surface);
+      border-radius: 36px;
+      padding: 40px 34px 32px;
+      box-shadow: 14px 14px 28px var(--neu-dark), -14px -14px 28px var(--neu-light);
       animation: aparecer .5s cubic-bezier(.22,1,.36,1) both;
-      transition: transform .3s ease, box-shadow .3s ease;
     }
-    .login-card:hover {
-      transform: translateY(-3px);
-      box-shadow:
-        0 14px 30px rgba(0,0,0,.38),
-        0 34px 74px rgba(0,0,0,.44),
-        0 0 0 1px rgba(200,169,81,.22);
-    }
-
     @keyframes aparecer {
-      from { opacity: 0; transform: translateY(28px) scale(.97); }
+      from { opacity: 0; transform: translateY(20px) scale(.98); }
       to   { opacity: 1; transform: translateY(0)    scale(1); }
     }
 
-    /* ── Cabecera institucional ── */
-    .login-header {
-      background: var(--blanco);
-      border-radius: 14px 14px 0 0;
-      padding: 28px 32px 22px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      border-bottom: 3px solid var(--dorado);
-    }
+    /* ── Cabecera ── */
+    .login-header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
 
-    /* Logo / escudo institucional — reemplaza img/logo.svg por tu escudo oficial */
     .escudo-placeholder {
-      width: 56px;
-      height: 56px;
-      flex-shrink: 0;
-      border-radius: 50%;
-      background: linear-gradient(160deg, #ffffff 0%, var(--dorado-claro) 130%);
-      border: 2px solid var(--guinda);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      width: 56px; height: 56px; flex-shrink: 0; margin-bottom: 10px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--neu-accent), var(--neu-accent-soft));
+      border: none;
+      display: flex; align-items: center; justify-content: center;
       overflow: hidden;
-      box-shadow:
-        0 2px 6px rgba(107,15,43,.18),
-        0 6px 16px rgba(107,15,43,.14),
-        inset 0 1px 1px rgba(255,255,255,.7);
-      transition: transform .25s cubic-bezier(.22,1,.36,1);
+      box-shadow: 0 4px 10px rgba(0,0,0,.3);
     }
-    .escudo-placeholder:hover { transform: scale(1.06) rotate(-2deg); }
-    .escudo-placeholder img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      border-radius: 50%;
-    }
-    .escudo-placeholder i { font-size: 24px; color: var(--guinda); }
-
-    .login-header-texto { flex: 1; min-width: 0; }
+    .escudo-placeholder img { width: 100%; height: 100%; object-fit: cover; }
+    .escudo-placeholder i { font-size: 24px; color: var(--neu-btn-text); }
 
     .login-gov {
-      font-size: 0.6rem;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--txt2);
-      margin-bottom: 3px;
+      font-size: .58rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+      color: var(--neu-text-soft);
     }
-
     .login-secretaria {
-      font-family: var(--fuente-titulo);
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--guinda);
-      line-height: 1.2;
+      font-size: 1rem; font-weight: 700; color: var(--neu-text); line-height: 1.25; margin-top: 2px;
     }
+    .login-subsecretaria { font-size: .7rem; color: var(--neu-text-soft); margin-top: 2px; }
 
-    .login-subsecretaria {
-      font-size: 0.72rem;
-      color: var(--txt2);
-      margin-top: 2px;
-    }
+    .login-titulo-bloque { text-align: center; margin-top: 18px; }
+    .login-titulo { font-size: 1.6rem; font-weight: 800; color: var(--neu-heading); letter-spacing: -.01em; }
+    .login-subtitulo { font-size: .8rem; color: var(--neu-text-soft); margin-top: 6px; }
 
     /* ── Cuerpo del formulario ── */
-    .login-body {
-      background: var(--blanco);
-      padding: 28px 32px 32px;
-      border-radius: 0 0 14px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
+    .login-body { display: flex; flex-direction: column; gap: 16px; margin-top: 26px; }
 
-    .login-titulo-bloque {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .login-titulo {
-      font-family: var(--fuente-titulo);
-      font-size: 1.35rem;
-      font-weight: 700;
-      color: var(--guinda);
-    }
-
-    .login-subtitulo {
-      font-size: 0.8rem;
-      color: var(--txt2);
-    }
-
-    /* ── Separador ── */
-    .sep {
-      height: 1px;
-      background: linear-gradient(90deg, var(--borde), transparent);
-      margin: -4px 0;
-    }
-
-    /* ── Grupos de campo ── */
-    .campo-grupo {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
+    .campo-grupo { display: flex; flex-direction: column; gap: 8px; }
     .campo-label {
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--txt2);
+      font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: none;
+      color: var(--neu-text-soft);
     }
 
     .campo-input-wrap {
-      position: relative;
+      display: flex; align-items: center; gap: 10px;
+      background: var(--neu-surface);
+      border-radius: 99px;
+      padding: 0 18px;
+      height: 50px;
+      box-shadow: inset 0 3px 7px var(--neu-dark), inset 0 -3px 7px var(--neu-light);
+      transition: box-shadow .2s ease;
     }
-
+    .campo-input-wrap:focus-within {
+      box-shadow: inset 0 2px 5px var(--neu-dark), inset 0 -2px 5px var(--neu-light), 0 0 0 1.5px var(--neu-accent);
+    }
     .campo-input-wrap .icono-campo {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 17px;
-      color: var(--txt2);
-      pointer-events: none;
-      transition: color .2s;
+      flex-shrink: 0; font-size: 16px; color: var(--neu-text-soft); transition: color .2s;
     }
+    .campo-input-wrap:focus-within .icono-campo { color: var(--neu-accent); }
 
     .campo-input {
-      width: 100%;
-      padding: 10px 14px 10px 40px;
-      border: 1.5px solid var(--borde);
-      border-radius: 8px;
-      font-size: 0.93rem;
-      font-family: var(--fuente-cuerpo);
-      color: var(--txt);
-      background: var(--blanco);
-      outline: none;
-      transition: border-color .2s, box-shadow .2s;
+      flex: 1; min-width: 0; height: 100%;
+      border: none; background: transparent; outline: none;
+      font-size: .92rem; font-family: var(--neu-font); color: var(--neu-text);
+    }
+    .campo-input::placeholder { color: rgba(243,226,217,.4); }
+
+    /* Autocompletado / íconos nativos del navegador — mismo arreglo que
+       PROGRAMAS: sin esto, Chrome/Edge pintan su propio fondo cuadrado
+       y su propio botón de "revelar contraseña" encima del pill. */
+    .campo-input:-webkit-autofill,
+    .campo-input:-webkit-autofill:hover,
+    .campo-input:-webkit-autofill:focus,
+    .campo-input:-webkit-autofill:active {
+      -webkit-text-fill-color: var(--neu-text);
+      caret-color: var(--neu-text);
+      -webkit-box-shadow: 0 0 0 1000px var(--neu-surface) inset;
+      box-shadow: 0 0 0 1000px var(--neu-surface) inset;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+    .campo-input[type="password"]::-ms-reveal,
+    .campo-input[type="password"]::-ms-clear { display: none; }
+    .campo-input::-webkit-textfield-decoration-container { display: none; }
+    .campo-input::-webkit-credentials-auto-fill-button,
+    .campo-input::-webkit-strong-password-auto-fill-button {
+      visibility: hidden; display: none !important; pointer-events: none; position: absolute; right: 0;
     }
 
-    .campo-input:focus {
-      border-color: var(--guinda);
-      box-shadow: 0 0 0 3px rgba(107,15,43,.1);
-    }
-
-    .campo-input:focus + .icono-campo,
-    .campo-input-wrap:focus-within .icono-campo {
-      color: var(--guinda);
-    }
-
-    /* Toggle contraseña */
     .btn-ver-pass {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 17px;
-      color: var(--txt2);
-      padding: 4px;
-      transition: color .2s;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; padding: 0; border: none; background: transparent; cursor: pointer;
+      font-size: 16px; color: var(--neu-text-soft); transition: color .2s;
     }
+    .btn-ver-pass:hover { color: var(--neu-accent); }
 
-    .btn-ver-pass:hover { color: var(--guinda); }
+    /* ── Recordarme ── */
+    .fila-recordarme { display: flex; align-items: center; margin: 2px 2px 0; }
+    .neu-toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
+    .neu-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .neu-toggle-track {
+      width: 34px; height: 19px; border-radius: 99px; background: var(--neu-surface);
+      position: relative; flex-shrink: 0;
+      box-shadow: inset 0 2px 4px var(--neu-dark), inset 0 -2px 4px var(--neu-light);
+      transition: background .2s ease;
+    }
+    .neu-toggle-thumb {
+      position: absolute; top: 2.5px; left: 2.5px; width: 14px; height: 14px; border-radius: 50%;
+      background: var(--neu-text); box-shadow: 1px 1px 3px rgba(0,0,0,.35); transition: transform .2s ease;
+    }
+    .neu-toggle input:checked + .neu-toggle-track { background: var(--neu-accent-soft); }
+    .neu-toggle input:checked + .neu-toggle-track .neu-toggle-thumb { transform: translateX(15px); background: var(--neu-btn-text); }
+    .neu-toggle-label { font-size: .78rem; color: var(--neu-text-soft); font-weight: 500; }
 
     /* ── Mensaje de error ── */
     .error-msg {
-      display: none;
-      align-items: center;
-      gap: 8px;
-      background: #fff2f2;
-      border: 1px solid #f5c6c6;
-      border-left: 3px solid var(--error);
-      border-radius: 6px;
+      display: none; align-items: center; gap: 8px;
+      background: rgba(8,1,4,.35);
+      border-radius: 14px;
       padding: 10px 14px;
-      font-size: 0.82rem;
-      color: var(--error);
+      font-size: .78rem;
+      color: var(--neu-error);
+      font-weight: 600;
       animation: shake .35s ease;
     }
-
     .error-msg.visible { display: flex; }
-
     @keyframes shake {
       0%,100% { transform: translateX(0); }
       20%,60%  { transform: translateX(-5px); }
@@ -399,189 +220,76 @@
 
     /* ── Botón de acceso ── */
     .btn-login {
-      width: 100%;
-      padding: 13px;
-      background: linear-gradient(135deg, var(--guinda) 0%, var(--guinda-oscuro) 100%);
-      color: #f8eed4;
-      border: 1px solid rgba(200,169,81,.4);
-      border-radius: 8px;
-      font-size: 0.92rem;
-      font-weight: 600;
-      font-family: var(--fuente-cuerpo);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      width: 100%; height: 52px;
+      background: linear-gradient(135deg, var(--neu-accent), var(--neu-accent-soft));
+      color: var(--neu-btn-text);
+      border: none;
+      border-radius: 99px;
+      font-size: .82rem; font-weight: 700; font-family: var(--neu-font);
+      letter-spacing: .06em; text-transform: uppercase;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: filter .2s, transform .15s, box-shadow .2s;
-      box-shadow: 0 4px 14px rgba(74,10,29,.35), inset 0 1px 0 rgba(255,255,255,.12);
-      position: relative;
-      overflow: hidden;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: box-shadow .15s ease, transform .15s ease, filter .15s ease;
+      box-shadow: 8px 8px 16px var(--neu-dark), -8px -8px 16px var(--neu-light);
     }
+    .btn-login:hover { filter: brightness(1.06); }
+    .btn-login:active { box-shadow: inset 0 3px 6px rgba(0,0,0,.35); transform: translateY(1px); }
+    .btn-login:disabled { opacity: .65; cursor: not-allowed; }
 
-    .btn-login::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(200,169,81,.18), transparent);
-      opacity: 0;
-      transition: opacity .2s;
-    }
-
-    .btn-login:hover { filter: brightness(1.12); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(74,10,29,.45), inset 0 1px 0 rgba(255,255,255,.14); }
-    .btn-login:hover::after { opacity: 1; }
-    .btn-login:active { transform: translateY(0); }
-
-    .btn-login:disabled {
-      opacity: .7;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* Spinner */
     .spinner {
-      display: none;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(248,238,212,.3);
-      border-top-color: #f8eed4;
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
+      display: none; width: 16px; height: 16px;
+      border: 2px solid rgba(58,8,24,.3); border-top-color: var(--neu-btn-text);
+      border-radius: 50%; animation: spin .6s linear infinite;
     }
-
     @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-login.cargando .spinner   { display: block; }
+    .btn-login.cargando .btn-texto { display: none; }
+    .btn-login.cargando .btn-icono { display: none; }
 
-    .btn-login.cargando .spinner    { display: block; }
-    .btn-login.cargando .btn-texto  { display: none; }
-    .btn-login.cargando .btn-icono  { display: none; }
+    .login-pie { font-size: .72rem; color: var(--neu-text-soft); text-align: center; margin-top: 22px; line-height: 1.6; }
 
-    /* ── Pie del card ── */
-    .login-pie {
-      font-size: 0.72rem;
-      color: var(--txt2);
-      text-align: center;
-    }
+    @media (max-width: 768px) { .campo-input { font-size: 16px; } }
 
-    /* ══ BANDA INFERIOR ══ */
-    .banda-bottom {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      background: rgba(74,10,29,.6);
-      backdrop-filter: blur(8px);
-      padding: 10px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 10;
-      border-top: 1px solid rgba(200,169,81,.15);
-      gap: 10px;
-    }
-
-    .banda-bottom span {
-      font-size: 0.68rem;
-      color: rgba(255,255,255,.35);
-      letter-spacing: 0.04em;
-    }
-
-    /* ══ ANTI-ZOOM EN MÓVIL ══
-       Evita que Safari iOS y otros navegadores móviles hagan zoom
-       automático al enfocar el campo de usuario o contraseña
-       (ocurre cuando el font-size del input es menor a 16px). Se
-       fuerza 16px en todos los anchos de pantalla móvil, sin usar
-       user-scalable=no (que además ya no funciona en iOS moderno
-       y perjudica la accesibilidad). */
-    @media (max-width: 768px) {
-      .campo-input {
-        font-size: 16px;
-      }
-    }
-
-    /* ══ RESPONSIVE ══
-       Cubre los anchos de viewport más comunes en móviles:
-       iPhone 15 Pro Max (430), iPhone XR (414), iPhone SE (375)
-       y, en general, cualquier pantalla ≤600px / ≤400px. */
     @media (max-width: 600px) {
-      .login-wrapper { padding: 28px 14px 64px; }
-      .login-header  { padding: 20px 20px 16px; gap: 12px; }
-      .escudo-placeholder { width: 46px; height: 46px; }
-      .escudo-placeholder i { font-size: 20px; }
-      .login-secretaria { font-size: 0.96rem; }
-      .login-subsecretaria { font-size: 0.68rem; }
-      .login-body   { padding: 20px 20px 24px; gap: 16px; }
-      .login-titulo { font-size: 1.18rem; }
-      .banda-bottom { padding: 8px 16px; }
-      .banda-bottom span { font-size: 0.62rem; }
-      .banda-bottom .derecha { display: none; }
+      .login-card { padding: 32px 24px 26px; border-radius: 28px; }
+      .login-titulo { font-size: 1.4rem; }
     }
-
-    @media (max-width: 400px) {
-      .login-header { padding: 16px 16px 14px; }
-      .escudo-placeholder { width: 42px; height: 42px; }
-      .login-gov { font-size: 0.55rem; }
-      .login-secretaria { font-size: 0.88rem; }
-      .login-body { padding: 18px 16px 20px; }
-      .campo-input { padding: 9px 12px 9px 36px; }
-      .btn-login { font-size: 0.85rem; padding: 12px; }
-    }
-
     @media (max-height: 700px) {
-      .login-wrapper { padding-top: 20px; padding-bottom: 56px; align-items: flex-start; }
+      .login-wrap { align-items: flex-start; padding-top: 28px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Fondo -->
-  <div class="fondo-patron"></div>
-  <div class="particula" style="width:6px;height:6px;top:18%;left:12%;animation-delay:0s;"></div>
-  <div class="particula" style="width:4px;height:4px;top:65%;left:82%;animation-delay:2s;"></div>
-  <div class="particula" style="width:5px;height:5px;top:80%;left:20%;animation-delay:4s;"></div>
-  <div class="particula" style="width:3px;height:3px;top:30%;left:88%;animation-delay:6s;"></div>
+  <div class="login-wrap">
+    <div class="login-halo"></div>
 
-  <!-- Lluvia de flores de cempasúchil: capa de fondo decorativa, ver arriba y js/lluvia.js -->
-  <div class="lluvia-flores" id="lluvia-flores"></div>
-
-  <!-- Banda tricolor superior -->
-  <div class="banda-top">
-    <span class="g1"></span>
-    <span class="g2"></span>
-    <span class="g3"></span>
-  </div>
-
-  <!-- Formulario -->
-  <div class="login-wrapper">
     <div class="login-card">
 
       <!-- Cabecera -->
       <div class="login-header">
-        <!-- Logo institucional: reemplaza img/logo.svg por tu escudo oficial (PNG o SVG) -->
         <div class="escudo-placeholder">
           <img src="img/logo.png" alt="Escudo Secretaría de Bienestar e Inclusión Social"
                onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ti ti-building-bank'}))"/>
         </div>
-        <div class="login-header-texto">
-          <div class="login-gov">Gobierno del Estado de Hidalgo</div>
-          <div class="login-secretaria">Secretaría de Bienestar e Inclusión Social</div>
-          <div class="login-subsecretaria">Sistema de Correspondencia</div>
-        </div>
+        <div class="login-gov">Gobierno del Estado de Hidalgo</div>
+        <div class="login-secretaria">Secretaría de Bienestar e Inclusión Social</div>
+        <div class="login-subsecretaria">Sistema de Correspondencia</div>
+      </div>
+
+      <div class="login-titulo-bloque">
+        <div class="login-titulo">Acceso al Sistema</div>
+        <div class="login-subtitulo">Ingresa tus credenciales institucionales</div>
       </div>
 
       <!-- Cuerpo -->
       <div class="login-body">
 
-        <div class="login-titulo-bloque"> <center>
-          <div class="login-titulo">Acceso al Sistema</div>
-          <div class="login-subtitulo">Ingresa tus credenciales institucionales</div>
-        </center></div>
-
-        <div class="sep"></div>
-
         <!-- Usuario -->
         <div class="campo-grupo">
           <label class="campo-label" for="inp-usuario">Usuario</label>
           <div class="campo-input-wrap">
+            <i class="ti ti-user icono-campo"></i>
             <input
               class="campo-input"
               id="inp-usuario"
@@ -590,7 +298,6 @@
               placeholder="Ej. rhumanos"
               spellcheck="false"
             />
-            <i class="ti ti-user icono-campo"></i>
           </div>
         </div>
 
@@ -598,6 +305,7 @@
         <div class="campo-grupo">
           <label class="campo-label" for="inp-password">Contraseña</label>
           <div class="campo-input-wrap">
+            <i class="ti ti-lock icono-campo"></i>
             <input
               class="campo-input"
               id="inp-password"
@@ -605,11 +313,18 @@
               autocomplete="current-password"
               placeholder="••••••••"
             />
-            <i class="ti ti-lock icono-campo"></i>
             <button class="btn-ver-pass" type="button" id="btn-ver" title="Mostrar contraseña" tabindex="-1">
               <i class="ti ti-eye" id="ico-ojo"></i>
             </button>
           </div>
+        </div>
+
+        <div class="fila-recordarme">
+          <label class="neu-toggle">
+            <input type="checkbox" id="chk-recordar">
+            <span class="neu-toggle-track"><span class="neu-toggle-thumb"></span></span>
+            <span class="neu-toggle-label">Recordarme</span>
+          </label>
         </div>
 
         <!-- Error -->
@@ -626,17 +341,12 @@
         </button>
 
         <div class="login-pie">
-          Sistema de uso exclusivo para personal autorizado de la Secretaría
+          Sistema de uso exclusivo para personal autorizado de la Secretaría.<br>
+          SBIS © 2026 — Gobierno del Estado de Hidalgo
         </div>
 
       </div><!-- /login-body -->
     </div><!-- /login-card -->
-  </div>
-
-  <!-- Pie de página -->
-  <div class="banda-bottom">
-    <span>SBIS © 2026 — Secretaría de Bienestar e Inclusión Social</span>
-    <span class="derecha">Gobierno del Estado de Hidalgo</span>
   </div>
 
   <script>
@@ -653,6 +363,14 @@
     const errorTxt    = document.getElementById('error-txt');
     const btnVer      = document.getElementById('btn-ver');
     const icoOjo      = document.getElementById('ico-ojo');
+    const chkRecordar = document.getElementById('chk-recordar');
+
+    /* ── Recordarme: solo el usuario, nunca la contraseña ── */
+    const usuarioRecordado = localStorage.getItem('sbis_usuario_recordado');
+    if (usuarioRecordado) {
+      inpUsuario.value = usuarioRecordado;
+      chkRecordar.checked = true;
+    }
 
     /* ── Toggle contraseña visible ── */
     btnVer.addEventListener('click', () => {
@@ -685,6 +403,9 @@
         else inpPassword.focus();
         return;
       }
+
+      if (chkRecordar.checked) localStorage.setItem('sbis_usuario_recordado', username);
+      else localStorage.removeItem('sbis_usuario_recordado');
 
       /* Estado de carga */
       btnLogin.classList.add('cargando');
@@ -767,7 +488,5 @@
       }
     });
   </script>
-
-  <script src="js/lluvia.js"></script>
 </body>
 </html>
