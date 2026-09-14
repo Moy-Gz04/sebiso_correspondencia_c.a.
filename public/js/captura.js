@@ -343,6 +343,75 @@ function preRellenar() {
   document.getElementById('f_registro').value = hoy;
 }
 
+/* Desplegable (datalist) de "Remitente": mismo catálogo curado y fijo
+   de personas usado en No. de Oficio. Sigue permitiendo escribir un
+   remitente nuevo que no esté en la lista. */
+const CATALOGO_REMITENTE = [
+  'Ana Karen Ceron Martínez, Coordinador Territorial del Polígono 6 Pachuca de la DGSP',
+  'Arq. Analy Meneses Meneses, Encargada de la Administración del Edificio Casa del Pueblo',
+  'Edgar Orlando Ángeles Pérez, Oficial Mayor del Poder Ejecutivo del Estado de Hidalgo',
+  'Erik Guzmán Hernández, Director General de Desarrollo Institucional de la Secretaría del Despacho',
+  'I.F. Ariana Salas Lugo, Directora de Recursos Financieros',
+  'Ing. David Robles Hernández, Subsecretario de Desarrollo Social y Humano',
+  'Ing. Juan Angel Aguilar Mendoza, Encargado de la Subdirección de Informática y Sistemas',
+  'Israel Guarnero Rico, Secretario General del Comité Ejecutivo Interino del SUTSPEEH',
+  'Ixchel Hernández Hernández',
+  'José Augusto Olvera Esparza, Subsecretario de Programación y Presupuesto del Gasto de Inversión',
+  'José Horacio Fuentes Islas, Director General de Giras de la Secretaría del Despacho',
+  'L.D. Luis Enrique López Farias, Titular del OIC',
+  'L.D. Luis Enrrique López Farias, Titular del Órgano Interno de Control en la SEBISO',
+  'L.A.P. Jorge Miguel García Vázquez, Director General de los Servidores del Pueblo',
+  'L.A. Fabian Ordóñez Cruz, Director General de Recursos Materiales de la Oficialía Mayor',
+  'L.A.E. Lizeth Vidal Cano, Directora de Recursos Humanos',
+  'L.A.P. José Luis González Martínez, Director de Logística y Operación de la Dirección General de los Servidores del Pueblo',
+  'L.A.P. Luz María Luque Gómez, Subdirectora de Integración y Control de Información',
+  'L.C. Iris Vianney Hernández Hernández, Subsecretaria de Egresos de la SH',
+  'Lic. Irma Iliana Hidalgo Lugo, Directora General de Recursos Humanos de la OM',
+  'L.C. y M.P.P. Yolanda Ferreira Martínez, Secretaria del Comité de Adquisiciones, Arrendamientos y Servicios',
+  'L.D. Luis Ricardo Olvera Molina, Director General del Instituto Hidalguense de la Juventud (IHJ)',
+  'L.D. Manuel Alejandro Hernández Rivera, Líder de Proyecto del Programa Subsidio a Verificentros',
+  'Lic. Marlen Elva Arista Amador, Directora de Gestión Institucional de la SEBISO',
+  'Lic. Analinn Rivera Deldado, Titular de la Unidad Administrativa de la Secretaría del Despacho',
+  'Lic. Areli Maya Monzalvo, Subsecretaria de Participación Social y Fomento Artesanal de la OM',
+  'Lic. Ariadna Penélope Apodaca Sinsel, Directora General del IAAMEH',
+  'Lic. Guillermo Olivares Reyna, Secretario de Gobierno',
+  'Lic. José Antonio Mendoza Mejía, Jefe de Área A',
+  'Lic. Karla Soberanes Sierra, Directora General de Prospectiva, Planeación y Evaluación de los Programas Sociales',
+  'Lic. Ma. Guadalupe Pineda González, Subdirectora del Centro de Atención Ciudadana',
+  'Lic. Manuel Enrique Aranda Montero, Director General de Atención al Migrante',
+  'Mtra. Nora Aidhé Luciano Martínez, Directora General de Fomento Artesanal',
+  'Lic. Sergio Daniel Barrera Hernández, Director General de Servicios Generales de la OM',
+  'Licenciada Anahi Castro García, Coordinadora de Operación Institucional',
+  'Luis Fernando García Cruz, Representante del Presidente del Comité de Adquisiciones, Arrendamientos y Servicios',
+  'M.E.F. Ricardo Enrique Alviso Contreras, Titular del Sistema para el Desarrollo Integral de la Familia del Estado de Hidalgo',
+  'M.I.E.F. Daniela Salinas Rosales, Directora General de Administración de la OM',
+  'M.T.I. Edwin Mellado García, Director General de Innovación Gubernamental de la OM',
+  'María Andrea Reyes Escudero',
+  'Mtra. Diana Reyes Gómez, Subsecretaria de Salud Pública',
+  'Mtra. Ana Brisna Cervantes Hidalgo, Enlace del Sistema de Control Interno Institucional',
+  'Mtra. Ana Brisna Cervantes Hidalgo, Directora de Control y Seguimiento a Auditorías de la SEBISO',
+  'Mtra. Esther Yolanda Castelán Alatorre, Directora de Administración, Finanzas y Planeación',
+  'Mtra. Kenia Dayanne Ramírez Barranco, Coordinadora Administrativa de la SADERH',
+  'Mtra. María C. Hernández Palafox, Directora General de Compras Públicas de la OM',
+  'Mtra. Mariela Benítez Barrera, Directora General de Asistencia, Atención y Protección',
+  'Mtra. Rosa Leticia Muñoz Chávez, Coordinadora Administrativa de la SEBISO',
+  'Mtro. Alejandro Salinas Ayotitla, Director General de Operación y Logística de Programas',
+  'Mtro. Alfonso Hayyim Flores Barrera, Director General de Inclusión para las Personas con Discapacidad',
+  'Mtro. Juan Roberto Lazcano Trejo, Subsecretario de Inclusión y Desarrollo',
+  'Mtro. Ricardo Gómez Moreno, Titular de la SEBISO',
+  'Mtro. Uziel de Jesús Zenil Salinas, Director de Atención Jurídica',
+  'Susana Ruiz Reyes',
+  'Susana Serrano Camargo',
+  'Víctor Hugo Pérez Guati Rojo, Director de Recursos Materiales',
+];
+
+function pintarOpcionesRemitente() {
+  const dl = document.getElementById('remitente-list');
+  if (!dl) return;
+  const valores = CATALOGO_REMITENTE.slice().sort((a, b) => a.localeCompare(b, 'es'));
+  dl.innerHTML = valores.map(v => `<option value="${v.replace(/"/g, '&quot;')}"></option>`).join('');
+}
+
 function onDiasChange() {
   const val  = parseInt(document.getElementById('dias_entrega').value);
   const hint = document.getElementById('dias-hint');
@@ -464,6 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
   pintarUsuarioHeader(USUARIO?.username || '');
   mostrarFecha();
   preRellenar();
+  pintarOpcionesRemitente();
   /* Recupera lo que se estuviera capturando antes de salir de la
      página (ver bloque "BORRADOR AUTOMÁTICO" al final del archivo).
      Va después de preRellenar() para no pisar F. Registro. */

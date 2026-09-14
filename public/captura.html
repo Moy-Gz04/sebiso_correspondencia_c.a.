@@ -142,8 +142,9 @@
             <!-- Remitente: OBLIGATORIO -->
             <div class="campo col-full">
               <label class="campo-label req" for="remitente">Remitente</label>
-              <input id="remitente" name="remitente" type="text" class="campo-input"
-                     placeholder="Nombre completo del remitente" required/>
+              <input id="remitente" name="remitente" type="text" list="remitente-list" autocomplete="off"
+                     class="campo-input" placeholder="Nombre completo del remitente" required/>
+              <datalist id="remitente-list"></datalist>
             </div>
 
             <div class="campo">
