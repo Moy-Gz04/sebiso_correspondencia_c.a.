@@ -194,7 +194,6 @@ async function cargarTabla() {
    escribir un destinatario nuevo que no esté en la lista. */
 const CATALOGO_DIRIGE = [
   'Ana Karen Ceron Martínez, Coordinador Territorial del Polígono 6 Pachuca de la DGSP',
-  'Arq. Analy Meneses Meneses, Administradora del Edificio Casa del Pueblo para el Bienestar y Desarrollo Rural',
   'Arq. Analy Meneses Meneses, Encargada de la Administración del Edificio Casa del Pueblo',
   'Edgar Orlando Ángeles Pérez, Oficial Mayor del Poder Ejecutivo del Estado de Hidalgo',
   'Erik Guzmán Hernández, Director General de Desarrollo Institucional de la Secretaría del Despacho',
