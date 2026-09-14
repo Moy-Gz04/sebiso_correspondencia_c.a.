@@ -265,7 +265,9 @@
           </div>
           <div class="modal-campo col-full">
             <label>A quién se dirige <span class="req">*</span></label>
-            <input id="nof-dirige" type="text" placeholder="Nombre de la persona o dependencia destinataria"/>
+            <input id="nof-dirige" type="text" list="nof-dirige-list" autocomplete="off"
+                   placeholder="Nombre de la persona o dependencia destinataria"/>
+            <datalist id="nof-dirige-list"></datalist>
           </div>
           <div class="modal-campo">
             <label>Área solicitante</label>

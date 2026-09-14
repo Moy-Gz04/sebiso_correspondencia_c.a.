@@ -184,9 +184,22 @@ async function cargarTabla() {
     if (!res.ok) throw new Error(data.mensaje || 'Error al cargar los registros.');
     REGISTROS = data;
     pintarTabla();
+    pintarOpcionesDirige();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
+}
+
+/* Desplegable (datalist) de "A quién se dirige": se arma con los
+   valores ya usados en REGISTROS, exactamente como están escritos
+   (persona + cargo), para no volver a teclearlos cada vez. Sigue
+   permitiendo escribir un destinatario nuevo que no esté en la lista. */
+function pintarOpcionesDirige() {
+  const dl = document.getElementById('nof-dirige-list');
+  if (!dl) return;
+  const valores = [...new Set(REGISTROS.map(r => (r.a_quien_se_dirige || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'es'));
+  dl.innerHTML = valores.map(v => `<option value="${v.replace(/"/g, '&quot;')}"></option>`).join('');
 }
 
 /* Aplica búsqueda de texto libre (sobre todos los campos visibles) y
