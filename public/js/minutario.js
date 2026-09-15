@@ -298,7 +298,7 @@ function pintarTabla() {
     <tr data-id="${r.id}">
       <td class="td-numero">${r[cfg.campoNumero]}</td>
       <td>${formatearFecha(r.fecha)}</td>
-      <td>${r.a_quien_se_dirige || ''}</td>
+      <td class="td-dirige">${r.a_quien_se_dirige || ''}</td>
       <td class="td-asunto">${r.asunto || '<span class="td-vacio">—</span>'}</td>
       <td>${r.area_solicitante || '<span class="td-vacio">—</span>'}</td>
       <td>${r.solicitante || '<span class="td-vacio">—</span>'}</td>
@@ -312,10 +312,24 @@ function pintarTabla() {
                onchange="guardarSello(${r.id}, 'fecha_firma', this)"/>
       </td>
       <td class="td-nota">
-        <input type="text" class="input-nota" maxlength="500" placeholder="Agregar nota…" value="${escaparAtributo(r.nota)}"
-               onchange="guardarSello(${r.id}, 'nota', this)"/>
+        <textarea class="input-nota" maxlength="500" placeholder="Agregar nota…" rows="1"
+                  onchange="guardarSello(${r.id}, 'nota', this)"
+                  oninput="autoCrecerNota(this)">${escaparAtributo(r.nota)}</textarea>
       </td>
     </tr>`).join('');
+
+  // Las notas ya guardadas pueden ocupar varias líneas: se ajusta la
+  // altura de cada textarea a su contenido apenas se pinta la tabla,
+  // para que se vean completas sin tener que abrirlas para leerlas.
+  tbody.querySelectorAll('.input-nota').forEach(autoCrecerNota);
+}
+
+/* Ajusta la altura del textarea de Nota a su contenido (crece hacia
+   abajo conforme se escribe, en vez de esconder el texto en una sola
+   línea con scroll horizontal). */
+function autoCrecerNota(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
 }
 
 /* Guardado automático de un campo de sello (o de la Nota) al

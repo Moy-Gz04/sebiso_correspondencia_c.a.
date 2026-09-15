@@ -321,6 +321,11 @@
 .td-asunto { max-width: 320px; white-space: normal; word-break: break-word; }
 .td-vacio  { color: #bbb; font-style: italic; }
 
+/* "A quién se dirige" en Minutario/Circular/Tarjeta: antes crecía tanto
+   como el texto necesitara, empujando el resto de las columnas fuera de
+   vista. Se limita el ancho y se envuelve el texto en varias líneas. */
+.td-dirige { max-width: 170px; white-space: normal; word-break: break-word; }
+
 .td-acciones { text-align: right; white-space: nowrap; width: 1%; }
 
 .fila-acciones {
@@ -404,16 +409,24 @@
    campos de fecha para dejar espacio a un comentario corto. */
 .td-nota { min-width: 190px; }
 .input-nota {
+  display: block;
   width: 100%;
   min-width: 170px;
+  min-height: 34px;
+  max-height: 220px;
+  overflow-y: auto;
+  resize: vertical;
   font-family: var(--fuente-cuerpo);
   font-size: 12.5px;
+  line-height: 1.4;
   color: var(--txt);
   background: var(--fondo-par);
   border: 0.5px solid var(--borde);
   border-radius: 7px;
   padding: 7px 9px;
   outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
   transition: border-color .15s, background .15s, box-shadow .15s;
 }
 .input-nota::placeholder { color: #aaa; }
