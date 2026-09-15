@@ -317,16 +317,15 @@ function pintarTabla() {
                   oninput="autoCrecerNota(this)">${escaparAtributo(r.nota)}</textarea>
       </td>
     </tr>`).join('');
-
-  // Las notas ya guardadas pueden ocupar varias líneas: se ajusta la
-  // altura de cada textarea a su contenido apenas se pinta la tabla,
-  // para que se vean completas sin tener que abrirlas para leerlas.
-  tbody.querySelectorAll('.input-nota').forEach(autoCrecerNota);
 }
 
-/* Ajusta la altura del textarea de Nota a su contenido (crece hacia
-   abajo conforme se escribe, en vez de esconder el texto en una sola
-   línea con scroll horizontal). */
+/* Ajusta la altura del textarea de Nota a su contenido mientras se
+   escribe (crece hacia abajo en vez de esconder el texto con scroll
+   horizontal). No se llama en bloque para todas las filas al pintar la
+   tabla -- con miles de registros (ej. No. de Oficio) eso forzaba miles
+   de recálculos de layout seguidos y congelaba la pestaña. Las notas ya
+   guardadas se ven completas igual, gracias al scroll vertical interno
+   del textarea (ver .input-nota en no-oficio.css). */
 function autoCrecerNota(el) {
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
