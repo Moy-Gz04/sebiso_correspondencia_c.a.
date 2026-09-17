@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Salas — Secretaría de Bienestar e Inclusión Social</title>
+  <link rel="stylesheet" href="css/styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+
+  <style>
+    /* ── Bloqueo de acceso (igual patrón que no-oficio.html) ── */
+    #bloqueo-acceso {
+      display: none; text-align: center; padding: 60px 20px; color: #7a1313;
+    }
+    #bloqueo-acceso.visible { display: block; }
+
+    /* ── Paneles de gestión (Registrar sala / Apartar sala) ── */
+    .salas-paneles {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px;
+    }
+    @media (max-width: 900px) { .salas-paneles { grid-template-columns: 1fr; } }
+
+    .panel-sala {
+      background: #fff; border: 1px solid #e6dde1; border-radius: 12px;
+      padding: 20px 22px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    }
+    .panel-sala h2 {
+      font-size: 15px; font-weight: 700; color: var(--guinda, #6B0F2B);
+      margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .panel-sala .campo { margin-bottom: 12px; }
+    .panel-sala label {
+      display: block; font-size: 12px; font-weight: 600; color: #6b6b6b;
+      margin-bottom: 5px; text-transform: uppercase; letter-spacing: .3px;
+    }
+    .panel-sala input, .panel-sala select {
+      width: 100%; padding: 9px 12px; border: 1px solid #d8ccd0; border-radius: 7px;
+      font-family: 'Montserrat', sans-serif; font-size: 14px; background: #fff;
+    }
+    .panel-sala input:focus, .panel-sala select:focus {
+      outline: none; border-color: var(--guinda, #6B0F2B);
+    }
+    .btn-panel {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 16px; border: none; border-radius: 7px; cursor: pointer;
+      font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 13.5px;
+      background: linear-gradient(135deg, var(--guinda, #6B0F2B) 0%, var(--guinda-oscuro, #3D1420) 100%);
+      color: #fff; transition: background .15s;
+    }
+    .btn-panel:hover { background: #8B1535; }
+    .btn-panel:disabled { background: #b08090; cursor: not-allowed; }
+
+    .lista-salas-chip {
+      display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px;
+    }
+    .chip-sala {
+      background: #f4eef0; color: #5c2233; border: 1px solid #e6dde1;
+      border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 600;
+    }
+    .campo-error { color: #c62828; font-size: 12.5px; margin-top: 4px; min-height: 16px; }
+
+    /* ── Calendario semanal ── */
+    .calendario-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+    }
+    .calendario-titulo { font-size: 15px; font-weight: 700; color: var(--guinda, #6B0F2B); }
+    .calendario-nav { display: flex; gap: 8px; align-items: center; }
+    .btn-nav-semana {
+      background: #f4eef0; border: 1px solid #e6dde1; border-radius: 7px;
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--guinda, #6B0F2B); font-size: 16px;
+    }
+    .btn-nav-semana:hover { background: #e6dde1; }
+    .btn-hoy {
+      background: #fff; border: 1px solid #d8ccd0; border-radius: 7px;
+      padding: 6px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+      font-family: 'Montserrat', sans-serif; color: #444;
+    }
+    .btn-hoy:hover { border-color: var(--guinda, #6B0F2B); }
+
+    .cal-wrap { overflow-x: auto; background: #fff; border: 1px solid #e6dde1; border-radius: 12px; }
+    table.cal-tabla { width: 100%; border-collapse: collapse; min-width: 760px; }
+    table.cal-tabla th {
+      background: #f4eef0; padding: 10px 6px; font-size: 12px; font-weight: 700;
+      color: #5c2233; text-align: center; border-bottom: 1px solid #e6dde1;
+      position: sticky; top: 0;
+    }
+    table.cal-tabla th .cal-th-dia { display: block; }
+    table.cal-tabla th .cal-th-fecha { display: block; font-size: 10.5px; color: #918a8d; font-weight: 500; }
+    table.cal-tabla td {
+      border: 1px solid #f0e9eb; padding: 4px; vertical-align: top;
+      height: 46px; width: 13%; min-width: 100px;
+    }
+    table.cal-tabla td.cal-hora {
+      background: #fafafa; text-align: center; font-size: 11.5px; color: #918a8d;
+      font-weight: 600; width: 60px; min-width: 60px;
+    }
+    .cal-evento {
+      background: linear-gradient(135deg, var(--dorado, #A9824C) 0%, #8a6a3a 100%);
+      color: #fff; border-radius: 5px; padding: 3px 6px; font-size: 11px;
+      line-height: 1.35; margin-bottom: 3px; cursor: pointer; word-break: break-word;
+    }
+    .cal-evento small { display: block; opacity: .85; font-size: 9.5px; }
+    .cal-evento:hover { filter: brightness(1.08); }
+    .cal-vacio-msg {
+      text-align: center; color: #b7aeb2; font-size: 13px; padding: 30px 0;
+    }
+
+    /* Sistema de modales genérico (confirmar / avisar) */
+    .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); backdrop-filter: blur(2px); z-index:10000; align-items:center; justify-content:center; padding:20px; }
+    .sbis-overlay.visible { display:flex; }
+    .sbis-modal { background:#fff; border-radius:14px; width:100%; max-width:400px; font-family:'Montserrat',sans-serif; overflow:hidden; animation:sbisSlide .22s cubic-bezier(.22,1,.36,1); }
+    @keyframes sbisSlide { from{transform:translateY(-18px) scale(.97);opacity:0} to{transform:translateY(0) scale(1);opacity:1} }
+    .sbis-modal-icon { display:flex; align-items:center; justify-content:center; padding:28px 0 16px; }
+    .sbis-modal-icon .ico-circle { width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+    .ico-confirm { background:#fff3e0; color:#e65100; }
+    .ico-success { background:#e8f5e9; color:#2e7d32; }
+    .ico-error   { background:#fce4ec; color:#c62828; }
+    .ico-info    { background:#e3f2fd; color:#1565c0; }
+    .ico-warning { background:#fff8e1; color:#f57f17; }
+    .sbis-modal-body { padding:0 28px 20px; text-align:center; }
+    .sbis-modal-title { font-family:'Montserrat',sans-serif; font-size:1.35rem; font-weight:700; color:#1a1a1a; margin:0 0 8px; }
+    .sbis-modal-msg   { font-size:0.92rem; color:#555; line-height:1.5; margin:0; }
+    .sbis-modal-btns  { padding:0 20px 22px; display:flex; gap:10px; justify-content:center; }
+    .sbis-btn { padding:10px 26px; border-radius:999px; font-size:13.5px; font-weight:600; font-family:'Montserrat',sans-serif; cursor:pointer; border:none; display:inline-flex; align-items:center; gap:7px; transition:background .18s,transform .1s; }
+    .sbis-btn:active { transform:scale(.97); }
+    .sbis-btn-primary { background:#5F2132; color:#fff; }
+    .sbis-btn-primary:hover { background:#8B1535; }
+    .sbis-btn-danger  { background:#c62828; color:#fff; }
+    .sbis-btn-danger:hover { background:#b71c1c; }
+    .sbis-btn-success { background:#2e7d32; color:#fff; }
+    .sbis-btn-secondary { background:#eeeeee; color:#333; }
+  </style>
+</head>
+<body>
+
+  <div class="lluvia-flores" id="lluvia-flores"></div>
+
+  <!-- ══════════════════════════════════════
+       ENCABEZADO INSTITUCIONAL
+  ══════════════════════════════════════ -->
+  <header class="header-institucional">
+    <div class="header-banda-superior">
+      <div class="header-emblema">
+        <img src="img/logo.png" alt="Escudo Secretaría de Bienestar e Inclusión Social"
+             onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ti ti-building-bank'}))"/>
+      </div>
+      <div class="header-texto">
+        <span class="header-gobierno">GOBIERNO DEL ESTADO DE HIDALGO</span>
+        <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="header-derecha">
+        <span id="header-usuario"></span>
+        <div class="header-fecha" id="header-fecha"></div>
+        <button onclick="cerrarSesion()" class="btn-cerrar-sesion">
+          <i class="ti ti-logout"></i> Cerrar sesión
+        </button>
+      </div>
+    </div>
+    <div class="header-banda-tricolor">
+      <div class="banda guinda"></div>
+      <div class="banda dorada"></div>
+      <div class="banda guinda-oscuro"></div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════
+       BARRA DE MENÚ
+  ══════════════════════════════════════ -->
+  <nav class="barra-menu">
+    <div class="menu-container">
+      <span class="menu-label">MENÚ</span>
+      <ul class="menu-lista">
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/historial'">Historial</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
+        <li><a style="cursor:pointer" class="menu-item" onclick="location.href='/area'">Bandeja de Oficios</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/no-oficio'">No. de Oficio</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/circular'">No. Circular</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/tarjeta-informativa'">No. Tarjeta Informativa</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/minutario'">Minutario</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item active" onclick="location.href='/salas'">Salas</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════
+       BLOQUEO DE ACCESO
+  ══════════════════════════════════════ -->
+  <div id="bloqueo-acceso">
+    <i class="ti ti-lock" style="font-size:40px;"></i>
+    <h2>Acceso restringido</h2>
+    <p>Esta sección es exclusiva de Coordinación Administrativa.</p>
+  </div>
+
+  <!-- ══════════════════════════════════════
+       CONTENIDO PRINCIPAL
+  ══════════════════════════════════════ -->
+  <main class="main-contenido">
+    <div class="contenido-wrapper" id="contenido-wrapper">
+
+      <div class="seccion-titulo-bloque">
+        <div class="seccion-titulo-txt">
+          <span class="seccion-titulo-eyebrow">Coordinación</span>
+          <h1 class="seccion-titulo-h1">Salas</h1>
+        </div>
+      </div>
+
+      <!-- ── Calendario semanal ── -->
+      <div class="calendario-header">
+        <span class="calendario-titulo" id="cal-rango-txt">Semana</span>
+        <div class="calendario-nav">
+          <button class="btn-hoy" id="btn-hoy" onclick="irASemanaActual()">Hoy</button>
+          <button class="btn-nav-semana" onclick="cambiarSemana(-1)"><i class="ti ti-chevron-left"></i></button>
+          <button class="btn-nav-semana" onclick="cambiarSemana(1)"><i class="ti ti-chevron-right"></i></button>
+        </div>
+      </div>
+      <div class="cal-wrap">
+        <table class="cal-tabla" id="cal-tabla">
+          <thead><tr id="cal-thead-row"></tr></thead>
+          <tbody id="cal-tbody"></tbody>
+        </table>
+      </div>
+
+      <br/>
+
+      <!-- ── Paneles: Registrar Nueva Sala / Apartar Sala ── -->
+      <div class="salas-paneles">
+
+        <div class="panel-sala">
+          <h2><i class="ti ti-door"></i> Registrar Nueva Sala</h2>
+          <div class="campo">
+            <label for="input-nombre-sala">Nombre de la sala</label>
+            <input type="text" id="input-nombre-sala" placeholder="Ej. Sala de Juntas 1" maxlength="150"/>
+          </div>
+          <p class="campo-error" id="error-nueva-sala"></p>
+          <button class="btn-panel" id="btn-registrar-sala" onclick="registrarSala()">
+            <i class="ti ti-plus"></i> Registrar sala
+          </button>
+          <div class="lista-salas-chip" id="lista-salas-chip"></div>
+        </div>
+
+        <div class="panel-sala">
+          <h2><i class="ti ti-calendar-plus"></i> Apartar Sala</h2>
+          <div class="campo">
+            <label for="select-sala">Sala</label>
+            <select id="select-sala"></select>
+          </div>
+          <div class="campo">
+            <label for="input-fecha-apartado">Fecha</label>
+            <input type="date" id="input-fecha-apartado"/>
+          </div>
+          <div class="campo">
+            <label for="select-hora-apartado">Hora</label>
+            <select id="select-hora-apartado"></select>
+          </div>
+          <div class="campo">
+            <label for="input-motivo-apartado">Motivo (opcional)</label>
+            <input type="text" id="input-motivo-apartado" placeholder="Ej. Reunión de área" maxlength="255"/>
+          </div>
+          <p class="campo-error" id="error-apartar-sala"></p>
+          <button class="btn-panel" id="btn-apartar-sala" onclick="apartarSala()">
+            <i class="ti ti-check"></i> Apartar sala
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ══════════════════════════════════════
+       PIE DE PÁGINA
+  ══════════════════════════════════════ -->
+  <footer class="footer-institucional">
+    <div class="footer-banda-tricolor">
+      <div class="banda guinda"></div>
+      <div class="banda dorada"></div>
+      <div class="banda guinda-oscuro"></div>
+    </div>
+    <div class="footer-contenido">
+      <span>© 2026 Gobierno del Estado de Hidalgo — Secretaría de Bienestar e Inclusión Social</span>
+      <span>Sistema de Correspondencia.</span>
+    </div>
+  </footer>
+
+  <!-- Sistema de modales genérico -->
+  <div class="sbis-overlay" id="sbis-overlay">
+    <div class="sbis-modal">
+      <div class="sbis-modal-icon">
+        <div class="ico-circle" id="sbis-ico-circle">
+          <i id="sbis-ico" class="ti ti-alert-triangle"></i>
+        </div>
+      </div>
+      <div class="sbis-modal-body">
+        <p class="sbis-modal-title" id="sbis-title">Título</p>
+        <p class="sbis-modal-msg"   id="sbis-msg">Mensaje</p>
+      </div>
+      <div class="sbis-modal-btns" id="sbis-btns"></div>
+    </div>
+  </div>
+
+  <script src="js/salas.js"></script>
+  <script src="js/lluvia.js"></script>
+</body>
+</html>

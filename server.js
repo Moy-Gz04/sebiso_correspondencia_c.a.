@@ -117,7 +117,7 @@ app.use('/api', limitadorApi);
    usuario.js, captura.js, no-oficio.js, minutario.js): así, después de
    Cerrar Sesión, la tecla Atrás no puede dejar visible una versión
    cacheada de una pantalla que ya no debería ser accesible. */
-const PAGINAS = ['login', 'historial', 'area', 'captura', 'usuario', 'no-oficio', 'circular', 'tarjeta-informativa', 'minutario'];
+const PAGINAS = ['login', 'historial', 'area', 'captura', 'usuario', 'no-oficio', 'circular', 'tarjeta-informativa', 'minutario', 'salas'];
 
 function sinCache(res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1491,6 +1491,107 @@ function formatearFechaMX(fecha) {
   const pad = n => String(n).padStart(2, '0');
   return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
 }
+
+/* ══════════════════════════════════════════════════════
+   MÓDULO: SALAS (dentro de Coordinación)
+   Catálogo de salas + apartados de fecha/hora. Igual que
+   No. de Oficio / Circular / Tarjeta Informativa, exclusivo
+   de Coordinación Administrativa (onlyGestionCompleta).
+   Cada apartado es un bloque fijo de 1 hora; la restricción
+   UNIQUE (sala_id, fecha, hora) en la BD es lo que impide
+   traslapes — aquí solo se traduce el error 23505 a un
+   mensaje claro para el usuario.
+   ══════════════════════════════════════════════════════ */
+
+/* ══ GET /api/salas — catálogo de salas ══ */
+app.get('/api/salas', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM salas ORDER BY nombre ASC`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron obtener las salas.');
+  }
+});
+
+/* ══ POST /api/salas — registrar sala nueva. Body: { nombre } ══ */
+app.post('/api/salas', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const nombre = req.body?.nombre?.trim();
+    if (!nombre) return res.status(400).json({ mensaje: 'El nombre de la sala es obligatorio.' });
+
+    const [nueva] = await sql`
+      INSERT INTO salas (nombre) VALUES (${nombre}) RETURNING *`;
+
+    res.status(201).json(nueva);
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ mensaje: 'Ya existe una sala con ese nombre.' });
+    }
+    manejarError(res, err, 'Error al registrar la sala.');
+  }
+});
+
+/* ══ GET /api/salas/apartados?desde=YYYY-MM-DD&hasta=YYYY-MM-DD ══
+   Usado por el calendario semanal: trae todos los apartados de todas
+   las salas dentro del rango de fechas visible. */
+app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const { desde, hasta } = req.query;
+    if (!desde || !hasta) {
+      return res.status(400).json({ mensaje: 'Faltan los parámetros desde/hasta.' });
+    }
+
+    const rows = await sql`
+      SELECT sa.*, s.nombre AS sala_nombre
+      FROM salas_apartados sa
+      JOIN salas s ON s.id = sa.sala_id
+      WHERE sa.fecha BETWEEN ${desde} AND ${hasta}
+      ORDER BY sa.fecha ASC, sa.hora ASC`;
+
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron obtener los apartados.');
+  }
+});
+
+/* ══ POST /api/salas/apartados — apartar una sala.
+   Body: { sala_id, fecha, hora, motivo } ══ */
+app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const { sala_id, fecha, hora, motivo } = req.body || {};
+    if (!sala_id || !fecha || !hora) {
+      return res.status(400).json({ mensaje: 'Sala, fecha y hora son obligatorios.' });
+    }
+
+    const [nuevo] = await sql`
+      INSERT INTO salas_apartados (sala_id, fecha, hora, motivo, creado_por)
+      VALUES (${sala_id}, ${fecha}, ${hora}, ${motivo?.trim() || null}, ${req.user.username})
+      RETURNING *`;
+
+    const [conNombre] = await sql`
+      SELECT sa.*, s.nombre AS sala_nombre
+      FROM salas_apartados sa JOIN salas s ON s.id = sa.sala_id
+      WHERE sa.id = ${nuevo.id}`;
+
+    res.status(201).json(conNombre);
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ mensaje: 'Esa sala ya está apartada en esa fecha y hora. Elige otro horario.' });
+    }
+    manejarError(res, err, 'Error al apartar la sala.');
+  }
+});
+
+/* ══ DELETE /api/salas/apartados/:id — cancelar un apartado ══ */
+app.delete('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`DELETE FROM salas_apartados WHERE id = ${req.params.id} RETURNING id`;
+    if (!rows[0]) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
+    res.json({ ok: true });
+  } catch (err) {
+    manejarError(res, err, 'Error al cancelar el apartado.');
+  }
+});
 
 /* ══ Cualquier ruta /api no reconocida responde en JSON ══
    Sin esto, una URL de API mal escrita o un endpoint que ya no existe

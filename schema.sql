@@ -64,3 +64,29 @@ SELECT
   created_at
 FROM oficios
 ORDER BY created_at DESC;
+
+-- ══════════════════════════════════════════════════════
+-- Módulo: Salas (dentro de Coordinación)
+-- Catálogo de salas + apartados por fecha/hora. Cada
+-- apartado es un bloque fijo de 1 hora; la restricción
+-- UNIQUE (sala_id, fecha, hora) impide traslapes: no se
+-- puede apartar la misma sala en el mismo horario dos veces.
+-- ══════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS salas (
+  id          SERIAL PRIMARY KEY,
+  nombre      VARCHAR(150) NOT NULL UNIQUE,
+  creado_en   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS salas_apartados (
+  id          SERIAL PRIMARY KEY,
+  sala_id     INTEGER NOT NULL REFERENCES salas(id) ON DELETE CASCADE,
+  fecha       DATE NOT NULL,
+  hora        TIME NOT NULL,
+  motivo      VARCHAR(255),
+  creado_por  VARCHAR(150),
+  creado_en   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (sala_id, fecha, hora)
+);
+
+CREATE INDEX IF NOT EXISTS idx_salas_apartados_fecha ON salas_apartados (fecha);
