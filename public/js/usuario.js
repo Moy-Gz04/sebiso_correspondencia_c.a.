@@ -12,6 +12,10 @@ const BADGE = {
   completado:  ['b-comp', 'Completado'],
 };
 
+/* Área que ve la bandeja completa por defecto ("Todos"); el resto de
+   las áreas abre directamente en "Por Atender" para ir al grano. */
+const AREA_CON_GESTION_COMPLETA = 'Coordinación Administrativa';
+
 let DATOS        = [];
 let filtroActual = 'todos';
 let TOKEN        = null;
@@ -33,6 +37,17 @@ function iniciarSesion() {
   const elArea = document.getElementById('area-nombre');
   if (elArea) elArea.textContent = USUARIO.area || '';
   return true;
+}
+
+/* Pestaña con la que abre la bandeja la primera vez que carga la
+   página: Coordinación Administrativa ve todo por defecto; el resto
+   de las áreas entra directo a "Por Atender". Se llama una sola vez
+   al inicio, no en cada restauración por bfcache, para no pisar la
+   pestaña que el usuario ya tenía abierta. */
+function aplicarFiltroInicial() {
+  filtroActual = USUARIO.area === AREA_CON_GESTION_COMPLETA ? 'todos' : 'sub_turnado';
+  const chipDefault = document.querySelector(`.chip[data-estatus="${filtroActual}"]`);
+  if (chipDefault) { document.querySelectorAll('.chip').forEach(b => b.classList.remove('on')); chipDefault.classList.add('on'); }
 }
 
 /* Icono elegante en vez de emoji para el usuario del header */
@@ -700,8 +715,9 @@ async function guardarAtencion() {
    ════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
+  aplicarFiltroInicial();
   mostrarFecha();
-  cargarOficios();
+  cargarOficios(filtroActual);
   iniciarHeartbeat();
   iniciarContadorUsuariosActivos();
   document.getElementById('modal-atender').addEventListener('click', function (e) {

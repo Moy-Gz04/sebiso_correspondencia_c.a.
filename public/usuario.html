@@ -212,11 +212,11 @@
 
       <!-- Filtros -->
       <div class="filtros-barra">
-        <button class="chip on" onclick="filtrar(this,'todos')">Todos</button>
-        <button class="chip" onclick="filtrar(this,'sub_turnado')">Por Atender</button>
-        <button class="chip" onclick="filtrar(this,'rechazado')">Por Corregir</button>
-        <button class="chip" onclick="filtrar(this,'atendido')">Atendidos</button>
-        <button class="chip" onclick="filtrar(this,'completado')">Completados</button>
+        <button class="chip" data-estatus="todos" onclick="filtrar(this,'todos')">Todos</button>
+        <button class="chip" data-estatus="sub_turnado" onclick="filtrar(this,'sub_turnado')">Por Atender</button>
+        <button class="chip" data-estatus="rechazado" onclick="filtrar(this,'rechazado')">Por Corregir</button>
+        <button class="chip" data-estatus="atendido" onclick="filtrar(this,'atendido')">Atendidos</button>
+        <button class="chip" data-estatus="completado" onclick="filtrar(this,'completado')">Completados</button>
         <div class="filtro-spacer"></div>
         <span class="filtro-total">Total: <strong id="tot">0</strong> registros</span>
       </div>
