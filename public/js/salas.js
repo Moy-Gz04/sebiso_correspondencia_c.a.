@@ -122,11 +122,6 @@ function sbisConfirm({ titulo = '¿Estás seguro?', mensaje = '', btnOk = 'Acept
    Fechas / horas
    ════════════════════════════════════════════════════ */
 
-/* Bloques de reserva: de 08:00 a 19:00 (última reserva termina a las
-   20:00), en horas completas — cada apartado ocupa un bloque fijo de
-   1 hora, según se pidió. */
-const HORAS = Array.from({ length: 12 }, (_, i) => String(8 + i).padStart(2, '0') + ':00');
-
 function fechaISO(d) {
   const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -276,8 +271,8 @@ function pintarTendedero() {
     const fecha = ap.fecha.slice(0, 10);
     const hora  = ap.hora.slice(0, 5);
     return `
-      <div class="ticket ${COLORES_TICKET[i % COLORES_TICKET.length]}" data-id="${ap.id}" data-vencido="${vencido}">
-        <button class="ticket-close" title="Quitar tarjeta" onclick="descartarApartado(${ap.id})">✕</button>
+      <div class="ticket ${COLORES_TICKET[i % COLORES_TICKET.length]}" data-id="${ap.id}" data-vencido="${vencido}" onclick="verDetalleTicket(${ap.id})">
+        <button class="ticket-close" title="Quitar tarjeta" onclick="event.stopPropagation(); descartarApartado(${ap.id})">✕</button>
         <div class="ticket-title">${ap.sala_nombre}</div>
         <div class="ticket-info"><i class="ti ti-clock"></i> ${formatearFechaCorta(fecha)} — ${hora}</div>
         <div class="ticket-info"><i class="ti ti-users"></i> ${ap.personas} persona${ap.personas === 1 ? '' : 's'}</div>
@@ -285,6 +280,29 @@ function pintarTendedero() {
         <span class="ticket-tag">${estatus}</span>
       </div>`;
   }).join('');
+}
+
+/* Muestra el detalle ampliado de una tarjeta al hacer clic en ella
+   (sin contar el clic sobre la ✕, que ya cancela/quita el apartado). */
+function verDetalleTicket(id) {
+  const ap = APARTADOS.find(a => a.id === id);
+  if (!ap) return;
+
+  const vencido = momentoApartado(ap) < new Date();
+  const colorIdx = [...APARTADOS].sort((a, b) => momentoApartado(a) - momentoApartado(b)).findIndex(a => a.id === id);
+
+  document.getElementById('detalle-modal').className = `detalle-modal ${COLORES_TICKET[colorIdx % COLORES_TICKET.length]}`;
+  document.getElementById('detalle-sala').textContent = ap.sala_nombre;
+  document.getElementById('detalle-fechahora').textContent = `${formatearFechaCorta(ap.fecha.slice(0, 10))} — ${ap.hora.slice(0, 5)}`;
+  document.getElementById('detalle-personas').textContent = `${ap.personas} persona${ap.personas === 1 ? '' : 's'}`;
+  document.getElementById('detalle-descripcion').textContent = ap.descripcion || 'Sin descripción';
+  document.getElementById('detalle-estatus').textContent = vencido ? 'Listo para eliminar' : 'Próximo';
+
+  document.getElementById('detalle-overlay').classList.add('visible');
+}
+
+function cerrarDetalleTicket() {
+  document.getElementById('detalle-overlay').classList.remove('visible');
 }
 
 /* Recalcula el estatus (Próximo / Listo para eliminar) de las tarjetas
@@ -298,7 +316,7 @@ setInterval(refrescarEstatusTendedero, 60000);
 async function apartarSala() {
   const selectSala = document.getElementById('select-sala');
   const inputFecha = document.getElementById('input-fecha-apartado');
-  const selectHora = document.getElementById('select-hora-apartado');
+  const inputHora = document.getElementById('input-hora-apartado');
   const inputPersonas = document.getElementById('input-personas-apartado');
   const inputDescripcion = document.getElementById('input-descripcion-apartado');
   const errorEl = document.getElementById('error-apartar-sala');
@@ -308,7 +326,7 @@ async function apartarSala() {
 
   const sala_id = selectSala.value;
   const fecha   = inputFecha.value;
-  const hora    = selectHora.value;
+  const hora    = inputHora.value;
   const personas = parseInt(inputPersonas.value, 10);
   const descripcion = inputDescripcion.value.trim();
 
@@ -423,12 +441,6 @@ async function cargarHistorial() {
   }
 }
 
-function pintarSelectHoras() {
-  const select = document.getElementById('select-hora-apartado');
-  if (!select) return;
-  select.innerHTML = HORAS.map(h => `<option value="${h}">${h}</option>`).join('');
-}
-
 /* ════════════════════════════════════════════════════
    Inicio
    ════════════════════════════════════════════════════ */
@@ -438,7 +450,6 @@ document.addEventListener('DOMContentLoaded', () => {
   pintarUsuarioHeader(USUARIO?.username || '');
   mostrarFecha();
   iniciarHeartbeat();
-  pintarSelectHoras();
 
   const inputFecha = document.getElementById('input-fecha-apartado');
   if (inputFecha) inputFecha.value = fechaISO(new Date());

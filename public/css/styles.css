@@ -423,6 +423,18 @@ img { max-width: 100%; }
   box-shadow: 0 2px 12px rgba(95,33,50,0.18);
 }
 
+/* Aviso visual de que el menú sigue desplazándose a la derecha —
+   se nota sobre todo en pantallas angostas, donde no entran todas
+   las opciones y antes se veían "cortadas" sin ninguna pista. */
+.barra-menu::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 3px;
+  width: 34px;
+  background: linear-gradient(to right, transparent, var(--guinda-oscuro) 75%);
+  pointer-events: none;
+}
+
 .menu-container {
   width: 90%;
   max-width: 1800px;
@@ -1512,8 +1524,10 @@ img { max-width: 100%; }
   .header-fecha          { display: none; }
   .header-derecha        { padding-left: 12px; gap: 10px; }
 
-  .menu-container { padding: 0 18px; }
-  .menu-label     { border-right: none; padding-right: 12px; }
+  .menu-container { padding: 0 18px; gap: 18px; }
+  .menu-label     { border-right: none; padding-right: 12px; font-size: 0.95rem; }
+  .menu-lista     { gap: 2px; }
+  .menu-item      { padding: 7px 13px; font-size: 0.74rem; }
 
   .main-contenido { padding: 20px 14px 40px; }
   .contenido-wrapper { width: 100%; }

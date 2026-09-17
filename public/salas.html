@@ -94,14 +94,15 @@
       transform: rotate(-1deg);
       transition: transform 0.2s ease, opacity 0.3s ease;
       font-family: 'Montserrat', sans-serif;
+      cursor: pointer;
     }
     .ticket:nth-child(even) { transform: rotate(1.5deg); }
     .ticket:hover { transform: scale(1.03) rotate(0deg); z-index: 10; }
 
-    .ticket.color-1 { background-color: #fef08a; color: #713f12; }
-    .ticket.color-2 { background-color: #bae6fd; color: #0c4a6e; }
-    .ticket.color-3 { background-color: #bbf7d0; color: #14532d; }
-    .ticket.color-4 { background-color: #fbcfe8; color: #831843; }
+    .ticket.color-1, .detalle-modal.color-1 { background-color: #fef08a; color: #713f12; }
+    .ticket.color-2, .detalle-modal.color-2 { background-color: #bae6fd; color: #0c4a6e; }
+    .ticket.color-3, .detalle-modal.color-3 { background-color: #bbf7d0; color: #14532d; }
+    .ticket.color-4, .detalle-modal.color-4 { background-color: #fbcfe8; color: #831843; }
 
     .ticket-close {
       position: absolute; top: 8px; right: 10px;
@@ -110,6 +111,35 @@
       text-align: center; cursor: pointer; color: inherit; transition: background 0.2s ease;
     }
     .ticket-close:hover { background: rgba(0, 0, 0, 0.2); }
+
+    /* ── Modal de detalle de tarjeta (vista ampliada) ── */
+    .detalle-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.48);
+      backdrop-filter: blur(2px); z-index: 10000; align-items: center; justify-content: center; padding: 20px;
+    }
+    .detalle-overlay.visible { display: flex; }
+    .detalle-modal {
+      width: 100%; max-width: 420px; border-radius: 14px; overflow: hidden;
+      font-family: 'Montserrat', sans-serif; box-shadow: 0 12px 30px rgba(0,0,0,.25);
+      animation: sbisSlide .22s cubic-bezier(.22,1,.36,1);
+      transform: rotate(0deg) !important;
+    }
+    .detalle-close {
+      position: absolute; top: 12px; right: 14px;
+      background: rgba(0,0,0,0.12); border: none; border-radius: 50%;
+      width: 26px; height: 26px; font-weight: bold; font-size: 14px; line-height: 26px;
+      text-align: center; cursor: pointer; color: inherit;
+    }
+    .detalle-close:hover { background: rgba(0,0,0,0.25); }
+    .detalle-body { position: relative; padding: 26px 24px 22px; }
+    .detalle-titulo { font-size: 1.3rem; font-weight: 700; margin: 0 0 16px; padding-right: 20px; }
+    .detalle-fila {
+      display: flex; align-items: flex-start; gap: 10px; font-size: 0.92rem;
+      margin-bottom: 12px; line-height: 1.45;
+    }
+    .detalle-fila i { margin-top: 2px; font-size: 1.05rem; }
+    .detalle-fila strong { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .3px; opacity: .75; margin-bottom: 2px; }
+    .detalle-tag { display: inline-block; margin-top: 6px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; border-radius: 4px; background: rgba(255,255,255,.55); text-transform: uppercase; letter-spacing: .3px; }
 
     .ticket-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 8px; padding-right: 15px; }
     .ticket-info { font-size: 0.85rem; margin: 4px 0; display: flex; align-items: flex-start; gap: 6px; }
@@ -236,7 +266,6 @@
       <!-- ── Tendedero de apartados (ordenados del más próximo al último) ── -->
       <div class="tendedero-header">
         <span class="tendedero-titulo"><i class="ti ti-notes"></i> Próximos apartados</span>
-        <span class="tendedero-sub">Ordenados del más próximo al último</span>
       </div>
       <div class="tendedero" id="tendedero"></div>
 
@@ -269,8 +298,8 @@
             <input type="date" id="input-fecha-apartado"/>
           </div>
           <div class="campo">
-            <label for="select-hora-apartado">Hora</label>
-            <select id="select-hora-apartado"></select>
+            <label for="input-hora-apartado">Hora</label>
+            <input type="time" id="input-hora-apartado" step="3600" min="08:00" max="19:00" value="08:00"/>
           </div>
           <div class="campo">
             <label for="input-personas-apartado">Cuántas personas la ocuparán</label>
@@ -340,6 +369,20 @@
         <p class="sbis-modal-msg"   id="sbis-msg">Mensaje</p>
       </div>
       <div class="sbis-modal-btns" id="sbis-btns"></div>
+    </div>
+  </div>
+
+  <!-- Detalle ampliado de una tarjeta del tendedero -->
+  <div class="detalle-overlay" id="detalle-overlay" onclick="if (event.target === this) cerrarDetalleTicket();">
+    <div class="detalle-modal" id="detalle-modal">
+      <div class="detalle-body">
+        <button class="detalle-close" onclick="cerrarDetalleTicket()">✕</button>
+        <p class="detalle-titulo" id="detalle-sala"></p>
+        <div class="detalle-fila"><i class="ti ti-clock"></i><div><strong>Fecha y hora</strong><span id="detalle-fechahora"></span></div></div>
+        <div class="detalle-fila"><i class="ti ti-users"></i><div><strong>Personas</strong><span id="detalle-personas"></span></div></div>
+        <div class="detalle-fila"><i class="ti ti-align-left"></i><div><strong>Descripción del evento</strong><span id="detalle-descripcion"></span></div></div>
+        <span class="detalle-tag" id="detalle-estatus"></span>
+      </div>
     </div>
   </div>
 
