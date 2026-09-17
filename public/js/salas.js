@@ -434,10 +434,34 @@ async function cargarHistorial() {
           <td><span class="badge-motivo ${h.motivo_eliminacion}">${h.motivo_eliminacion === 'vencido' ? 'Vencido' : 'Cancelado'}</span></td>
           <td>${h.eliminado_por || '—'}</td>
           <td>${new Date(h.eliminado_en).toLocaleString('es-MX')}</td>
+          <td><button class="btn-historial-borrar" title="Eliminar registro" onclick="eliminarHistorial(${h.id})"><i class="ti ti-trash"></i></button></td>
         </tr>`).join('')
-      : '<tr><td colspan="9" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>';
+      : '<tr><td colspan="10" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>';
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#c62828;">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#c62828;">${err.message}</td></tr>`;
+  }
+}
+
+async function eliminarHistorial(id) {
+  const ok = await sbisConfirm({
+    titulo: '¿Eliminar este registro del historial?',
+    mensaje: 'Esta acción no se puede deshacer.',
+    btnOk: 'Eliminar registro',
+    tipo: 'danger',
+  });
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${API}/salas/historial/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+    });
+    if (res.status === 401) { cerrarSesion(); return; }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.mensaje || 'No se pudo eliminar el registro.');
+    await cargarHistorial();
+  } catch (err) {
+    await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
 }
 

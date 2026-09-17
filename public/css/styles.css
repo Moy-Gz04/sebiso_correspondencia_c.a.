@@ -484,6 +484,44 @@ img { max-width: 100%; }
   white-space: nowrap;
 }
 
+/* ── Menú hamburguesa (pantallas donde no entran todas las opciones) ──
+   Checkbox + label, sin JS: funciona igual en las páginas que cargan
+   app.js y en las que traen su propio script independiente. */
+.menu-toggle-check { display: none; }
+.menu-toggle-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  width: 34px; height: 34px;
+  font-size: 1.3rem;
+  color: var(--dorado);
+  cursor: pointer;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.menu-toggle-btn:hover { background: rgba(255,255,255,.12); }
+
+@media (max-width: 1400px) {
+  .barra-menu::after { content: none; }
+  .menu-container {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    row-gap: 0;
+  }
+  .menu-toggle-btn { display: flex; }
+  .menu-lista {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    gap: 2px;
+    padding: 4px 0 14px;
+  }
+  .menu-toggle-check:checked ~ .menu-lista { display: flex; }
+  .menu-item { width: 100%; padding: 10px 16px; }
+}
+
 .menu-item:hover { background: rgba(255,255,255,.14); color: var(--blanco); transform: translateY(-1px); }
 
 .menu-item.active {
@@ -1524,10 +1562,8 @@ img { max-width: 100%; }
   .header-fecha          { display: none; }
   .header-derecha        { padding-left: 12px; gap: 10px; }
 
-  .menu-container { padding: 0 18px; gap: 18px; }
+  .menu-container { padding: 0 18px; }
   .menu-label     { border-right: none; padding-right: 12px; font-size: 0.95rem; }
-  .menu-lista     { gap: 2px; }
-  .menu-item      { padding: 7px 13px; font-size: 0.74rem; }
 
   .main-contenido { padding: 20px 14px 40px; }
   .contenido-wrapper { width: 100%; }

@@ -1635,6 +1635,17 @@ app.get('/api/salas/historial', verifyToken, onlyGestionCompleta, async (req, re
   }
 });
 
+/* ══ DELETE /api/salas/historial/:id — borrar un registro del historial ══ */
+app.delete('/api/salas/historial/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`DELETE FROM salas_historial WHERE id = ${req.params.id} RETURNING id`;
+    if (!rows[0]) return res.status(404).json({ mensaje: 'Registro de historial no encontrado.' });
+    res.json({ ok: true });
+  } catch (err) {
+    manejarError(res, err, 'Error al eliminar el registro del historial.');
+  }
+});
+
 /* ══ Cualquier ruta /api no reconocida responde en JSON ══
    Sin esto, una URL de API mal escrita o un endpoint que ya no existe
    caía en el 404 HTML por defecto de Express, y el frontend (que

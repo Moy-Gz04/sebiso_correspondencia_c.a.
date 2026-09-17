@@ -162,6 +162,12 @@
     .badge-motivo { padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
     .badge-motivo.vencido   { background: #f0e9eb; color: #6b6b6b; }
     .badge-motivo.cancelado { background: #fce4ec; color: #c62828; }
+    .btn-historial-borrar {
+      background: #fce4ec; border: none; border-radius: 6px; color: #c62828;
+      width: 26px; height: 26px; cursor: pointer; display: inline-flex;
+      align-items: center; justify-content: center; transition: background .15s;
+    }
+    .btn-historial-borrar:hover { background: #c62828; color: #fff; }
 
     /* Sistema de modales genérico (confirmar / avisar) */
     .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); backdrop-filter: blur(2px); z-index:10000; align-items:center; justify-content:center; padding:20px; }
@@ -228,6 +234,8 @@
   <nav class="barra-menu">
     <div class="menu-container">
       <span class="menu-label">MENÚ</span>
+      <input type="checkbox" id="menu-toggle" class="menu-toggle-check"/>
+      <label for="menu-toggle" class="menu-toggle-btn" title="Menú"><i class="ti ti-menu-2"></i></label>
       <ul class="menu-lista">
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/historial'">Historial</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
@@ -329,11 +337,11 @@
           <thead>
             <tr>
               <th>Sala</th><th>Fecha</th><th>Hora</th><th>Personas</th><th>Descripción</th>
-              <th>Registrado por</th><th>Motivo</th><th>Eliminado por</th><th>Cuándo</th>
+              <th>Registrado por</th><th>Motivo</th><th>Eliminado por</th><th>Cuándo</th><th></th>
             </tr>
           </thead>
           <tbody id="historial-tbody">
-            <tr><td colspan="9" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>
+            <tr><td colspan="10" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>
           </tbody>
         </table>
       </div>
