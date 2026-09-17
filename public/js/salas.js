@@ -277,6 +277,7 @@ function pintarTendedero() {
         <div class="ticket-info"><i class="ti ti-clock"></i> ${formatearFechaCorta(fecha)} — ${hora}</div>
         <div class="ticket-info"><i class="ti ti-users"></i> ${ap.personas} persona${ap.personas === 1 ? '' : 's'}</div>
         <div class="ticket-info"><i class="ti ti-align-left"></i> ${ap.descripcion || 'Sin descripción'}</div>
+        ${ap.no_oficio ? `<div class="ticket-info"><i class="ti ti-file-text"></i> ${ap.no_oficio}</div>` : ''}
         <span class="ticket-tag">${estatus}</span>
       </div>`;
   }).join('');
@@ -296,6 +297,8 @@ function verDetalleTicket(id) {
   document.getElementById('detalle-fechahora').textContent = `${formatearFechaCorta(ap.fecha.slice(0, 10))} — ${ap.hora.slice(0, 5)}`;
   document.getElementById('detalle-personas').textContent = `${ap.personas} persona${ap.personas === 1 ? '' : 's'}`;
   document.getElementById('detalle-descripcion').textContent = ap.descripcion || 'Sin descripción';
+  document.getElementById('detalle-oficio-fila').style.display = ap.no_oficio ? '' : 'none';
+  document.getElementById('detalle-oficio').textContent = ap.no_oficio || '';
   document.getElementById('detalle-estatus').textContent = vencido ? 'Listo para eliminar' : 'Próximo';
 
   document.getElementById('detalle-overlay').classList.add('visible');
@@ -319,6 +322,7 @@ async function apartarSala() {
   const inputHora = document.getElementById('input-hora-apartado');
   const inputPersonas = document.getElementById('input-personas-apartado');
   const inputDescripcion = document.getElementById('input-descripcion-apartado');
+  const inputOficio = document.getElementById('input-oficio-apartado');
   const errorEl = document.getElementById('error-apartar-sala');
   const btn = document.getElementById('btn-apartar-sala');
 
@@ -329,6 +333,7 @@ async function apartarSala() {
   const hora    = inputHora.value;
   const personas = parseInt(inputPersonas.value, 10);
   const descripcion = inputDescripcion.value.trim();
+  const no_oficio = inputOficio.value.trim();
 
   if (!sala_id)  { errorEl.textContent = 'Registra o selecciona una sala primero.'; return; }
   if (!fecha)    { errorEl.textContent = 'Selecciona una fecha.'; return; }
@@ -341,7 +346,7 @@ async function apartarSala() {
     const res = await fetch(`${API}/salas/apartados`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-      body: JSON.stringify({ sala_id, fecha, hora, personas, descripcion }),
+      body: JSON.stringify({ sala_id, fecha, hora, personas, descripcion, no_oficio }),
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
@@ -349,6 +354,7 @@ async function apartarSala() {
 
     inputPersonas.value = '';
     inputDescripcion.value = '';
+    inputOficio.value = '';
 
     await cargarApartados();
 
@@ -430,15 +436,16 @@ async function cargarHistorial() {
           <td>${h.hora.slice(0, 5)}</td>
           <td>${h.personas ?? '—'}</td>
           <td>${h.descripcion || '—'}</td>
+          <td>${h.no_oficio || '—'}</td>
           <td>${h.creado_por || '—'}</td>
           <td><span class="badge-motivo ${h.motivo_eliminacion}">${h.motivo_eliminacion === 'vencido' ? 'Vencido' : 'Cancelado'}</span></td>
           <td>${h.eliminado_por || '—'}</td>
           <td>${new Date(h.eliminado_en).toLocaleString('es-MX')}</td>
           <td><button class="btn-historial-borrar" title="Eliminar registro" onclick="eliminarHistorial(${h.id})"><i class="ti ti-trash"></i></button></td>
         </tr>`).join('')
-      : '<tr><td colspan="10" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>';
+      : '<tr><td colspan="11" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>';
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#c62828;">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#c62828;">${err.message}</td></tr>`;
   }
 }
 

@@ -317,6 +317,10 @@
             <label for="input-descripcion-apartado">Descripción del evento</label>
             <input type="text" id="input-descripcion-apartado" placeholder="Ej. Reunión de área" maxlength="500"/>
           </div>
+          <div class="campo">
+            <label for="input-oficio-apartado">No. de Oficio (opcional)</label>
+            <input type="text" id="input-oficio-apartado" placeholder="Ej. J-2026-112" maxlength="60"/>
+          </div>
           <p class="campo-error" id="error-apartar-sala"></p>
           <button class="btn-panel" id="btn-apartar-sala" onclick="apartarSala()">
             <i class="ti ti-check"></i> Apartar sala
@@ -336,12 +340,12 @@
         <table class="tabla-historial">
           <thead>
             <tr>
-              <th>Sala</th><th>Fecha</th><th>Hora</th><th>Personas</th><th>Descripción</th>
+              <th>Sala</th><th>Fecha</th><th>Hora</th><th>Personas</th><th>Descripción</th><th>No. Oficio</th>
               <th>Registrado por</th><th>Motivo</th><th>Eliminado por</th><th>Cuándo</th><th></th>
             </tr>
           </thead>
           <tbody id="historial-tbody">
-            <tr><td colspan="10" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>
+            <tr><td colspan="11" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>
           </tbody>
         </table>
       </div>
@@ -389,6 +393,7 @@
         <div class="detalle-fila"><i class="ti ti-clock"></i><div><strong>Fecha y hora</strong><span id="detalle-fechahora"></span></div></div>
         <div class="detalle-fila"><i class="ti ti-users"></i><div><strong>Personas</strong><span id="detalle-personas"></span></div></div>
         <div class="detalle-fila"><i class="ti ti-align-left"></i><div><strong>Descripción del evento</strong><span id="detalle-descripcion"></span></div></div>
+        <div class="detalle-fila" id="detalle-oficio-fila"><i class="ti ti-file-text"></i><div><strong>No. de Oficio</strong><span id="detalle-oficio"></span></div></div>
         <span class="detalle-tag" id="detalle-estatus"></span>
       </div>
     </div>

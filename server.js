@@ -1566,7 +1566,7 @@ app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, re
    Body: { sala_id, fecha, hora, personas, descripcion } ══ */
 app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const { sala_id, fecha, hora, personas, descripcion } = req.body || {};
+    const { sala_id, fecha, hora, personas, descripcion, no_oficio } = req.body || {};
     if (!sala_id || !fecha || !hora) {
       return res.status(400).json({ mensaje: 'Sala, fecha y hora son obligatorios.' });
     }
@@ -1578,10 +1578,11 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     if (!desc) {
       return res.status(400).json({ mensaje: 'La descripción del evento es obligatoria.' });
     }
+    const oficio = no_oficio?.trim() || null;
 
     const [nuevo] = await sql`
-      INSERT INTO salas_apartados (sala_id, fecha, hora, personas, descripcion, creado_por)
-      VALUES (${sala_id}, ${fecha}, ${hora}, ${numPersonas}, ${desc}, ${req.user.username})
+      INSERT INTO salas_apartados (sala_id, fecha, hora, personas, descripcion, no_oficio, creado_por)
+      VALUES (${sala_id}, ${fecha}, ${hora}, ${numPersonas}, ${desc}, ${oficio}, ${req.user.username})
       RETURNING *`;
 
     const [conNombre] = await sql`
@@ -1615,8 +1616,8 @@ app.delete('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (
     const motivoEliminacion = momentoApartado < new Date() ? 'vencido' : 'cancelado';
 
     await sql`
-      INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora, personas, descripcion, creado_por, motivo_eliminacion, eliminado_por)
-      VALUES (${apartado.sala_id}, ${apartado.sala_nombre}, ${apartado.fecha}, ${apartado.hora}, ${apartado.personas}, ${apartado.descripcion}, ${apartado.creado_por}, ${motivoEliminacion}, ${req.user.username})`;
+      INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora, personas, descripcion, no_oficio, creado_por, motivo_eliminacion, eliminado_por)
+      VALUES (${apartado.sala_id}, ${apartado.sala_nombre}, ${apartado.fecha}, ${apartado.hora}, ${apartado.personas}, ${apartado.descripcion}, ${apartado.no_oficio}, ${apartado.creado_por}, ${motivoEliminacion}, ${req.user.username})`;
 
     await sql`DELETE FROM salas_apartados WHERE id = ${req.params.id}`;
     res.json({ ok: true, motivo_eliminacion: motivoEliminacion });

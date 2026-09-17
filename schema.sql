@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS salas_apartados (
   hora        TIME NOT NULL,
   personas    INTEGER NOT NULL DEFAULT 1,
   descripcion VARCHAR(500),
+  no_oficio   VARCHAR(60),
   creado_por  VARCHAR(150),
   creado_en   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (sala_id, fecha, hora)
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS salas_historial (
   hora                TIME NOT NULL,
   personas            INTEGER,
   descripcion         VARCHAR(500),
+  no_oficio           VARCHAR(60),
   creado_por          VARCHAR(150),
   motivo_eliminacion  VARCHAR(20) NOT NULL CHECK (motivo_eliminacion IN ('vencido','cancelado')),
   eliminado_por       VARCHAR(150),
