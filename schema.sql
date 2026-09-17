@@ -83,10 +83,27 @@ CREATE TABLE IF NOT EXISTS salas_apartados (
   sala_id     INTEGER NOT NULL REFERENCES salas(id) ON DELETE CASCADE,
   fecha       DATE NOT NULL,
   hora        TIME NOT NULL,
-  motivo      VARCHAR(255),
+  personas    INTEGER NOT NULL DEFAULT 1,
+  descripcion VARCHAR(500),
   creado_por  VARCHAR(150),
   creado_en   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (sala_id, fecha, hora)
 );
 
 CREATE INDEX IF NOT EXISTS idx_salas_apartados_fecha ON salas_apartados (fecha);
+
+-- Historial de apartados eliminados (por vencimiento o cancelación manual),
+-- para dejar rastro de quién ocupó cada sala y cuándo se quitó la tarjeta.
+CREATE TABLE IF NOT EXISTS salas_historial (
+  id                  SERIAL PRIMARY KEY,
+  sala_id             INTEGER,
+  sala_nombre         VARCHAR(150) NOT NULL,
+  fecha               DATE NOT NULL,
+  hora                TIME NOT NULL,
+  personas            INTEGER,
+  descripcion         VARCHAR(500),
+  creado_por          VARCHAR(150),
+  motivo_eliminacion  VARCHAR(20) NOT NULL CHECK (motivo_eliminacion IN ('vencido','cancelado')),
+  eliminado_por       VARCHAR(150),
+  eliminado_en        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

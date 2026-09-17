@@ -1531,21 +1531,15 @@ app.post('/api/salas', verifyToken, onlyGestionCompleta, async (req, res) => {
   }
 });
 
-/* ══ GET /api/salas/apartados?desde=YYYY-MM-DD&hasta=YYYY-MM-DD ══
-   Usado por el calendario semanal: trae todos los apartados de todas
-   las salas dentro del rango de fechas visible. */
+/* ══ GET /api/salas/apartados — trae todos los apartados vigentes
+   (de todas las salas), ordenados del más próximo al más lejano,
+   para el tendedero de tarjetas. ══ */
 app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const { desde, hasta } = req.query;
-    if (!desde || !hasta) {
-      return res.status(400).json({ mensaje: 'Faltan los parámetros desde/hasta.' });
-    }
-
     const rows = await sql`
       SELECT sa.*, s.nombre AS sala_nombre
       FROM salas_apartados sa
       JOIN salas s ON s.id = sa.sala_id
-      WHERE sa.fecha BETWEEN ${desde} AND ${hasta}
       ORDER BY sa.fecha ASC, sa.hora ASC`;
 
     res.json(rows);
@@ -1555,17 +1549,25 @@ app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, re
 });
 
 /* ══ POST /api/salas/apartados — apartar una sala.
-   Body: { sala_id, fecha, hora, motivo } ══ */
+   Body: { sala_id, fecha, hora, personas, descripcion } ══ */
 app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const { sala_id, fecha, hora, motivo } = req.body || {};
+    const { sala_id, fecha, hora, personas, descripcion } = req.body || {};
     if (!sala_id || !fecha || !hora) {
       return res.status(400).json({ mensaje: 'Sala, fecha y hora son obligatorios.' });
     }
+    const numPersonas = parseInt(personas, 10);
+    if (!Number.isInteger(numPersonas) || numPersonas < 1) {
+      return res.status(400).json({ mensaje: 'Indica cuántas personas ocuparán la sala (mínimo 1).' });
+    }
+    const desc = descripcion?.trim();
+    if (!desc) {
+      return res.status(400).json({ mensaje: 'La descripción del evento es obligatoria.' });
+    }
 
     const [nuevo] = await sql`
-      INSERT INTO salas_apartados (sala_id, fecha, hora, motivo, creado_por)
-      VALUES (${sala_id}, ${fecha}, ${hora}, ${motivo?.trim() || null}, ${req.user.username})
+      INSERT INTO salas_apartados (sala_id, fecha, hora, personas, descripcion, creado_por)
+      VALUES (${sala_id}, ${fecha}, ${hora}, ${numPersonas}, ${desc}, ${req.user.username})
       RETURNING *`;
 
     const [conNombre] = await sql`
@@ -1582,14 +1584,40 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
   }
 });
 
-/* ══ DELETE /api/salas/apartados/:id — cancelar un apartado ══ */
+/* ══ DELETE /api/salas/apartados/:id — quitar una tarjeta.
+   Antes de borrar, registra el apartado en salas_historial. El motivo
+   ("vencido" o "cancelado") se calcula en el servidor comparando la
+   fecha/hora del apartado contra el momento real de borrado, para no
+   depender de lo que diga el cliente. ══ */
 app.delete('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const rows = await sql`DELETE FROM salas_apartados WHERE id = ${req.params.id} RETURNING id`;
-    if (!rows[0]) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
-    res.json({ ok: true });
+    const [apartado] = await sql`
+      SELECT sa.*, s.nombre AS sala_nombre
+      FROM salas_apartados sa JOIN salas s ON s.id = sa.sala_id
+      WHERE sa.id = ${req.params.id}`;
+    if (!apartado) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
+
+    const momentoApartado = new Date(`${apartado.fecha.toISOString().slice(0, 10)}T${apartado.hora}`);
+    const motivoEliminacion = momentoApartado < new Date() ? 'vencido' : 'cancelado';
+
+    await sql`
+      INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora, personas, descripcion, creado_por, motivo_eliminacion, eliminado_por)
+      VALUES (${apartado.sala_id}, ${apartado.sala_nombre}, ${apartado.fecha}, ${apartado.hora}, ${apartado.personas}, ${apartado.descripcion}, ${apartado.creado_por}, ${motivoEliminacion}, ${req.user.username})`;
+
+    await sql`DELETE FROM salas_apartados WHERE id = ${req.params.id}`;
+    res.json({ ok: true, motivo_eliminacion: motivoEliminacion });
   } catch (err) {
     manejarError(res, err, 'Error al cancelar el apartado.');
+  }
+});
+
+/* ══ GET /api/salas/historial — bitácora de tarjetas eliminadas ══ */
+app.get('/api/salas/historial', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`SELECT * FROM salas_historial ORDER BY eliminado_en DESC LIMIT 200`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo obtener el historial de salas.');
   }
 });
 

@@ -60,53 +60,70 @@
     }
     .campo-error { color: #c62828; font-size: 12.5px; margin-top: 4px; min-height: 16px; }
 
-    /* ── Calendario semanal ── */
-    .calendario-header {
-      display: flex; align-items: center; justify-content: space-between;
+    /* ── Tendedero de tarjetas (Post-it) ── */
+    .tendedero-header {
+      display: flex; align-items: baseline; justify-content: space-between;
       margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
     }
-    .calendario-titulo { font-size: 15px; font-weight: 700; color: var(--guinda, #6B0F2B); }
-    .calendario-nav { display: flex; gap: 8px; align-items: center; }
-    .btn-nav-semana {
-      background: #f4eef0; border: 1px solid #e6dde1; border-radius: 7px;
-      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: var(--guinda, #6B0F2B); font-size: 16px;
-    }
-    .btn-nav-semana:hover { background: #e6dde1; }
-    .btn-hoy {
-      background: #fff; border: 1px solid #d8ccd0; border-radius: 7px;
-      padding: 6px 14px; font-size: 12.5px; font-weight: 600; cursor: pointer;
-      font-family: 'Montserrat', sans-serif; color: #444;
-    }
-    .btn-hoy:hover { border-color: var(--guinda, #6B0F2B); }
+    .tendedero-titulo { font-size: 15px; font-weight: 700; color: var(--guinda, #6B0F2B); }
+    .tendedero-sub { font-size: 12px; color: #918a8d; }
 
-    .cal-wrap { overflow-x: auto; background: #fff; border: 1px solid #e6dde1; border-radius: 12px; }
-    table.cal-tabla { width: 100%; border-collapse: collapse; min-width: 760px; }
-    table.cal-tabla th {
-      background: #f4eef0; padding: 10px 6px; font-size: 12px; font-weight: 700;
-      color: #5c2233; text-align: center; border-bottom: 1px solid #e6dde1;
-      position: sticky; top: 0;
+    .tendedero {
+      display: flex; flex-wrap: wrap; gap: 22px 26px; padding: 10px 6px 26px;
+      background: repeating-linear-gradient(to bottom, transparent 0 27px, #d8ccd0 27px 28px, transparent 28px 56px);
+      background-position: 0 14px;
     }
-    table.cal-tabla th .cal-th-dia { display: block; }
-    table.cal-tabla th .cal-th-fecha { display: block; font-size: 10.5px; color: #918a8d; font-weight: 500; }
-    table.cal-tabla td {
-      border: 1px solid #f0e9eb; padding: 4px; vertical-align: top;
-      height: 46px; width: 13%; min-width: 100px;
-    }
-    table.cal-tabla td.cal-hora {
-      background: #fafafa; text-align: center; font-size: 11.5px; color: #918a8d;
-      font-weight: 600; width: 60px; min-width: 60px;
-    }
-    .cal-evento {
-      background: linear-gradient(135deg, var(--dorado, #A9824C) 0%, #8a6a3a 100%);
-      color: #fff; border-radius: 5px; padding: 3px 6px; font-size: 11px;
-      line-height: 1.35; margin-bottom: 3px; cursor: pointer; word-break: break-word;
-    }
-    .cal-evento small { display: block; opacity: .85; font-size: 9.5px; }
-    .cal-evento:hover { filter: brightness(1.08); }
     .cal-vacio-msg {
-      text-align: center; color: #b7aeb2; font-size: 13px; padding: 30px 0;
+      text-align: center; color: #b7aeb2; font-size: 13px; padding: 40px 0; width: 100%;
     }
+
+    .ticket {
+      position: relative;
+      width: 220px;
+      padding: 18px 15px 15px 15px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+      transform: rotate(-1deg);
+      transition: transform 0.2s ease, opacity 0.3s ease;
+      font-family: 'Montserrat', sans-serif;
+    }
+    .ticket:nth-child(even) { transform: rotate(1.5deg); }
+    .ticket:hover { transform: scale(1.03) rotate(0deg); z-index: 10; }
+
+    .ticket.color-1 { background-color: #fef08a; color: #713f12; }
+    .ticket.color-2 { background-color: #bae6fd; color: #0c4a6e; }
+    .ticket.color-3 { background-color: #bbf7d0; color: #14532d; }
+    .ticket.color-4 { background-color: #fbcfe8; color: #831843; }
+
+    .ticket-close {
+      position: absolute; top: 8px; right: 10px;
+      background: rgba(0, 0, 0, 0.08); border: none; border-radius: 50%;
+      width: 22px; height: 22px; font-weight: bold; font-size: 13px; line-height: 22px;
+      text-align: center; cursor: pointer; color: inherit; transition: background 0.2s ease;
+    }
+    .ticket-close:hover { background: rgba(0, 0, 0, 0.2); }
+
+    .ticket-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 8px; padding-right: 15px; }
+    .ticket-info { font-size: 0.85rem; margin: 4px 0; display: flex; align-items: flex-start; gap: 6px; }
+    .ticket-info i { margin-top: 1px; }
+    .ticket-tag {
+      display: inline-block; margin-top: 10px; padding: 3px 8px; font-size: 0.72rem;
+      font-weight: 700; border-radius: 4px; background: rgba(255, 255, 255, 0.55);
+      text-transform: uppercase; letter-spacing: .3px;
+    }
+    .fade-out { opacity: 0; transform: scale(0.8) !important; }
+
+    /* ── Historial ── */
+    .historial-wrap { background: #fff; border: 1px solid #e6dde1; border-radius: 12px; overflow: hidden; }
+    table.tabla-historial { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    table.tabla-historial th {
+      background: #f4eef0; padding: 8px 10px; text-align: left; font-size: 11.5px;
+      color: #5c2233; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
+    }
+    table.tabla-historial td { padding: 8px 10px; border-top: 1px solid #f0e9eb; color: #444; }
+    .badge-motivo { padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
+    .badge-motivo.vencido   { background: #f0e9eb; color: #6b6b6b; }
+    .badge-motivo.cancelado { background: #fce4ec; color: #c62828; }
 
     /* Sistema de modales genérico (confirmar / avisar) */
     .sbis-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.48); backdrop-filter: blur(2px); z-index:10000; align-items:center; justify-content:center; padding:20px; }
@@ -208,21 +225,12 @@
         </div>
       </div>
 
-      <!-- ── Calendario semanal ── -->
-      <div class="calendario-header">
-        <span class="calendario-titulo" id="cal-rango-txt">Semana</span>
-        <div class="calendario-nav">
-          <button class="btn-hoy" id="btn-hoy" onclick="irASemanaActual()">Hoy</button>
-          <button class="btn-nav-semana" onclick="cambiarSemana(-1)"><i class="ti ti-chevron-left"></i></button>
-          <button class="btn-nav-semana" onclick="cambiarSemana(1)"><i class="ti ti-chevron-right"></i></button>
-        </div>
+      <!-- ── Tendedero de apartados (ordenados del más próximo al último) ── -->
+      <div class="tendedero-header">
+        <span class="tendedero-titulo"><i class="ti ti-notes"></i> Próximos apartados</span>
+        <span class="tendedero-sub">Ordenados del más próximo al último</span>
       </div>
-      <div class="cal-wrap">
-        <table class="cal-tabla" id="cal-tabla">
-          <thead><tr id="cal-thead-row"></tr></thead>
-          <tbody id="cal-tbody"></tbody>
-        </table>
-      </div>
+      <div class="tendedero" id="tendedero"></div>
 
       <br/>
 
@@ -257,8 +265,12 @@
             <select id="select-hora-apartado"></select>
           </div>
           <div class="campo">
-            <label for="input-motivo-apartado">Motivo (opcional)</label>
-            <input type="text" id="input-motivo-apartado" placeholder="Ej. Reunión de área" maxlength="255"/>
+            <label for="input-personas-apartado">Cuántas personas la ocuparán</label>
+            <input type="number" id="input-personas-apartado" min="1" step="1" placeholder="Ej. 6"/>
+          </div>
+          <div class="campo">
+            <label for="input-descripcion-apartado">Descripción del evento</label>
+            <input type="text" id="input-descripcion-apartado" placeholder="Ej. Reunión de área" maxlength="500"/>
           </div>
           <p class="campo-error" id="error-apartar-sala"></p>
           <button class="btn-panel" id="btn-apartar-sala" onclick="apartarSala()">
@@ -266,6 +278,27 @@
           </button>
         </div>
 
+      </div>
+
+      <br/>
+
+      <!-- ── Historial de tarjetas eliminadas ── -->
+      <div class="tendedero-header">
+        <span class="tendedero-titulo"><i class="ti ti-history"></i> Historial de apartados</span>
+        <span class="tendedero-sub">Vencidos y cancelados</span>
+      </div>
+      <div class="historial-wrap">
+        <table class="tabla-historial">
+          <thead>
+            <tr>
+              <th>Sala</th><th>Fecha</th><th>Hora</th><th>Personas</th><th>Descripción</th>
+              <th>Registrado por</th><th>Motivo</th><th>Eliminado por</th><th>Cuándo</th>
+            </tr>
+          </thead>
+          <tbody id="historial-tbody">
+            <tr><td colspan="9" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>
+          </tbody>
+        </table>
       </div>
 
     </div>

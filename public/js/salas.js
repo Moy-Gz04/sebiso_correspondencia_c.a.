@@ -1,9 +1,11 @@
 /* ═══════════════════════════════════════════════════
    SBIS — Salas (Coordinación)
-   Catálogo de salas + calendario semanal de apartados.
-   Exclusivo de Coordinación Administrativa (o el admin
-   legado) — mismo patrón que No. de Oficio / Circular /
-   Tarjeta Informativa / Minutario.
+   Catálogo de salas + tendedero de tarjetas (apartados)
+   ordenadas de la más próxima a la más lejana, con
+   historial de tarjetas eliminadas. Exclusivo de
+   Coordinación Administrativa (o el admin legado) —
+   mismo patrón que No. de Oficio / Circular / Tarjeta
+   Informativa / Minutario.
    ═══════════════════════════════════════════════════ */
 
 const API = window.location.origin + '/api';
@@ -125,38 +127,22 @@ function sbisConfirm({ titulo = '¿Estás seguro?', mensaje = '', btnOk = 'Acept
    1 hora, según se pidió. */
 const HORAS = Array.from({ length: 12 }, (_, i) => String(8 + i).padStart(2, '0') + ':00');
 
-const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-
 function fechaISO(d) {
   const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/* Lunes de la semana que contiene la fecha dada (semana Lun-Dom). */
-function lunesDeSemana(fecha) {
-  const d = new Date(fecha);
-  const diaSemana = d.getDay(); // 0=domingo .. 6=sábado
-  const offset = diaSemana === 0 ? -6 : 1 - diaSemana;
-  d.setDate(d.getDate() + offset);
-  d.setHours(0, 0, 0, 0);
-  return d;
+/* Momento real (Date) que representa un apartado, combinando su fecha
+   y hora en horario local — se usa para ordenar el tendedero y para
+   decidir el estatus de cada tarjeta. */
+function momentoApartado(ap) {
+  const fecha = ap.fecha.slice(0, 10);
+  const hora  = ap.hora.slice(0, 5);
+  return new Date(`${fecha}T${hora}:00`);
 }
 
-let SEMANA_LUNES = lunesDeSemana(new Date());
 let SALAS = [];
 let APARTADOS = [];
-
-function cambiarSemana(delta) {
-  const nuevo = new Date(SEMANA_LUNES);
-  nuevo.setDate(nuevo.getDate() + delta * 7);
-  SEMANA_LUNES = nuevo;
-  cargarApartados();
-}
-
-function irASemanaActual() {
-  SEMANA_LUNES = lunesDeSemana(new Date());
-  cargarApartados();
-}
 
 /* ════════════════════════════════════════════════════
    Salas (catálogo)
@@ -221,72 +207,68 @@ async function registrarSala() {
 }
 
 /* ════════════════════════════════════════════════════
-   Apartados / Calendario
+   Apartados / Tendedero de tarjetas
    ════════════════════════════════════════════════════ */
 async function cargarApartados() {
-  const desde = fechaISO(SEMANA_LUNES);
-  const domingo = new Date(SEMANA_LUNES);
-  domingo.setDate(domingo.getDate() + 6);
-  const hasta = fechaISO(domingo);
-
   try {
-    const res = await fetch(`${API}/salas/apartados?desde=${desde}&hasta=${hasta}`, {
+    const res = await fetch(`${API}/salas/apartados`, {
       headers: { 'Authorization': `Bearer ${TOKEN}` },
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
     if (!res.ok) throw new Error(data.mensaje || 'Error al cargar los apartados.');
     APARTADOS = data;
-    pintarCalendario();
+    pintarTendedero();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
 }
 
-function pintarCalendario() {
-  const dias = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(SEMANA_LUNES);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+const COLORES_TICKET = ['color-1', 'color-2', 'color-3', 'color-4'];
 
-  // Encabezado con el rango de la semana visible
-  const rangoTxt = document.getElementById('cal-rango-txt');
-  if (rangoTxt) {
-    const pad = n => String(n).padStart(2, '0');
-    const f1 = dias[0], f2 = dias[6];
-    rangoTxt.textContent = `Semana del ${pad(f1.getDate())}/${pad(f1.getMonth() + 1)} al ${pad(f2.getDate())}/${pad(f2.getMonth() + 1)} de ${f2.getFullYear()}`;
+function pintarTendedero() {
+  const cont = document.getElementById('tendedero');
+  if (!cont) return;
+
+  if (!APARTADOS.length) {
+    cont.innerHTML = '<p class="cal-vacio-msg">Todavía no hay salas apartadas.</p>';
+    return;
   }
 
-  // Encabezado de columnas (días)
-  const thead = document.getElementById('cal-thead-row');
-  thead.innerHTML = '<th>Hora</th>' + dias.map((d, i) => {
-    const pad = n => String(n).padStart(2, '0');
-    return `<th><span class="cal-th-dia">${DIAS_SEMANA[i]}</span><span class="cal-th-fecha">${pad(d.getDate())}/${pad(d.getMonth() + 1)}</span></th>`;
-  }).join('');
+  const ordenados = [...APARTADOS].sort((a, b) => momentoApartado(a) - momentoApartado(b));
 
-  // Cuerpo: una fila por hora
-  const tbody = document.getElementById('cal-tbody');
-  tbody.innerHTML = HORAS.map(hora => {
-    const celdas = dias.map(d => {
-      const iso = fechaISO(d);
-      const eventos = APARTADOS.filter(a => a.fecha?.slice(0, 10) === iso && a.hora?.slice(0, 5) === hora);
-      const contenido = eventos.map(ev => `
-        <div class="cal-evento" title="Clic para cancelar" onclick="cancelarApartado(${ev.id})">
-          ${ev.sala_nombre}
-          ${ev.motivo ? `<small>${ev.motivo}</small>` : ''}
-        </div>`).join('');
-      return `<td>${contenido}</td>`;
-    }).join('');
-    return `<tr><td class="cal-hora">${hora}</td>${celdas}</tr>`;
+  cont.innerHTML = ordenados.map((ap, i) => {
+    const momento = momentoApartado(ap);
+    const vencido = momento < new Date();
+    const estatus = vencido ? 'Listo para eliminar' : 'Próximo';
+    const fecha = ap.fecha.slice(0, 10);
+    const hora  = ap.hora.slice(0, 5);
+    return `
+      <div class="ticket ${COLORES_TICKET[i % COLORES_TICKET.length]}" data-id="${ap.id}" data-vencido="${vencido}">
+        <button class="ticket-close" title="Quitar tarjeta" onclick="descartarApartado(${ap.id})">✕</button>
+        <div class="ticket-title">${ap.sala_nombre}</div>
+        <div class="ticket-info"><i class="ti ti-clock"></i> ${formatearFechaCorta(fecha)} — ${hora}</div>
+        <div class="ticket-info"><i class="ti ti-users"></i> ${ap.personas} persona${ap.personas === 1 ? '' : 's'}</div>
+        <div class="ticket-info"><i class="ti ti-align-left"></i> ${ap.descripcion || 'Sin descripción'}</div>
+        <span class="ticket-tag">${estatus}</span>
+      </div>`;
   }).join('');
 }
+
+/* Recalcula el estatus (Próximo / Listo para eliminar) de las tarjetas
+   ya pintadas, sin volver a pedir los datos al servidor. */
+function refrescarEstatusTendedero() {
+  if (!APARTADOS.length) return;
+  pintarTendedero();
+}
+setInterval(refrescarEstatusTendedero, 60000);
 
 async function apartarSala() {
   const selectSala = document.getElementById('select-sala');
   const inputFecha = document.getElementById('input-fecha-apartado');
   const selectHora = document.getElementById('select-hora-apartado');
-  const inputMotivo = document.getElementById('input-motivo-apartado');
+  const inputPersonas = document.getElementById('input-personas-apartado');
+  const inputDescripcion = document.getElementById('input-descripcion-apartado');
   const errorEl = document.getElementById('error-apartar-sala');
   const btn = document.getElementById('btn-apartar-sala');
 
@@ -295,29 +277,29 @@ async function apartarSala() {
   const sala_id = selectSala.value;
   const fecha   = inputFecha.value;
   const hora    = selectHora.value;
-  const motivo  = inputMotivo.value.trim();
+  const personas = parseInt(inputPersonas.value, 10);
+  const descripcion = inputDescripcion.value.trim();
 
   if (!sala_id)  { errorEl.textContent = 'Registra o selecciona una sala primero.'; return; }
   if (!fecha)    { errorEl.textContent = 'Selecciona una fecha.'; return; }
   if (!hora)     { errorEl.textContent = 'Selecciona una hora.'; return; }
+  if (!Number.isInteger(personas) || personas < 1) { errorEl.textContent = 'Indica cuántas personas ocuparán la sala.'; return; }
+  if (!descripcion) { errorEl.textContent = 'Describe brevemente el evento.'; return; }
 
   btn.disabled = true;
   try {
     const res = await fetch(`${API}/salas/apartados`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-      body: JSON.stringify({ sala_id, fecha, hora, motivo }),
+      body: JSON.stringify({ sala_id, fecha, hora, personas, descripcion }),
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
     if (!res.ok) throw new Error(data.mensaje || 'No se pudo apartar la sala.');
 
-    inputMotivo.value = '';
+    inputPersonas.value = '';
+    inputDescripcion.value = '';
 
-    // Si el apartado quedó en la semana visible, brinca el calendario
-    // a esa semana para que se vea de inmediato; si no, solo recarga
-    // la semana en la que ya estabas.
-    SEMANA_LUNES = lunesDeSemana(fecha);
     await cargarApartados();
 
     await sbisAlert({
@@ -332,15 +314,25 @@ async function apartarSala() {
   }
 }
 
-async function cancelarApartado(id) {
-  const ok = await sbisConfirm({
-    titulo: '¿Cancelar este apartado?',
-    mensaje: 'La sala quedará libre en ese horario otra vez.',
-    btnOk: 'Cancelar apartado',
-    tipo: 'danger',
-  });
-  if (!ok) return;
+/* Quita una tarjeta del tendedero. Si ya venció (fecha/hora ya pasó),
+   se quita directo, sin alerta. Si todavía está por venir, se pide
+   confirmación antes de cancelarla. En ambos casos el servidor deja
+   registro en el historial. */
+async function descartarApartado(id) {
+  const ap = APARTADOS.find(a => a.id === id);
+  const vencido = ap ? momentoApartado(ap) < new Date() : false;
 
+  if (!vencido) {
+    const ok = await sbisConfirm({
+      titulo: '¿Cancelar este apartado?',
+      mensaje: 'Todavía no pasa la fecha y hora de este apartado. La sala quedará libre en ese horario otra vez.',
+      btnOk: 'Cancelar apartado',
+      tipo: 'danger',
+    });
+    if (!ok) return;
+  }
+
+  const tarjeta = document.querySelector(`.ticket[data-id="${id}"]`);
   try {
     const res = await fetch(`${API}/salas/apartados/${id}`, {
       method: 'DELETE',
@@ -348,8 +340,14 @@ async function cancelarApartado(id) {
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
-    if (!res.ok) throw new Error(data.mensaje || 'No se pudo cancelar el apartado.');
-    await cargarApartados();
+    if (!res.ok) throw new Error(data.mensaje || 'No se pudo quitar la tarjeta.');
+
+    if (tarjeta) {
+      tarjeta.classList.add('fade-out');
+      setTimeout(() => tarjeta.remove(), 300);
+    }
+    APARTADOS = APARTADOS.filter(a => a.id !== id);
+    cargarHistorial();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
@@ -358,6 +356,39 @@ async function cancelarApartado(id) {
 function formatearFechaCorta(fechaISOStr) {
   const [a, m, d] = fechaISOStr.split('-');
   return `${d}/${m}/${a}`;
+}
+
+/* ════════════════════════════════════════════════════
+   Historial de tarjetas eliminadas
+   ════════════════════════════════════════════════════ */
+async function cargarHistorial() {
+  const tbody = document.getElementById('historial-tbody');
+  if (!tbody) return;
+  try {
+    const res = await fetch(`${API}/salas/historial`, {
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+    });
+    if (res.status === 401) { cerrarSesion(); return; }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.mensaje || 'Error al cargar el historial.');
+
+    tbody.innerHTML = data.length
+      ? data.map(h => `
+        <tr>
+          <td>${h.sala_nombre}</td>
+          <td>${formatearFechaCorta(h.fecha.slice(0, 10))}</td>
+          <td>${h.hora.slice(0, 5)}</td>
+          <td>${h.personas ?? '—'}</td>
+          <td>${h.descripcion || '—'}</td>
+          <td>${h.creado_por || '—'}</td>
+          <td><span class="badge-motivo ${h.motivo_eliminacion}">${h.motivo_eliminacion === 'vencido' ? 'Vencido' : 'Cancelado'}</span></td>
+          <td>${h.eliminado_por || '—'}</td>
+          <td>${new Date(h.eliminado_en).toLocaleString('es-MX')}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="9" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>';
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#c62828;">${err.message}</td></tr>`;
+  }
 }
 
 function pintarSelectHoras() {
@@ -382,6 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   cargarSalas();
   cargarApartados();
+  cargarHistorial();
 });
 
 window.addEventListener('pageshow', (evento) => {
