@@ -164,7 +164,11 @@ function pintarSalas() {
   const chips = document.getElementById('lista-salas-chip');
   if (chips) {
     chips.innerHTML = SALAS.length
-      ? SALAS.map(s => `<span class="chip-sala"><i class="ti ti-door"></i> ${s.nombre}</span>`).join('')
+      ? SALAS.map(s => `
+        <span class="chip-sala">
+          <i class="ti ti-door"></i> ${s.nombre}
+          <button class="chip-sala-borrar" title="Eliminar sala" onclick="eliminarSala(${s.id}, '${s.nombre.replace(/'/g, "\\'")}')">✕</button>
+        </span>`).join('')
       : '<span style="color:#b7aeb2; font-size:12.5px;">Todavía no hay salas registradas.</span>';
   }
 
@@ -173,6 +177,34 @@ function pintarSalas() {
     select.innerHTML = SALAS.length
       ? SALAS.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('')
       : '<option value="">No hay salas registradas</option>';
+  }
+}
+
+async function eliminarSala(id, nombre) {
+  const tieneApartados = APARTADOS.some(a => a.sala_id === id);
+  const ok = await sbisConfirm({
+    titulo: '¿Eliminar esta sala?',
+    mensaje: tieneApartados
+      ? `"${nombre}" tiene apartados vigentes — también se quitarán del tendedero. Esta acción no se puede deshacer.`
+      : `"${nombre}" se eliminará del catálogo. Esta acción no se puede deshacer.`,
+    btnOk: 'Eliminar sala',
+    tipo: 'danger',
+  });
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${API}/salas/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+    });
+    if (res.status === 401) { cerrarSesion(); return; }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.mensaje || 'No se pudo eliminar la sala.');
+
+    await cargarSalas();
+    await cargarApartados();
+  } catch (err) {
+    await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
 }
 

@@ -1531,6 +1531,20 @@ app.post('/api/salas', verifyToken, onlyGestionCompleta, async (req, res) => {
   }
 });
 
+/* ══ DELETE /api/salas/:id — eliminar una sala del catálogo.
+   ON DELETE CASCADE en salas_apartados se encarga de quitar también
+   sus apartados vigentes (no quedan huérfanos ni bloqueando el
+   catálogo). No se tocan los registros que ya estén en salas_historial. */
+app.delete('/api/salas/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const rows = await sql`DELETE FROM salas WHERE id = ${req.params.id} RETURNING id`;
+    if (!rows[0]) return res.status(404).json({ mensaje: 'Sala no encontrada.' });
+    res.json({ ok: true });
+  } catch (err) {
+    manejarError(res, err, 'Error al eliminar la sala.');
+  }
+});
+
 /* ══ GET /api/salas/apartados — trae todos los apartados vigentes
    (de todas las salas), ordenados del más próximo al más lejano,
    para el tendedero de tarjetas. ══ */

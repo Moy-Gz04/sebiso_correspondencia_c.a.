@@ -56,8 +56,16 @@
     }
     .chip-sala {
       background: #f4eef0; color: #5c2233; border: 1px solid #e6dde1;
-      border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 600;
+      border-radius: 999px; padding: 5px 8px 5px 12px; font-size: 12.5px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px;
     }
+    .chip-sala-borrar {
+      background: rgba(0,0,0,0.08); border: none; border-radius: 50%;
+      width: 17px; height: 17px; font-size: 10.5px; line-height: 17px;
+      text-align: center; cursor: pointer; color: inherit; padding: 0;
+      transition: background .15s;
+    }
+    .chip-sala-borrar:hover { background: #c62828; color: #fff; }
     .campo-error { color: #c62828; font-size: 12.5px; margin-top: 4px; min-height: 16px; }
 
     /* ── Tendedero de tarjetas (Post-it) ── */
