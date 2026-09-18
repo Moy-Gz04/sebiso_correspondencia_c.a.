@@ -67,11 +67,13 @@ ORDER BY created_at DESC;
 
 -- ══════════════════════════════════════════════════════
 -- Módulo: Salas (dentro de Coordinación)
--- Catálogo de salas + apartados por fecha/hora. Cada
--- apartado es un bloque fijo de 1 hora; la restricción
--- UNIQUE (sala_id, fecha, hora) impide traslapes: no se
--- puede apartar la misma sala en el mismo horario dos veces.
+-- Catálogo de salas + apartados por fecha y rango de hora
+-- (hora_inicio/hora_fin). btree_gist + EXCLUDE impiden que
+-- dos apartados de la misma sala/fecha se traslapen en el
+-- tiempo (rango [inicio, fin) ).
 -- ══════════════════════════════════════════════════════
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 CREATE TABLE IF NOT EXISTS salas (
   id          SERIAL PRIMARY KEY,
   nombre      VARCHAR(150) NOT NULL UNIQUE,
@@ -82,13 +84,18 @@ CREATE TABLE IF NOT EXISTS salas_apartados (
   id          SERIAL PRIMARY KEY,
   sala_id     INTEGER NOT NULL REFERENCES salas(id) ON DELETE CASCADE,
   fecha       DATE NOT NULL,
-  hora        TIME NOT NULL,
+  hora_inicio TIME NOT NULL,
+  hora_fin    TIME NOT NULL CHECK (hora_fin > hora_inicio),
   personas    INTEGER NOT NULL DEFAULT 1,
   descripcion TEXT,
   no_oficio   VARCHAR(60),
   creado_por  VARCHAR(150),
   creado_en   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE (sala_id, fecha, hora)
+  EXCLUDE USING gist (
+    sala_id WITH =,
+    fecha WITH =,
+    tsrange(fecha + hora_inicio, fecha + hora_fin, '[)') WITH &&
+  )
 );
 
 CREATE INDEX IF NOT EXISTS idx_salas_apartados_fecha ON salas_apartados (fecha);
@@ -100,7 +107,8 @@ CREATE TABLE IF NOT EXISTS salas_historial (
   sala_id             INTEGER,
   sala_nombre         VARCHAR(150) NOT NULL,
   fecha               DATE NOT NULL,
-  hora                TIME NOT NULL,
+  hora_inicio         TIME NOT NULL,
+  hora_fin            TIME NOT NULL,
   personas            INTEGER,
   descripcion         TEXT,
   no_oficio           VARCHAR(60),

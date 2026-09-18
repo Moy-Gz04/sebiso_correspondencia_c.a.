@@ -1494,13 +1494,12 @@ function formatearFechaMX(fecha) {
 
 /* ══════════════════════════════════════════════════════
    MÓDULO: SALAS (dentro de Coordinación)
-   Catálogo de salas + apartados de fecha/hora. Igual que
-   No. de Oficio / Circular / Tarjeta Informativa, exclusivo
-   de Coordinación Administrativa (onlyGestionCompleta).
-   Cada apartado es un bloque fijo de 1 hora; la restricción
-   UNIQUE (sala_id, fecha, hora) en la BD es lo que impide
-   traslapes — aquí solo se traduce el error 23505 a un
-   mensaje claro para el usuario.
+   Catálogo de salas + apartados por fecha y rango de hora
+   (hora_inicio/hora_fin). Igual que No. de Oficio / Circular /
+   Tarjeta Informativa, exclusivo de Coordinación Administrativa
+   (onlyGestionCompleta). La restricción EXCLUDE USING gist en la
+   BD es lo que impide traslapes reales entre rangos — aquí solo
+   se traduce el error 23P01 a un mensaje claro para el usuario.
    ══════════════════════════════════════════════════════ */
 
 /* ══ GET /api/salas — catálogo de salas ══ */
@@ -1544,8 +1543,8 @@ app.delete('/api/salas/:id', verifyToken, onlyGestionCompleta, async (req, res) 
     const apartados = await sql`SELECT * FROM salas_apartados WHERE sala_id = ${sala.id}`;
     for (const ap of apartados) {
       await sql`
-        INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora, personas, descripcion, no_oficio, creado_por, motivo_eliminacion, eliminado_por)
-        VALUES (${ap.sala_id}, ${sala.nombre}, ${ap.fecha}, ${ap.hora}, ${ap.personas}, ${ap.descripcion}, ${ap.no_oficio}, ${ap.creado_por}, 'sala_eliminada', ${req.user.username})`;
+        INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, creado_por, motivo_eliminacion, eliminado_por)
+        VALUES (${ap.sala_id}, ${sala.nombre}, ${ap.fecha}, ${ap.hora_inicio}, ${ap.hora_fin}, ${ap.personas}, ${ap.descripcion}, ${ap.no_oficio}, ${ap.creado_por}, 'sala_eliminada', ${req.user.username})`;
     }
 
     await sql`DELETE FROM salas WHERE id = ${sala.id}`;
@@ -1564,7 +1563,7 @@ app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, re
       SELECT sa.*, s.nombre AS sala_nombre
       FROM salas_apartados sa
       JOIN salas s ON s.id = sa.sala_id
-      ORDER BY sa.fecha ASC, sa.hora ASC`;
+      ORDER BY sa.fecha ASC, sa.hora_inicio ASC`;
 
     res.json(rows);
   } catch (err) {
@@ -1573,12 +1572,15 @@ app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, re
 });
 
 /* ══ POST /api/salas/apartados — apartar una sala.
-   Body: { sala_id, fecha, hora, personas, descripcion } ══ */
+   Body: { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion } ══ */
 app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const { sala_id, fecha, hora, personas, descripcion, no_oficio } = req.body || {};
-    if (!sala_id || !fecha || !hora) {
-      return res.status(400).json({ mensaje: 'Sala, fecha y hora son obligatorios.' });
+    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio } = req.body || {};
+    if (!sala_id || !fecha || !hora_inicio || !hora_fin) {
+      return res.status(400).json({ mensaje: 'Sala, fecha, hora de inicio y hora de fin son obligatorios.' });
+    }
+    if (hora_fin <= hora_inicio) {
+      return res.status(400).json({ mensaje: 'La hora de fin debe ser posterior a la hora de inicio.' });
     }
     const numPersonas = parseInt(personas, 10);
     if (!Number.isInteger(numPersonas) || numPersonas < 1) {
@@ -1591,8 +1593,8 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     const oficio = no_oficio?.trim() || null;
 
     const [nuevo] = await sql`
-      INSERT INTO salas_apartados (sala_id, fecha, hora, personas, descripcion, no_oficio, creado_por)
-      VALUES (${sala_id}, ${fecha}, ${hora}, ${numPersonas}, ${desc}, ${oficio}, ${req.user.username})
+      INSERT INTO salas_apartados (sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, creado_por)
+      VALUES (${sala_id}, ${fecha}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${req.user.username})
       RETURNING *`;
 
     const [conNombre] = await sql`
@@ -1605,18 +1607,67 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     if (err.code === '23503') {
       return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
     }
-    if (err.code === '23505') {
-      return res.status(409).json({ mensaje: 'Esa sala ya está apartada en esa fecha y hora. Elige otro horario.' });
+    if (err.code === '23P01') {
+      return res.status(409).json({ mensaje: 'Esa sala ya está ocupada en ese horario. Elige otro rango.' });
     }
     manejarError(res, err, 'Error al apartar la sala.');
+  }
+});
+
+/* ══ PUT /api/salas/apartados/:id — editar un apartado existente.
+   Mismas validaciones y mismo manejo de traslapes que al crear uno
+   nuevo; la exclusión por rango en la BD también aplica en la edición
+   (compara contra las demás filas, no contra sí misma). ══ */
+app.put('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio } = req.body || {};
+    if (!sala_id || !fecha || !hora_inicio || !hora_fin) {
+      return res.status(400).json({ mensaje: 'Sala, fecha, hora de inicio y hora de fin son obligatorios.' });
+    }
+    if (hora_fin <= hora_inicio) {
+      return res.status(400).json({ mensaje: 'La hora de fin debe ser posterior a la hora de inicio.' });
+    }
+    const numPersonas = parseInt(personas, 10);
+    if (!Number.isInteger(numPersonas) || numPersonas < 1) {
+      return res.status(400).json({ mensaje: 'Indica cuántas personas ocuparán la sala (mínimo 1).' });
+    }
+    const desc = descripcion?.trim();
+    if (!desc) {
+      return res.status(400).json({ mensaje: 'La descripción del evento es obligatoria.' });
+    }
+    const oficio = no_oficio?.trim() || null;
+
+    const rows = await sql`
+      UPDATE salas_apartados
+      SET sala_id = ${sala_id}, fecha = ${fecha}, hora_inicio = ${hora_inicio}, hora_fin = ${hora_fin},
+          personas = ${numPersonas}, descripcion = ${desc}, no_oficio = ${oficio}
+      WHERE id = ${req.params.id}
+      RETURNING id`;
+    if (!rows[0]) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
+
+    const [conNombre] = await sql`
+      SELECT sa.*, s.nombre AS sala_nombre
+      FROM salas_apartados sa JOIN salas s ON s.id = sa.sala_id
+      WHERE sa.id = ${req.params.id}`;
+
+    res.json(conNombre);
+  } catch (err) {
+    if (err.code === '23503') {
+      return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
+    }
+    if (err.code === '23P01') {
+      return res.status(409).json({ mensaje: 'Esa sala ya está ocupada en ese horario. Elige otro rango.' });
+    }
+    manejarError(res, err, 'Error al guardar los cambios del apartado.');
   }
 });
 
 /* ══ DELETE /api/salas/apartados/:id — quitar una tarjeta.
    Antes de borrar, registra el apartado en salas_historial. El motivo
    ("vencido" o "cancelado") se calcula en el servidor comparando la
-   fecha/hora del apartado contra el momento real de borrado, para no
-   depender de lo que diga el cliente. ══ */
+   hora de FIN del apartado (el evento no se considera terminado hasta
+   entonces) contra el momento real de borrado, para no depender de lo
+   que diga el cliente. ══ */
 app.delete('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
     const [apartado] = await sql`
@@ -1625,12 +1676,12 @@ app.delete('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (
       WHERE sa.id = ${req.params.id}`;
     if (!apartado) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
 
-    const momentoApartado = new Date(`${apartado.fecha.toISOString().slice(0, 10)}T${apartado.hora}`);
-    const motivoEliminacion = momentoApartado < new Date() ? 'vencido' : 'cancelado';
+    const finApartado = new Date(`${apartado.fecha.toISOString().slice(0, 10)}T${apartado.hora_fin}`);
+    const motivoEliminacion = finApartado < new Date() ? 'vencido' : 'cancelado';
 
     await sql`
-      INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora, personas, descripcion, no_oficio, creado_por, motivo_eliminacion, eliminado_por)
-      VALUES (${apartado.sala_id}, ${apartado.sala_nombre}, ${apartado.fecha}, ${apartado.hora}, ${apartado.personas}, ${apartado.descripcion}, ${apartado.no_oficio}, ${apartado.creado_por}, ${motivoEliminacion}, ${req.user.username})`;
+      INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, creado_por, motivo_eliminacion, eliminado_por)
+      VALUES (${apartado.sala_id}, ${apartado.sala_nombre}, ${apartado.fecha}, ${apartado.hora_inicio}, ${apartado.hora_fin}, ${apartado.personas}, ${apartado.descripcion}, ${apartado.no_oficio}, ${apartado.creado_por}, ${motivoEliminacion}, ${req.user.username})`;
 
     await sql`DELETE FROM salas_apartados WHERE id = ${req.params.id}`;
     res.json({ ok: true, motivo_eliminacion: motivoEliminacion });

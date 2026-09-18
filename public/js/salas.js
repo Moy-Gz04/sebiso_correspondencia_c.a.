@@ -127,17 +127,20 @@ function fechaISO(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/* Momento real (Date) que representa un apartado, combinando su fecha
-   y hora en horario local — se usa para ordenar el tendedero y para
-   decidir el estatus de cada tarjeta. */
-function momentoApartado(ap) {
-  const fecha = ap.fecha.slice(0, 10);
-  const hora  = ap.hora.slice(0, 5);
-  return new Date(`${fecha}T${hora}:00`);
+/* Momentos reales (Date) que representa un apartado, combinando su
+   fecha con hora_inicio/hora_fin en horario local. El inicio ordena
+   el tendedero (lo más próximo primero); el fin decide el estatus —
+   un evento no se considera terminado hasta que pasa su hora_fin. */
+function momentoInicioApartado(ap) {
+  return new Date(`${ap.fecha.slice(0, 10)}T${ap.hora_inicio.slice(0, 5)}:00`);
+}
+function momentoFinApartado(ap) {
+  return new Date(`${ap.fecha.slice(0, 10)}T${ap.hora_fin.slice(0, 5)}:00`);
 }
 
 let SALAS = [];
 let APARTADOS = [];
+let EDITANDO_ID = null;
 
 /* ════════════════════════════════════════════════════
    Salas (catálogo)
@@ -198,6 +201,7 @@ async function eliminarSala(id, nombre) {
 
     await cargarSalas();
     await cargarApartados();
+    await cargarHistorial();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
@@ -262,19 +266,18 @@ function pintarTendedero() {
     return;
   }
 
-  const ordenados = [...APARTADOS].sort((a, b) => momentoApartado(a) - momentoApartado(b));
+  const ordenados = [...APARTADOS].sort((a, b) => momentoInicioApartado(a) - momentoInicioApartado(b));
 
   cont.innerHTML = ordenados.map((ap, i) => {
-    const momento = momentoApartado(ap);
-    const vencido = momento < new Date();
+    const vencido = momentoFinApartado(ap) < new Date();
     const estatus = vencido ? 'Listo para eliminar' : 'Próximo';
     const fecha = ap.fecha.slice(0, 10);
-    const hora  = ap.hora.slice(0, 5);
     return `
       <div class="ticket ${COLORES_TICKET[i % COLORES_TICKET.length]}" data-id="${ap.id}" data-vencido="${vencido}" onclick="verDetalleTicket(${ap.id})">
         <button class="ticket-close" title="Quitar tarjeta" onclick="event.stopPropagation(); descartarApartado(${ap.id})">✕</button>
+        <button class="ticket-edit" title="Editar apartado" onclick="event.stopPropagation(); editarApartado(${ap.id})"><i class="ti ti-pencil"></i></button>
         <div class="ticket-title">${ap.sala_nombre}</div>
-        <div class="ticket-info"><i class="ti ti-clock"></i> ${formatearFechaCorta(fecha)} — ${hora}</div>
+        <div class="ticket-info"><i class="ti ti-clock"></i> ${formatearFechaCorta(fecha)} — ${ap.hora_inicio.slice(0, 5)} a ${ap.hora_fin.slice(0, 5)}</div>
         <div class="ticket-info"><i class="ti ti-users"></i> ${ap.personas} persona${ap.personas === 1 ? '' : 's'}</div>
         <div class="ticket-info"><i class="ti ti-align-left"></i> ${ap.descripcion || 'Sin descripción'}</div>
         ${ap.no_oficio ? `<div class="ticket-info"><i class="ti ti-file-text"></i> ${ap.no_oficio}</div>` : ''}
@@ -284,17 +287,18 @@ function pintarTendedero() {
 }
 
 /* Muestra el detalle ampliado de una tarjeta al hacer clic en ella
-   (sin contar el clic sobre la ✕, que ya cancela/quita el apartado). */
+   (sin contar el clic sobre la ✕ o el lápiz, que tienen su propia
+   acción). */
 function verDetalleTicket(id) {
   const ap = APARTADOS.find(a => a.id === id);
   if (!ap) return;
 
-  const vencido = momentoApartado(ap) < new Date();
-  const colorIdx = [...APARTADOS].sort((a, b) => momentoApartado(a) - momentoApartado(b)).findIndex(a => a.id === id);
+  const vencido = momentoFinApartado(ap) < new Date();
+  const colorIdx = [...APARTADOS].sort((a, b) => momentoInicioApartado(a) - momentoInicioApartado(b)).findIndex(a => a.id === id);
 
   document.getElementById('detalle-modal').className = `detalle-modal ${COLORES_TICKET[colorIdx % COLORES_TICKET.length]}`;
   document.getElementById('detalle-sala').textContent = ap.sala_nombre;
-  document.getElementById('detalle-fechahora').textContent = `${formatearFechaCorta(ap.fecha.slice(0, 10))} — ${ap.hora.slice(0, 5)}`;
+  document.getElementById('detalle-fechahora').textContent = `${formatearFechaCorta(ap.fecha.slice(0, 10))} — ${ap.hora_inicio.slice(0, 5)} a ${ap.hora_fin.slice(0, 5)}`;
   document.getElementById('detalle-personas').textContent = `${ap.personas} persona${ap.personas === 1 ? '' : 's'}`;
   document.getElementById('detalle-descripcion').textContent = ap.descripcion || 'Sin descripción';
   document.getElementById('detalle-oficio-fila').style.display = ap.no_oficio ? '' : 'none';
@@ -319,7 +323,8 @@ setInterval(refrescarEstatusTendedero, 60000);
 async function apartarSala() {
   const selectSala = document.getElementById('select-sala');
   const inputFecha = document.getElementById('input-fecha-apartado');
-  const inputHora = document.getElementById('input-hora-apartado');
+  const inputHoraInicio = document.getElementById('input-hora-inicio-apartado');
+  const inputHoraFin = document.getElementById('input-hora-fin-apartado');
   const inputPersonas = document.getElementById('input-personas-apartado');
   const inputDescripcion = document.getElementById('input-descripcion-apartado');
   const inputOficio = document.getElementById('input-oficio-apartado');
@@ -330,23 +335,27 @@ async function apartarSala() {
 
   const sala_id = selectSala.value;
   const fecha   = inputFecha.value;
-  const hora    = inputHora.value;
+  const hora_inicio = inputHoraInicio.value;
+  const hora_fin    = inputHoraFin.value;
   const personas = parseInt(inputPersonas.value, 10);
   const descripcion = inputDescripcion.value.trim();
   const no_oficio = inputOficio.value.trim();
 
-  if (!sala_id)  { errorEl.textContent = 'Registra o selecciona una sala primero.'; return; }
-  if (!fecha)    { errorEl.textContent = 'Selecciona una fecha.'; return; }
-  if (!hora)     { errorEl.textContent = 'Selecciona una hora.'; return; }
+  if (!sala_id)      { errorEl.textContent = 'Registra o selecciona una sala primero.'; return; }
+  if (!fecha)        { errorEl.textContent = 'Selecciona una fecha.'; return; }
+  if (!hora_inicio)  { errorEl.textContent = 'Selecciona la hora de inicio.'; return; }
+  if (!hora_fin)     { errorEl.textContent = 'Selecciona la hora de fin.'; return; }
+  if (hora_fin <= hora_inicio) { errorEl.textContent = 'La hora de fin debe ser posterior a la de inicio.'; return; }
   if (!Number.isInteger(personas) || personas < 1) { errorEl.textContent = 'Indica cuántas personas ocuparán la sala.'; return; }
   if (!descripcion) { errorEl.textContent = 'Describe brevemente el evento.'; return; }
 
+  const editando = EDITANDO_ID !== null;
   btn.disabled = true;
   try {
-    const res = await fetch(`${API}/salas/apartados`, {
-      method: 'POST',
+    const res = await fetch(`${API}/salas/apartados${editando ? '/' + EDITANDO_ID : ''}`, {
+      method: editando ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-      body: JSON.stringify({ sala_id, fecha, hora, personas, descripcion, no_oficio }),
+      body: JSON.stringify({ sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio }),
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
@@ -355,15 +364,17 @@ async function apartarSala() {
       throw new Error(data.mensaje || 'No se pudo apartar la sala.');
     }
 
-    inputPersonas.value = '';
-    inputDescripcion.value = '';
-    inputOficio.value = '';
+    if (editando) cancelarEdicionApartado(); else {
+      inputPersonas.value = '';
+      inputDescripcion.value = '';
+      inputOficio.value = '';
+    }
 
     await cargarApartados();
 
     await sbisAlert({
-      titulo: 'Sala apartada',
-      mensaje: `${data.sala_nombre} — ${formatearFechaCorta(fecha)} a las ${hora}.`,
+      titulo: editando ? 'Apartado actualizado' : 'Sala apartada',
+      mensaje: `${data.sala_nombre} — ${formatearFechaCorta(fecha)} de ${hora_inicio} a ${hora_fin}.`,
       tipo: 'success',
     });
   } catch (err) {
@@ -373,13 +384,47 @@ async function apartarSala() {
   }
 }
 
-/* Quita una tarjeta del tendedero. Si ya venció (fecha/hora ya pasó),
-   se quita directo, sin alerta. Si todavía está por venir, se pide
-   confirmación antes de cancelarla. En ambos casos el servidor deja
-   registro en el historial. */
+/* Carga un apartado existente en el panel "Apartar Sala" para editarlo.
+   El panel cambia de título/botón mientras dura la edición. */
+function editarApartado(id) {
+  const ap = APARTADOS.find(a => a.id === id);
+  if (!ap) return;
+
+  EDITANDO_ID = id;
+  document.getElementById('select-sala').value = ap.sala_id;
+  document.getElementById('input-fecha-apartado').value = ap.fecha.slice(0, 10);
+  document.getElementById('input-hora-inicio-apartado').value = ap.hora_inicio.slice(0, 5);
+  document.getElementById('input-hora-fin-apartado').value = ap.hora_fin.slice(0, 5);
+  document.getElementById('input-personas-apartado').value = ap.personas;
+  document.getElementById('input-descripcion-apartado').value = ap.descripcion || '';
+  document.getElementById('input-oficio-apartado').value = ap.no_oficio || '';
+  document.getElementById('error-apartar-sala').textContent = '';
+
+  document.getElementById('titulo-panel-apartar').innerHTML = '<i class="ti ti-pencil"></i> Editar Apartado';
+  document.getElementById('btn-apartar-sala').innerHTML = '<i class="ti ti-check"></i> Guardar cambios';
+  document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
+
+  document.getElementById('titulo-panel-apartar').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelarEdicionApartado() {
+  EDITANDO_ID = null;
+  document.getElementById('titulo-panel-apartar').innerHTML = '<i class="ti ti-calendar-plus"></i> Apartar Sala';
+  document.getElementById('btn-apartar-sala').innerHTML = '<i class="ti ti-check"></i> Apartar sala';
+  document.getElementById('btn-cancelar-edicion').style.display = 'none';
+  document.getElementById('error-apartar-sala').textContent = '';
+  document.getElementById('input-personas-apartado').value = '';
+  document.getElementById('input-descripcion-apartado').value = '';
+  document.getElementById('input-oficio-apartado').value = '';
+}
+
+/* Quita una tarjeta del tendedero. Si ya venció (ya pasó su hora de
+   fin), se quita directo, sin alerta. Si todavía está por venir, se
+   pide confirmación antes de cancelarla. En ambos casos el servidor
+   deja registro en el historial. */
 async function descartarApartado(id) {
   const ap = APARTADOS.find(a => a.id === id);
-  const vencido = ap ? momentoApartado(ap) < new Date() : false;
+  const vencido = ap ? momentoFinApartado(ap) < new Date() : false;
 
   if (!vencido) {
     const ok = await sbisConfirm({
@@ -406,6 +451,7 @@ async function descartarApartado(id) {
       setTimeout(() => tarjeta.remove(), 300);
     }
     APARTADOS = APARTADOS.filter(a => a.id !== id);
+    if (EDITANDO_ID === id) cancelarEdicionApartado();
     cargarHistorial();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
@@ -436,7 +482,7 @@ async function cargarHistorial() {
         <tr>
           <td>${h.sala_nombre}</td>
           <td>${formatearFechaCorta(h.fecha.slice(0, 10))}</td>
-          <td>${h.hora.slice(0, 5)}</td>
+          <td>${h.hora_inicio.slice(0, 5)} - ${h.hora_fin.slice(0, 5)}</td>
           <td>${h.personas ?? '—'}</td>
           <td>${h.descripcion || '—'}</td>
           <td>${h.no_oficio || '—'}</td>

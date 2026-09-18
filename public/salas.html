@@ -50,6 +50,11 @@
     }
     .btn-panel:hover { background: #8B1535; }
     .btn-panel:disabled { background: #b08090; cursor: not-allowed; }
+    .btn-panel-secundario { background: #f0e9eb; color: #5c2233; }
+    .btn-panel-secundario:hover { background: #e6dde1; }
+    .campo-fila { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .campo-fila .campo { margin-bottom: 0; }
+    .fila-botones-apartar { display: flex; gap: 10px; flex-wrap: wrap; }
 
     .lista-salas-chip {
       display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px;
@@ -111,6 +116,14 @@
       text-align: center; cursor: pointer; color: inherit; transition: background 0.2s ease;
     }
     .ticket-close:hover { background: rgba(0, 0, 0, 0.2); }
+    .ticket-edit {
+      position: absolute; top: 8px; right: 36px;
+      background: rgba(0, 0, 0, 0.08); border: none; border-radius: 50%;
+      width: 22px; height: 22px; font-size: 12px; line-height: 22px;
+      text-align: center; cursor: pointer; color: inherit; transition: background 0.2s ease;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ticket-edit:hover { background: rgba(0, 0, 0, 0.2); }
 
     /* ── Modal de detalle de tarjeta (vista ampliada) ── */
     .detalle-overlay {
@@ -297,7 +310,7 @@
         </div>
 
         <div class="panel-sala">
-          <h2><i class="ti ti-calendar-plus"></i> Apartar Sala</h2>
+          <h2 id="titulo-panel-apartar"><i class="ti ti-calendar-plus"></i> Apartar Sala</h2>
           <div class="campo">
             <label for="select-sala">Sala</label>
             <select id="select-sala"></select>
@@ -306,9 +319,15 @@
             <label for="input-fecha-apartado">Fecha</label>
             <input type="date" id="input-fecha-apartado"/>
           </div>
-          <div class="campo">
-            <label for="input-hora-apartado">Hora</label>
-            <input type="time" id="input-hora-apartado" step="3600" min="08:00" max="19:00" value="08:00"/>
+          <div class="campo-fila">
+            <div class="campo">
+              <label for="input-hora-inicio-apartado">Hora inicio</label>
+              <input type="time" id="input-hora-inicio-apartado" value="08:00"/>
+            </div>
+            <div class="campo">
+              <label for="input-hora-fin-apartado">Hora fin</label>
+              <input type="time" id="input-hora-fin-apartado" value="09:00"/>
+            </div>
           </div>
           <div class="campo">
             <label for="input-personas-apartado">Cuántas personas la ocuparán</label>
@@ -323,9 +342,14 @@
             <input type="text" id="input-oficio-apartado" placeholder="Ej. J-2026-112" maxlength="60"/>
           </div>
           <p class="campo-error" id="error-apartar-sala"></p>
-          <button class="btn-panel" id="btn-apartar-sala" onclick="apartarSala()">
-            <i class="ti ti-check"></i> Apartar sala
-          </button>
+          <div class="fila-botones-apartar">
+            <button class="btn-panel" id="btn-apartar-sala" onclick="apartarSala()">
+              <i class="ti ti-check"></i> Apartar sala
+            </button>
+            <button class="btn-panel btn-panel-secundario" id="btn-cancelar-edicion" onclick="cancelarEdicionApartado()" style="display:none;">
+              Cancelar edición
+            </button>
+          </div>
         </div>
 
       </div>
