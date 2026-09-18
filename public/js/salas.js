@@ -350,7 +350,10 @@ async function apartarSala() {
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
-    if (!res.ok) throw new Error(data.mensaje || 'No se pudo apartar la sala.');
+    if (!res.ok) {
+      if (res.status === 409 && (data.mensaje || '').includes('ya no existe')) await cargarSalas();
+      throw new Error(data.mensaje || 'No se pudo apartar la sala.');
+    }
 
     inputPersonas.value = '';
     inputDescripcion.value = '';
@@ -438,7 +441,7 @@ async function cargarHistorial() {
           <td>${h.descripcion || '—'}</td>
           <td>${h.no_oficio || '—'}</td>
           <td>${h.creado_por || '—'}</td>
-          <td><span class="badge-motivo ${h.motivo_eliminacion}">${h.motivo_eliminacion === 'vencido' ? 'Vencido' : 'Cancelado'}</span></td>
+          <td><span class="badge-motivo ${h.motivo_eliminacion}">${{ vencido: 'Vencido', cancelado: 'Cancelado', sala_eliminada: 'Sala eliminada' }[h.motivo_eliminacion] || h.motivo_eliminacion}</span></td>
           <td>${h.eliminado_por || '—'}</td>
           <td>${new Date(h.eliminado_en).toLocaleString('es-MX')}</td>
           <td><button class="btn-historial-borrar" title="Eliminar registro" onclick="eliminarHistorial(${h.id})"><i class="ti ti-trash"></i></button></td>

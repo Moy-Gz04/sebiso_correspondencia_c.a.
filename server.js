@@ -1532,13 +1532,23 @@ app.post('/api/salas', verifyToken, onlyGestionCompleta, async (req, res) => {
 });
 
 /* ══ DELETE /api/salas/:id — eliminar una sala del catálogo.
-   ON DELETE CASCADE en salas_apartados se encarga de quitar también
-   sus apartados vigentes (no quedan huérfanos ni bloqueando el
-   catálogo). No se tocan los registros que ya estén en salas_historial. */
+   Antes de borrar, cualquier apartado vigente de esa sala se registra
+   en salas_historial (motivo "sala_eliminada") para que no desaparezca
+   sin dejar rastro. Después, ON DELETE CASCADE en salas_apartados
+   limpia esos apartados junto con la sala. */
 app.delete('/api/salas/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const rows = await sql`DELETE FROM salas WHERE id = ${req.params.id} RETURNING id`;
-    if (!rows[0]) return res.status(404).json({ mensaje: 'Sala no encontrada.' });
+    const [sala] = await sql`SELECT * FROM salas WHERE id = ${req.params.id}`;
+    if (!sala) return res.status(404).json({ mensaje: 'Sala no encontrada.' });
+
+    const apartados = await sql`SELECT * FROM salas_apartados WHERE sala_id = ${sala.id}`;
+    for (const ap of apartados) {
+      await sql`
+        INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora, personas, descripcion, no_oficio, creado_por, motivo_eliminacion, eliminado_por)
+        VALUES (${ap.sala_id}, ${sala.nombre}, ${ap.fecha}, ${ap.hora}, ${ap.personas}, ${ap.descripcion}, ${ap.no_oficio}, ${ap.creado_por}, 'sala_eliminada', ${req.user.username})`;
+    }
+
+    await sql`DELETE FROM salas WHERE id = ${sala.id}`;
     res.json({ ok: true });
   } catch (err) {
     manejarError(res, err, 'Error al eliminar la sala.');
@@ -1592,6 +1602,9 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
 
     res.status(201).json(conNombre);
   } catch (err) {
+    if (err.code === '23503') {
+      return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
+    }
     if (err.code === '23505') {
       return res.status(409).json({ mensaje: 'Esa sala ya está apartada en esa fecha y hora. Elige otro horario.' });
     }
