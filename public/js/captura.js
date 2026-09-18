@@ -366,7 +366,7 @@ const CATALOGO_REMITENTE = [
   'L.A.P. José Luis González Martínez, Director de Logística y Operación de la Dirección General de los Servidores del Pueblo',
   'L.A.P. Luz María Luque Gómez, Subdirectora de Integración y Control de Información',
   'L.C. Iris Vianney Hernández Hernández, Subsecretaria de Egresos de la SH',
-  'Lic. Irma Iliana Hidalgo Lugo, Directora General de Recursos Humanos de la OM',
+  'L.C. Irma Iliana Hidalgo Lugo, Directora General de Recursos Humanos de la OM',
   'L.C. y M.P.P. Yolanda Ferreira Martínez, Secretaria del Comité de Adquisiciones, Arrendamientos y Servicios',
   'L.D. Luis Ricardo Olvera Molina, Director General del Instituto Hidalguense de la Juventud (IHJ)',
   'L.D. Manuel Alejandro Hernández Rivera, Líder de Proyecto del Programa Subsidio a Verificentros',
