@@ -281,10 +281,39 @@ function pintarTendedero() {
         <div class="ticket-info"><i class="ti ti-users"></i> ${ap.personas} persona${ap.personas === 1 ? '' : 's'}</div>
         <div class="ticket-info"><i class="ti ti-align-left"></i> ${ap.descripcion || 'Sin descripción'}</div>
         ${ap.no_oficio ? `<div class="ticket-info"><i class="ti ti-file-text"></i> ${ap.no_oficio}</div>` : ''}
-        ${ap.folio_nota ? `<div class="ticket-info"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</div>` : ''}
+        ${ap.folio_nota ? `<span class="ticket-nota-badge"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</span>` : ''}
         <span class="ticket-tag">${estatus}</span>
       </div>`;
   }).join('');
+}
+
+/* Extrae el fileId de una URL de Drive tipo
+   "https://drive.google.com/file/d/<ID>/view?usp=drivesdk". */
+function idDriveDesdeUrl(url) {
+  const m = url?.match(/\/file\/d\/([^/]+)/);
+  return m ? m[1] : null;
+}
+
+/* Arma la tarjeta de Nota del modal de detalle: folio + botón "Abrir en
+   Drive" siempre visibles, más una vista previa del PDF embebida con
+   iframe (Drive la sirve en /preview). Si el PDF no se pudo generar (o
+   el navegador no logra cargar el iframe — por ejemplo, cuenta sin
+   permiso sobre el archivo), el folio y el enlace de todos modos quedan
+   ahí, nunca se ve un hueco vacío. */
+function pintarTarjetaNota(ap) {
+  if (!ap.folio_nota) return '';
+  if (!ap.nota_pdf_url) {
+    return `
+      <div class="nota-card-head"><span class="folio"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</span></div>
+      <div class="nota-card-sinpdf"><i class="ti ti-alert-circle"></i> El PDF no se pudo generar automáticamente — contacta a soporte.</div>`;
+  }
+  const fileId = idDriveDesdeUrl(ap.nota_pdf_url);
+  return `
+    <div class="nota-card-head">
+      <span class="folio"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</span>
+      <a class="nota-card-abrir" href="${ap.nota_pdf_url}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i> Abrir en Drive</a>
+    </div>
+    ${fileId ? `<iframe class="nota-card-preview" src="https://drive.google.com/file/d/${fileId}/preview" allow="autoplay" loading="lazy"></iframe>` : ''}`;
 }
 
 /* Muestra el detalle ampliado de una tarjeta al hacer clic en ella
@@ -307,9 +336,7 @@ function verDetalleTicket(id) {
   document.getElementById('detalle-prestamo-fila').style.display = ap.prestamo ? '' : 'none';
   document.getElementById('detalle-prestamo').textContent = ap.prestamo || '';
   document.getElementById('detalle-nota-fila').style.display = ap.folio_nota ? '' : 'none';
-  document.getElementById('detalle-nota').innerHTML = ap.nota_pdf_url
-    ? `Nota ${ap.folio_nota} — <a href="${ap.nota_pdf_url}" target="_blank" rel="noopener">ver PDF</a>`
-    : `Nota ${ap.folio_nota || ''} <span style="opacity:.7;">(el PDF no se pudo generar; contacta a soporte)</span>`;
+  document.getElementById('detalle-nota-card').innerHTML = pintarTarjetaNota(ap);
   document.getElementById('detalle-estatus').textContent = vencido ? 'Listo para eliminar' : 'Próximo';
 
   document.getElementById('detalle-overlay').classList.add('visible');

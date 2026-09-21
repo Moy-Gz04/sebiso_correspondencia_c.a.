@@ -154,9 +154,43 @@
     .detalle-fila strong { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: .3px; opacity: .75; margin-bottom: 2px; }
     .detalle-tag { display: inline-block; margin-top: 6px; padding: 4px 10px; font-size: 0.75rem; font-weight: 700; border-radius: 4px; background: rgba(255,255,255,.55); text-transform: uppercase; letter-spacing: .3px; }
 
+    /* ── Tarjeta de Nota (folio + vista previa embebida del PDF) ──
+       Vive dentro del modal de detalle, no en el Post-it (un iframe por
+       cada tarjeta del tendedero sería pesado). El folio y el botón de
+       Drive quedan visibles aunque el iframe no cargue (cuenta sin
+       permiso, sin conexión, etc.), así nunca se ve un hueco vacío. */
+    .nota-card {
+      margin-top: 4px; margin-bottom: 14px; border-radius: 10px; overflow: hidden;
+      background: rgba(255,255,255,.55); border: 1px solid rgba(0,0,0,.08);
+    }
+    .nota-card-head {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 9px 12px; font-size: 0.8rem; font-weight: 700;
+    }
+    .nota-card-head .folio { display: flex; align-items: center; gap: 6px; }
+    .nota-card-abrir {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.72rem; font-weight: 700; text-decoration: none; color: inherit;
+      opacity: .8; padding: 3px 8px; border-radius: 5px; background: rgba(255,255,255,.6);
+      transition: opacity .15s ease;
+    }
+    .nota-card-abrir:hover { opacity: 1; }
+    .nota-card-preview {
+      width: 100%; aspect-ratio: 4 / 3; border: none; border-top: 1px solid rgba(0,0,0,.08);
+      background: rgba(255,255,255,.4); display: block;
+    }
+    .nota-card-sinpdf {
+      padding: 10px 12px; font-size: 0.8rem; opacity: .8; display: flex; align-items: center; gap: 6px;
+    }
+
     .ticket-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 8px; padding-right: 15px; }
     .ticket-info { font-size: 0.85rem; margin: 4px 0; display: flex; align-items: flex-start; gap: 6px; }
     .ticket-info i { margin-top: 1px; }
+    .ticket-nota-badge {
+      display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 0;
+      padding: 3px 9px; font-size: 0.74rem; font-weight: 700; border-radius: 999px;
+      background: rgba(255,255,255,.65); border: 1px solid rgba(0,0,0,.08);
+    }
     .ticket-tag {
       display: inline-block; margin-top: 10px; padding: 3px 8px; font-size: 0.72rem;
       font-weight: 700; border-radius: 4px; background: rgba(255, 255, 255, 0.55);
@@ -424,7 +458,10 @@
         <div class="detalle-fila"><i class="ti ti-align-left"></i><div><strong>Descripción del evento</strong><span id="detalle-descripcion"></span></div></div>
         <div class="detalle-fila" id="detalle-oficio-fila"><i class="ti ti-file-text"></i><div><strong>No. de Oficio</strong><span id="detalle-oficio"></span></div></div>
         <div class="detalle-fila" id="detalle-prestamo-fila"><i class="ti ti-microphone"></i><div><strong>Préstamo</strong><span id="detalle-prestamo"></span></div></div>
-        <div class="detalle-fila" id="detalle-nota-fila"><i class="ti ti-file-description"></i><div><strong>Nota</strong><span id="detalle-nota"></span></div></div>
+        <div id="detalle-nota-fila">
+          <strong style="display:block; font-size:0.72rem; text-transform:uppercase; letter-spacing:.3px; opacity:.75; margin-bottom:5px;">Nota</strong>
+          <div class="nota-card" id="detalle-nota-card"></div>
+        </div>
         <span class="detalle-tag" id="detalle-estatus"></span>
       </div>
     </div>
