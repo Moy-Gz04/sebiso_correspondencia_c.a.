@@ -341,33 +341,49 @@ async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, 
     console.warn('⚠️  APPS_SCRIPT_NOTA_URL no configurada: no se genera el PDF de la Nota.');
     return null;
   }
-  try {
-    const descripcionLimpia = await limpiarDescripcionConIA(descripcion, { fecha, horaInicio, horaFin, personas: np });
-    const resp = await fetch(process.env.APPS_SCRIPT_NOTA_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        action:    'generarNota',
-        notj,
-        sala,
-        np:        String(np),
-        hora:      formatearHoraNota(horaInicio, horaFin),
-        fecha:     formatearFechaNota(fecha),
-        asunto:    construirAsuntoNota(descripcionLimpia),
-        solicitud: construirSolicitudNota(prestamo),
-      }),
-      redirect: 'follow',
-    });
-    const data = await resp.json();
-    if (!data.ok) {
-      console.error('⚠️  Apps Script no pudo generar la Nota:', data.error);
-      return null;
+
+  const descripcionLimpia = await limpiarDescripcionConIA(descripcion, { fecha, horaInicio, horaFin, personas: np });
+  const payload = {
+    action:    'generarNota',
+    notj,
+    sala,
+    np:        String(np),
+    hora:      formatearHoraNota(horaInicio, horaFin),
+    fecha:     formatearFechaNota(fecha),
+    asunto:    construirAsuntoNota(descripcionLimpia),
+    solicitud: construirSolicitudNota(prestamo),
+  };
+
+  // Igual que con Gemini: Apps Script a veces responde con una página de
+  // error HTML de Google en vez de mi JSON (visto en producción — fallo
+  // de infraestructura pasajero, no del código). Un segundo intento casi
+  // siempre lo resuelve.
+  for (let intento = 1; intento <= 2; intento++) {
+    try {
+      const resp = await fetch(process.env.APPS_SCRIPT_NOTA_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+        redirect: 'follow',
+      });
+      const contentType = resp.headers.get('content-type') || '';
+      if (!contentType.includes('json')) {
+        const texto = await resp.text();
+        console.error(`⚠️  Intento ${intento}/2: Apps Script respondió algo que no es JSON (status ${resp.status}):`, texto.slice(0, 300));
+        continue;
+      }
+      const data = await resp.json();
+      if (!data.ok) {
+        console.error(`⚠️  Intento ${intento}/2: Apps Script no pudo generar la Nota:`, data.error);
+        continue;
+      }
+      return data.url;
+    } catch (err) {
+      console.error(`⚠️  Intento ${intento}/2 al llamar a APPS_SCRIPT_NOTA_URL falló:`, err.message);
     }
-    return data.url;
-  } catch (err) {
-    console.error('⚠️  Error al llamar a APPS_SCRIPT_NOTA_URL:', err.message);
-    return null;
   }
+  console.error('⚠️  No se pudo generar el PDF de la Nota tras 2 intentos.');
+  return null;
 }
 
 /* ── JWT ── */
