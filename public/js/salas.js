@@ -366,30 +366,6 @@ function ocultarCargando() {
   document.getElementById('cargando-overlay').classList.remove('visible');
 }
 
-/* El PDF de la Nota se genera en el servidor después de responder (ver
-   POST /api/salas/apartados). Revisa el apartado recién creado cada 4s,
-   hasta 8 veces (32s), y en cuanto trae nota_pdf_url refresca el
-   tendedero para que la tarjeta/detalle lo muestren sin recargar la
-   página. Si se agotan los intentos, se queda como está — el usuario
-   puede refrescar manualmente más tarde y ya debería estar. */
-async function refrescarHastaQueLlegueLaNota(id, intento = 1) {
-  if (intento > 8) return;
-  await new Promise(r => setTimeout(r, 4000));
-  try {
-    const res = await fetch(`${API}/salas/apartados`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
-    if (!res.ok) return;
-    const lista = await res.json();
-    const ap = lista.find(a => a.id === id);
-    if (ap && ap.nota_pdf_url) {
-      APARTADOS = lista;
-      pintarTendedero();
-      if (document.getElementById('detalle-overlay').classList.contains('visible')) verDetalleTicket(id);
-      return;
-    }
-  } catch { /* red caída u otro fallo pasajero: se reintenta igual */ }
-  refrescarHastaQueLlegueLaNota(id, intento + 1);
-}
-
 async function apartarSala() {
   const selectSala = document.getElementById('select-sala');
   const inputFecha = document.getElementById('input-fecha-apartado');
@@ -425,7 +401,7 @@ async function apartarSala() {
   btn.disabled = true;
   mostrarCargando(
     editando ? 'Guardando cambios…' : 'Apartando sala…',
-    'Un momento, por favor.'
+    editando ? 'Un momento, por favor.' : 'Generando la Nota (PDF). Esto puede tardar unos segundos.'
   );
   try {
     const res = await fetch(`${API}/salas/apartados${editando ? '/' + EDITANDO_ID : ''}`, {
@@ -450,15 +426,13 @@ async function apartarSala() {
     await cargarApartados();
     ocultarCargando(); // antes de mostrar el aviso de éxito, para que no se amontonen las dos ventanas
 
-    // El PDF de la Nota se genera en el servidor DESPUÉS de responder (no
-    // se espera aquí — ver comentario en POST /api/salas/apartados). Si
-    // el apartado es nuevo y todavía no trae nota_pdf_url, se revisa unas
-    // cuantas veces en segundo plano y el tendedero se actualiza solo en
-    // cuanto esté listo, sin que la persona tenga que hacer nada.
-    if (!editando && data.folio_nota && !data.nota_pdf_url) refrescarHastaQueLlegueLaNota(data.id);
-
-    const notaMsg = !editando && data.folio_nota
-      ? ` Nota ${data.folio_nota} en camino — aparecerá en la tarjeta en unos segundos.`
+    // El servidor ya esperó a que el PDF estuviera listo antes de
+    // responder (ver POST /api/salas/apartados), así que aquí data ya
+    // trae nota_pdf_url si todo salió bien.
+    const notaMsg = !editando
+      ? (data.nota_pdf_url
+          ? ` Nota ${data.folio_nota} generada.`
+          : (data.folio_nota ? ` Nota ${data.folio_nota} asignada (el PDF no se pudo generar automáticamente; contacta a soporte).` : ''))
       : '';
     await sbisAlert({
       titulo: editando ? 'Apartado actualizado' : 'Sala apartada',
