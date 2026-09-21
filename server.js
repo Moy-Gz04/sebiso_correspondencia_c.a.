@@ -1751,10 +1751,16 @@ app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, re
 /* ══ POST /api/salas/apartados — apartar una sala.
    Body: { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion,
            no_oficio, prestamo }
-   Además de guardar el apartado, genera automáticamente el PDF de la Nota
-   (folio propio <<NOTJ>>, ver generarNotaSalaPDF) y lo deja enlazado en
-   folio_nota / nota_pdf_url. Si Drive/Apps Script falla, el apartado se
-   guarda igual — solo queda sin nota_pdf_url. ══ */
+   El apartado se guarda y se responde de inmediato, con el folio de Nota
+   ya asignado pero SIN esperar el PDF: generarlo implica una llamada a
+   Gemini (limpiar la redacción) más otra a Apps Script (llenar la
+   plantilla y exportar), y sumadas pueden tardar más de lo razonable
+   para que la persona se quede viendo una ventana de carga. El PDF se
+   genera después, en segundo plano, y actualiza el registro
+   (nota_pdf_url) cuando está listo — el frontend lo revisa con un par de
+   consultas cortas tras crear el apartado (ver cargarApartados en
+   salas.js). Si Drive/Apps Script falla, el apartado queda igual, solo
+   sin nota_pdf_url. ══ */
 app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
     const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo } = req.body || {};
@@ -1779,17 +1785,25 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     if (!sala) return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
 
     const folioNota = await siguienteNotaAutomatica();
-    const notaPdfUrl = await generarNotaSalaPDF({
-      notj: folioNota, sala: sala.nombre, np: numPersonas,
-      horaInicio: hora_inicio, horaFin: hora_fin, fecha, descripcion: desc, prestamo: solicitudPrestamo,
-    });
 
     const [nuevo] = await sql`
       INSERT INTO salas_apartados
-        (sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota, nota_pdf_url, creado_por)
+        (sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota, creado_por)
       VALUES
-        (${sala_id}, ${fecha}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${solicitudPrestamo}, ${folioNota}, ${notaPdfUrl}, ${req.user.username})
+        (${sala_id}, ${fecha}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${solicitudPrestamo}, ${folioNota}, ${req.user.username})
       RETURNING *`;
+
+    // Sin await: sigue corriendo después de responder. Si el apartado se
+    // borra antes de que termine, el UPDATE simplemente no afecta ninguna
+    // fila (no hace falta comprobarlo).
+    generarNotaSalaPDF({
+      notj: folioNota, sala: sala.nombre, np: numPersonas,
+      horaInicio: hora_inicio, horaFin: hora_fin, fecha, descripcion: desc, prestamo: solicitudPrestamo,
+    }).then(async (notaPdfUrl) => {
+      if (notaPdfUrl) {
+        await sql`UPDATE salas_apartados SET nota_pdf_url = ${notaPdfUrl} WHERE id = ${nuevo.id}`;
+      }
+    }).catch(err => console.error('⚠️  Error generando la Nota en segundo plano:', err.message));
 
     const [conNombre] = await sql`
       SELECT sa.*, s.nombre AS sala_nombre
