@@ -26,6 +26,12 @@ if (process.env.APPS_SCRIPT_URL) {
   const m = process.env.APPS_SCRIPT_URL.match(/https?:\/\/\S+/);
   process.env.APPS_SCRIPT_URL = m ? m[0].replace(/['"]+$/, '').trim() : '';
 }
+/* Mismo saneo para el Apps Script dedicado a generar el PDF de la Nota
+   al apartar una Sala (proyecto separado de APPS_SCRIPT_URL). */
+if (process.env.APPS_SCRIPT_NOTA_URL) {
+  const m = process.env.APPS_SCRIPT_NOTA_URL.match(/https?:\/\/\S+/);
+  process.env.APPS_SCRIPT_NOTA_URL = m ? m[0].replace(/['"]+$/, '').trim() : '';
+}
 
 if (!process.env.DATABASE_URL) { console.error('❌  Falta DATABASE_URL'); process.exit(1); }
 if (!process.env.JWT_SECRET)   { console.error('❌  Falta JWT_SECRET');   process.exit(1); }
@@ -191,6 +197,82 @@ async function subirArchivoADrive(file) {
   const data = await resp.json();
   if (!data.ok) throw new Error(data.error || 'No se pudo subir el archivo a Drive.');
   return data.url;
+}
+
+/* ══ NOTA DE APARTADO DE SALA ══
+   Al apartar una sala se genera un PDF (plantilla de Google Docs llenada
+   vía Apps Script, ver APPS_SCRIPT_NOTA_URL) con folio <<NOTJ>> propio,
+   consecutivo y automático — nota_seq nunca retrocede, igual que
+   no_oficio_seq/circular_seq. La última Nota en papel (fuera del
+   sistema) fue la 0076, por eso la secuencia arranca en 77. */
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio',
+  'agosto','septiembre','octubre','noviembre','diciembre'];
+
+async function siguienteNotaAutomatica() {
+  const [{ siguiente }] = await sql`SELECT nextval('nota_seq') AS siguiente`;
+  return String(siguiente).padStart(4, '0');
+}
+
+/* "15:00" -> "en un horario de 15:00 a 17:00 horas" */
+function formatearHoraNota(horaInicio, horaFin) {
+  const corta = (h) => String(h).slice(0, 5); // "15:00:00" -> "15:00"
+  return `en un horario de ${corta(horaInicio)} a ${corta(horaFin)} horas`;
+}
+
+/* Date/"YYYY-MM-DD" -> "el próximo 18 de septiembre de 2026" */
+function formatearFechaNota(fechaISO) {
+  const fecha = typeof fechaISO === 'string' ? fechaISO.slice(0, 10) : fechaISO.toISOString().slice(0, 10);
+  const [anio, mes, dia] = fecha.split('-').map(Number);
+  return `el próximo ${dia} de ${MESES_ES[mes - 1]} de ${anio}`;
+}
+
+/* Descripción del evento -> "Lo anterior, con la finalidad de <descripción>" */
+function construirAsuntoNota(descripcion) {
+  return `Lo anterior, con la finalidad de ${descripcion.trim()}`;
+}
+
+/* Préstamo (opcional) -> "Asimismo, solicitamos el préstamo de <préstamo>." */
+function construirSolicitudNota(prestamo) {
+  const texto = prestamo?.trim();
+  if (!texto) return '';
+  return `Asimismo, solicitamos el préstamo de ${texto}.`;
+}
+
+/* Llama al Apps Script dedicado (Tarjeta_sala) para llenar la plantilla y
+   generar el PDF. Si APPS_SCRIPT_NOTA_URL no está configurada, o Drive
+   falla, no se revienta el apartado completo: se registra el aviso y el
+   apartado queda sin nota_pdf_url (se puede reintentar más adelante). */
+async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, descripcion, prestamo }) {
+  if (!process.env.APPS_SCRIPT_NOTA_URL) {
+    console.warn('⚠️  APPS_SCRIPT_NOTA_URL no configurada: no se genera el PDF de la Nota.');
+    return null;
+  }
+  try {
+    const resp = await fetch(process.env.APPS_SCRIPT_NOTA_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        action:    'generarNota',
+        notj,
+        sala,
+        np:        String(np),
+        hora:      formatearHoraNota(horaInicio, horaFin),
+        fecha:     formatearFechaNota(fecha),
+        asunto:    construirAsuntoNota(descripcion),
+        solicitud: construirSolicitudNota(prestamo),
+      }),
+      redirect: 'follow',
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+      console.error('⚠️  Apps Script no pudo generar la Nota:', data.error);
+      return null;
+    }
+    return data.url;
+  } catch (err) {
+    console.error('⚠️  Error al llamar a APPS_SCRIPT_NOTA_URL:', err.message);
+    return null;
+  }
 }
 
 /* ── JWT ── */
@@ -1572,10 +1654,15 @@ app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, re
 });
 
 /* ══ POST /api/salas/apartados — apartar una sala.
-   Body: { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion } ══ */
+   Body: { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion,
+           no_oficio, prestamo }
+   Además de guardar el apartado, genera automáticamente el PDF de la Nota
+   (folio propio <<NOTJ>>, ver generarNotaSalaPDF) y lo deja enlazado en
+   folio_nota / nota_pdf_url. Si Drive/Apps Script falla, el apartado se
+   guarda igual — solo queda sin nota_pdf_url. ══ */
 app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio } = req.body || {};
+    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo } = req.body || {};
     if (!sala_id || !fecha || !hora_inicio || !hora_fin) {
       return res.status(400).json({ mensaje: 'Sala, fecha, hora de inicio y hora de fin son obligatorios.' });
     }
@@ -1591,10 +1678,22 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
       return res.status(400).json({ mensaje: 'La descripción del evento es obligatoria.' });
     }
     const oficio = no_oficio?.trim() || null;
+    const solicitudPrestamo = prestamo?.trim() || null;
+
+    const [sala] = await sql`SELECT nombre FROM salas WHERE id = ${sala_id}`;
+    if (!sala) return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
+
+    const folioNota = await siguienteNotaAutomatica();
+    const notaPdfUrl = await generarNotaSalaPDF({
+      notj: folioNota, sala: sala.nombre, np: numPersonas,
+      horaInicio: hora_inicio, horaFin: hora_fin, fecha, descripcion: desc, prestamo: solicitudPrestamo,
+    });
 
     const [nuevo] = await sql`
-      INSERT INTO salas_apartados (sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, creado_por)
-      VALUES (${sala_id}, ${fecha}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${req.user.username})
+      INSERT INTO salas_apartados
+        (sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota, nota_pdf_url, creado_por)
+      VALUES
+        (${sala_id}, ${fecha}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${solicitudPrestamo}, ${folioNota}, ${notaPdfUrl}, ${req.user.username})
       RETURNING *`;
 
     const [conNombre] = await sql`
@@ -1620,7 +1719,7 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
    (compara contra las demás filas, no contra sí misma). ══ */
 app.put('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio } = req.body || {};
+    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo } = req.body || {};
     if (!sala_id || !fecha || !hora_inicio || !hora_fin) {
       return res.status(400).json({ mensaje: 'Sala, fecha, hora de inicio y hora de fin son obligatorios.' });
     }
@@ -1636,11 +1735,15 @@ app.put('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (req
       return res.status(400).json({ mensaje: 'La descripción del evento es obligatoria.' });
     }
     const oficio = no_oficio?.trim() || null;
+    const solicitudPrestamo = prestamo?.trim() || null;
 
+    // No se regenera el PDF de la Nota al editar (folio_nota/nota_pdf_url
+    // quedan igual) — evitaría gastar un folio nuevo cada vez que se
+    // corrige un dato. Si hace falta regenerarla, se hace aparte.
     const rows = await sql`
       UPDATE salas_apartados
       SET sala_id = ${sala_id}, fecha = ${fecha}, hora_inicio = ${hora_inicio}, hora_fin = ${hora_fin},
-          personas = ${numPersonas}, descripcion = ${desc}, no_oficio = ${oficio}
+          personas = ${numPersonas}, descripcion = ${desc}, no_oficio = ${oficio}, prestamo = ${solicitudPrestamo}
       WHERE id = ${req.params.id}
       RETURNING id`;
     if (!rows[0]) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
@@ -1680,8 +1783,8 @@ app.delete('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (
     const motivoEliminacion = finApartado < new Date() ? 'vencido' : 'cancelado';
 
     await sql`
-      INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, creado_por, motivo_eliminacion, eliminado_por)
-      VALUES (${apartado.sala_id}, ${apartado.sala_nombre}, ${apartado.fecha}, ${apartado.hora_inicio}, ${apartado.hora_fin}, ${apartado.personas}, ${apartado.descripcion}, ${apartado.no_oficio}, ${apartado.creado_por}, ${motivoEliminacion}, ${req.user.username})`;
+      INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota, nota_pdf_url, creado_por, motivo_eliminacion, eliminado_por)
+      VALUES (${apartado.sala_id}, ${apartado.sala_nombre}, ${apartado.fecha}, ${apartado.hora_inicio}, ${apartado.hora_fin}, ${apartado.personas}, ${apartado.descripcion}, ${apartado.no_oficio}, ${apartado.prestamo}, ${apartado.folio_nota}, ${apartado.nota_pdf_url}, ${apartado.creado_por}, ${motivoEliminacion}, ${req.user.username})`;
 
     await sql`DELETE FROM salas_apartados WHERE id = ${req.params.id}`;
     res.json({ ok: true, motivo_eliminacion: motivoEliminacion });

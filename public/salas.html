@@ -341,6 +341,10 @@
             <label for="input-oficio-apartado">No. de Oficio (opcional)</label>
             <input type="text" id="input-oficio-apartado" placeholder="Ej. J-2026-112" maxlength="60"/>
           </div>
+          <div class="campo">
+            <label for="input-prestamo-apartado">Préstamo (opcional)</label>
+            <input type="text" id="input-prestamo-apartado" placeholder="Ej. 1 micrófono" maxlength="500"/>
+          </div>
           <p class="campo-error" id="error-apartar-sala"></p>
           <div class="fila-botones-apartar">
             <button class="btn-panel" id="btn-apartar-sala" onclick="apartarSala()">
@@ -365,12 +369,12 @@
         <table class="tabla-historial">
           <thead>
             <tr>
-              <th>Sala</th><th>Fecha</th><th>Hora</th><th>Personas</th><th>Descripción</th><th>No. Oficio</th>
+              <th>Sala</th><th>Fecha</th><th>Hora</th><th>Personas</th><th>Descripción</th><th>No. Oficio</th><th>Nota</th>
               <th>Registrado por</th><th>Motivo</th><th>Eliminado por</th><th>Cuándo</th><th></th>
             </tr>
           </thead>
           <tbody id="historial-tbody">
-            <tr><td colspan="11" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>
+            <tr><td colspan="12" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>
           </tbody>
         </table>
       </div>
@@ -419,6 +423,8 @@
         <div class="detalle-fila"><i class="ti ti-users"></i><div><strong>Personas</strong><span id="detalle-personas"></span></div></div>
         <div class="detalle-fila"><i class="ti ti-align-left"></i><div><strong>Descripción del evento</strong><span id="detalle-descripcion"></span></div></div>
         <div class="detalle-fila" id="detalle-oficio-fila"><i class="ti ti-file-text"></i><div><strong>No. de Oficio</strong><span id="detalle-oficio"></span></div></div>
+        <div class="detalle-fila" id="detalle-prestamo-fila"><i class="ti ti-microphone"></i><div><strong>Préstamo</strong><span id="detalle-prestamo"></span></div></div>
+        <div class="detalle-fila" id="detalle-nota-fila"><i class="ti ti-file-description"></i><div><strong>Nota</strong><span id="detalle-nota"></span></div></div>
         <span class="detalle-tag" id="detalle-estatus"></span>
       </div>
     </div>

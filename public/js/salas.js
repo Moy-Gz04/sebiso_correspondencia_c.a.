@@ -281,6 +281,7 @@ function pintarTendedero() {
         <div class="ticket-info"><i class="ti ti-users"></i> ${ap.personas} persona${ap.personas === 1 ? '' : 's'}</div>
         <div class="ticket-info"><i class="ti ti-align-left"></i> ${ap.descripcion || 'Sin descripción'}</div>
         ${ap.no_oficio ? `<div class="ticket-info"><i class="ti ti-file-text"></i> ${ap.no_oficio}</div>` : ''}
+        ${ap.folio_nota ? `<div class="ticket-info"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</div>` : ''}
         <span class="ticket-tag">${estatus}</span>
       </div>`;
   }).join('');
@@ -303,6 +304,12 @@ function verDetalleTicket(id) {
   document.getElementById('detalle-descripcion').textContent = ap.descripcion || 'Sin descripción';
   document.getElementById('detalle-oficio-fila').style.display = ap.no_oficio ? '' : 'none';
   document.getElementById('detalle-oficio').textContent = ap.no_oficio || '';
+  document.getElementById('detalle-prestamo-fila').style.display = ap.prestamo ? '' : 'none';
+  document.getElementById('detalle-prestamo').textContent = ap.prestamo || '';
+  document.getElementById('detalle-nota-fila').style.display = ap.folio_nota ? '' : 'none';
+  document.getElementById('detalle-nota').innerHTML = ap.nota_pdf_url
+    ? `Nota ${ap.folio_nota} — <a href="${ap.nota_pdf_url}" target="_blank" rel="noopener">ver PDF</a>`
+    : `Nota ${ap.folio_nota || ''} <span style="opacity:.7;">(el PDF no se pudo generar; contacta a soporte)</span>`;
   document.getElementById('detalle-estatus').textContent = vencido ? 'Listo para eliminar' : 'Próximo';
 
   document.getElementById('detalle-overlay').classList.add('visible');
@@ -328,6 +335,7 @@ async function apartarSala() {
   const inputPersonas = document.getElementById('input-personas-apartado');
   const inputDescripcion = document.getElementById('input-descripcion-apartado');
   const inputOficio = document.getElementById('input-oficio-apartado');
+  const inputPrestamo = document.getElementById('input-prestamo-apartado');
   const errorEl = document.getElementById('error-apartar-sala');
   const btn = document.getElementById('btn-apartar-sala');
 
@@ -340,6 +348,7 @@ async function apartarSala() {
   const personas = parseInt(inputPersonas.value, 10);
   const descripcion = inputDescripcion.value.trim();
   const no_oficio = inputOficio.value.trim();
+  const prestamo = inputPrestamo.value.trim();
 
   if (!sala_id)      { errorEl.textContent = 'Registra o selecciona una sala primero.'; return; }
   if (!fecha)        { errorEl.textContent = 'Selecciona una fecha.'; return; }
@@ -355,7 +364,7 @@ async function apartarSala() {
     const res = await fetch(`${API}/salas/apartados${editando ? '/' + EDITANDO_ID : ''}`, {
       method: editando ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-      body: JSON.stringify({ sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio }),
+      body: JSON.stringify({ sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo }),
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
@@ -368,13 +377,19 @@ async function apartarSala() {
       inputPersonas.value = '';
       inputDescripcion.value = '';
       inputOficio.value = '';
+      inputPrestamo.value = '';
     }
 
     await cargarApartados();
 
+    const notaMsg = !editando
+      ? (data.nota_pdf_url
+          ? ` Nota ${data.folio_nota} generada.`
+          : (data.folio_nota ? ` Nota ${data.folio_nota} asignada (el PDF no se pudo generar automáticamente; contacta a soporte).` : ''))
+      : '';
     await sbisAlert({
       titulo: editando ? 'Apartado actualizado' : 'Sala apartada',
-      mensaje: `${data.sala_nombre} — ${formatearFechaCorta(fecha)} de ${hora_inicio} a ${hora_fin}.`,
+      mensaje: `${data.sala_nombre} — ${formatearFechaCorta(fecha)} de ${hora_inicio} a ${hora_fin}.${notaMsg}`,
       tipo: 'success',
     });
   } catch (err) {
@@ -398,6 +413,7 @@ function editarApartado(id) {
   document.getElementById('input-personas-apartado').value = ap.personas;
   document.getElementById('input-descripcion-apartado').value = ap.descripcion || '';
   document.getElementById('input-oficio-apartado').value = ap.no_oficio || '';
+  document.getElementById('input-prestamo-apartado').value = ap.prestamo || '';
   document.getElementById('error-apartar-sala').textContent = '';
 
   document.getElementById('titulo-panel-apartar').innerHTML = '<i class="ti ti-pencil"></i> Editar Apartado';
@@ -416,6 +432,7 @@ function cancelarEdicionApartado() {
   document.getElementById('input-personas-apartado').value = '';
   document.getElementById('input-descripcion-apartado').value = '';
   document.getElementById('input-oficio-apartado').value = '';
+  document.getElementById('input-prestamo-apartado').value = '';
 }
 
 /* Quita una tarjeta del tendedero. Si ya venció (ya pasó su hora de
@@ -486,15 +503,16 @@ async function cargarHistorial() {
           <td>${h.personas ?? '—'}</td>
           <td>${h.descripcion || '—'}</td>
           <td>${h.no_oficio || '—'}</td>
+          <td>${h.folio_nota ? (h.nota_pdf_url ? `<a href="${h.nota_pdf_url}" target="_blank" rel="noopener">Nota ${h.folio_nota}</a>` : `Nota ${h.folio_nota}`) : '—'}</td>
           <td>${h.creado_por || '—'}</td>
           <td><span class="badge-motivo ${h.motivo_eliminacion}">${{ vencido: 'Vencido', cancelado: 'Cancelado', sala_eliminada: 'Sala eliminada' }[h.motivo_eliminacion] || h.motivo_eliminacion}</span></td>
           <td>${h.eliminado_por || '—'}</td>
           <td>${new Date(h.eliminado_en).toLocaleString('es-MX')}</td>
           <td><button class="btn-historial-borrar" title="Eliminar registro" onclick="eliminarHistorial(${h.id})"><i class="ti ti-trash"></i></button></td>
         </tr>`).join('')
-      : '<tr><td colspan="11" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>';
+      : '<tr><td colspan="12" style="text-align:center; color:#b7aeb2;">Sin movimientos todavía.</td></tr>';
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:#c62828;">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; color:#c62828;">${err.message}</td></tr>`;
   }
 }
 
