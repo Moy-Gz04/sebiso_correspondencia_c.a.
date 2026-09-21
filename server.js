@@ -208,7 +208,19 @@ async function subirArchivoADrive(file) {
 const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio',
   'agosto','septiembre','octubre','noviembre','diciembre'];
 
+/* Igual mecánica que no_oficio/circular: antes de gastar un folio nuevo
+   de nota_seq, revisa si hay alguno liberado (nota_liberados — se llena
+   al eliminar PERMANENTEMENTE un registro del historial que traía Nota,
+   ver DELETE /api/salas/historial/:id) y reutiliza el más chico. Así
+   "0077" liberado se vuelve a asignar en la siguiente sala apartada, en
+   vez de dejarlo perdido para siempre. */
 async function siguienteNotaAutomatica() {
+  const [liberado] = await sql`
+    DELETE FROM nota_liberados
+    WHERE folio_nota = (SELECT folio_nota FROM nota_liberados ORDER BY folio_nota ASC LIMIT 1)
+    RETURNING folio_nota`;
+  if (liberado) return liberado.folio_nota;
+
   const [{ siguiente }] = await sql`SELECT nextval('nota_seq') AS siguiente`;
   return String(siguiente).padStart(4, '0');
 }
@@ -1804,10 +1816,22 @@ app.get('/api/salas/historial', verifyToken, onlyGestionCompleta, async (req, re
 });
 
 /* ══ DELETE /api/salas/historial/:id — borrar un registro del historial ══ */
+/* Al eliminar PERMANENTEMENTE un registro del historial (el que ya trae
+   fecha/motivo/quién lo quitó), si tenía folio de Nota se libera: queda
+   disponible para que siguienteNotaAutomatica() lo reasigne en la
+   siguiente sala apartada, en vez de perderse para siempre. */
 app.delete('/api/salas/historial/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const rows = await sql`DELETE FROM salas_historial WHERE id = ${req.params.id} RETURNING id`;
+    const rows = await sql`DELETE FROM salas_historial WHERE id = ${req.params.id} RETURNING folio_nota`;
     if (!rows[0]) return res.status(404).json({ mensaje: 'Registro de historial no encontrado.' });
+
+    if (rows[0].folio_nota) {
+      await sql`
+        INSERT INTO nota_liberados (folio_nota, liberado_por)
+        VALUES (${rows[0].folio_nota}, ${req.user.username})
+        ON CONFLICT (folio_nota) DO NOTHING`;
+    }
+
     res.json({ ok: true });
   } catch (err) {
     manejarError(res, err, 'Error al eliminar el registro del historial.');
