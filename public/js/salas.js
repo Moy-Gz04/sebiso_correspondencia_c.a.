@@ -354,6 +354,18 @@ function refrescarEstatusTendedero() {
 }
 setInterval(refrescarEstatusTendedero, 60000);
 
+/* Ventana "Apartando sala…" — evita que la pantalla se quede estática
+   mientras el servidor asigna el folio y genera el PDF de la Nota
+   (llamada a Apps Script, puede tardar unos segundos). */
+function mostrarCargando(titulo, sub) {
+  document.getElementById('cargando-titulo').textContent = titulo;
+  document.getElementById('cargando-sub').textContent = sub;
+  document.getElementById('cargando-overlay').classList.add('visible');
+}
+function ocultarCargando() {
+  document.getElementById('cargando-overlay').classList.remove('visible');
+}
+
 async function apartarSala() {
   const selectSala = document.getElementById('select-sala');
   const inputFecha = document.getElementById('input-fecha-apartado');
@@ -387,6 +399,10 @@ async function apartarSala() {
 
   const editando = EDITANDO_ID !== null;
   btn.disabled = true;
+  mostrarCargando(
+    editando ? 'Guardando cambios…' : 'Apartando sala…',
+    editando ? 'Un momento, por favor.' : 'Generando la Nota (PDF). Esto puede tardar unos segundos.'
+  );
   try {
     const res = await fetch(`${API}/salas/apartados${editando ? '/' + EDITANDO_ID : ''}`, {
       method: editando ? 'PUT' : 'POST',
@@ -423,6 +439,7 @@ async function apartarSala() {
     errorEl.textContent = err.message;
   } finally {
     btn.disabled = false;
+    ocultarCargando();
   }
 }
 

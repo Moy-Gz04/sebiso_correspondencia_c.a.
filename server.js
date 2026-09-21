@@ -238,7 +238,89 @@ function formatearFechaNota(fechaISO) {
   return `el próximo ${dia} de ${MESES_ES[mes - 1]} de ${anio}`;
 }
 
-/* Descripción del evento -> "Lo anterior, con la finalidad de <descripción>" */
+/* La "Descripción del evento" la escribe cualquier persona, en cualquier
+   forma: desde una frase corta ("Reunión de área") hasta un oficio
+   completo ya redactado a mano, con SU PROPIA fecha/hora/número de
+   personas — que puede no coincidir con lo que esa misma persona
+   capturó en los campos estructurados de arriba (fecha, hora, personas).
+   Antes de pegarla tal cual después de "Lo anterior, con la finalidad
+   de...", se manda a limpiar con Gemini: que la reduzca a una sola frase
+   coherente, sin repetir ni contradecir los datos estructurados (esos
+   datos, no lo que diga el texto libre, son la fuente de verdad). Si no
+   hay GEMINI_API_KEY, o la IA falla o tarda más de 12s, se usa la
+   descripción tal cual (mismo comportamiento que antes) — nunca bloquea
+   el apartado de la sala. */
+async function limpiarDescripcionConIA(descripcionCruda, { fecha, horaInicio, horaFin, personas }) {
+  if (!process.env.GEMINI_API_KEY) return descripcionCruda;
+
+  const prompt = `Eres un asistente que ayuda a redactar oficios de gobierno en México.
+
+Se va a generar un oficio con dos párrafos. El PRIMER párrafo (ya redactado, no lo tocas) dice algo como:
+"...con capacidad para ${personas} personas, en un horario de ${formatearHoraNota(horaInicio, horaFin)}, ${formatearFechaNota(fecha)}."
+
+El SEGUNDO párrafo empieza con "Lo anterior, con la finalidad de " y tú debes completarlo. Te doy la descripción del evento tal como la escribió la persona que apartó la sala (puede venir corta y limpia, o puede venir como un oficio completo ya redactado, con su propia fecha/hora/número de personas que puede NO coincidir con los datos de arriba):
+
+"""${descripcionCruda.trim()}"""
+
+Tu tarea: escribe UNA SOLA frase corta en español formal que complete naturalmente "Lo anterior, con la finalidad de ___." Reglas estrictas:
+- Los datos verdaderos son los del primer párrafo (fecha ${formatearFechaNota(fecha)}, horario ${formatearHoraNota(horaInicio, horaFin)}, ${personas} personas). Si el texto de la persona menciona otra fecha, hora o número de personas, IGNÓRALOS — no los repitas ni los seas fiel a ellos.
+- No inventes datos (nombres, cargos, motivos) que no estén en el texto.
+- No repitas la fecha, la hora ni el número de personas — ya están en el primer párrafo.
+- Devuelve SOLO la frase (sin comillas, sin "Lo anterior...", sin punto final si ya no hace falta, sin explicaciones ni notas).`;
+
+  /* gemini-3.1-flash-lite: se probaron primero gemini-3.6-flash (modelo
+     "razonador" — gastaba cientos de tokens "pensando" antes de escribir
+     la respuesta, con latencias de 4 a 30+ segundos y errores 503 de
+     "alta demanda" por ser un modelo preview) y gemini-2.5-flash/-lite
+     (ya no disponibles para cuentas nuevas). flash-lite no "piensa", responde
+     consistente en ~1s y con buena calidad para una frase corta como
+     esta — se queda con timeout generoso (15s) solo como red de
+     seguridad, no porque se espere tardar tanto. */
+  async function intentar() {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 1024 },
+          }),
+          signal: controller.signal,
+        }
+      );
+      const data = await resp.json();
+      const texto = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('')?.trim();
+      if (!texto) {
+        console.warn('⚠️  Gemini no devolvió texto útil (finishReason=' + data?.candidates?.[0]?.finishReason + '):', JSON.stringify(data).slice(0, 300));
+        return null;
+      }
+      return texto.replace(/^["']|["']$/g, ''); // por si la envuelve en comillas
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // Un reintento antes de rendirse: la variabilidad del modelo hace que un
+  // segundo intento tenga buenas probabilidades de salir rápido y limpio
+  // aunque el primero se haya ido a MAX_TOKENS o al timeout.
+  for (let intento = 1; intento <= 2; intento++) {
+    try {
+      const texto = await intentar();
+      if (texto) return texto;
+    } catch (err) {
+      console.error(`⚠️  Intento ${intento}/2 al limpiar la descripción con Gemini falló:`, err.message);
+    }
+  }
+  console.warn('⚠️  No se pudo limpiar la descripción con Gemini tras 2 intentos, se usa tal cual.');
+  return descripcionCruda;
+}
+
+/* Descripción del evento (ya limpia, ver limpiarDescripcionConIA) ->
+   "Lo anterior, con la finalidad de <descripción>" */
 function construirAsuntoNota(descripcion) {
   return `Lo anterior, con la finalidad de ${descripcion.trim()}`;
 }
@@ -260,6 +342,7 @@ async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, 
     return null;
   }
   try {
+    const descripcionLimpia = await limpiarDescripcionConIA(descripcion, { fecha, horaInicio, horaFin, personas: np });
     const resp = await fetch(process.env.APPS_SCRIPT_NOTA_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -270,7 +353,7 @@ async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, 
         np:        String(np),
         hora:      formatearHoraNota(horaInicio, horaFin),
         fecha:     formatearFechaNota(fecha),
-        asunto:    construirAsuntoNota(descripcion),
+        asunto:    construirAsuntoNota(descripcionLimpia),
         solicitud: construirSolicitudNota(prestamo),
       }),
       redirect: 'follow',

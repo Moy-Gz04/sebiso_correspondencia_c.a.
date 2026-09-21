@@ -131,6 +131,22 @@
       backdrop-filter: blur(2px); z-index: 10000; align-items: center; justify-content: center; padding: 20px;
     }
     .detalle-overlay.visible { display: flex; }
+
+    /* ── Ventana "Apartando sala…" (se genera el folio + el PDF de la
+       Nota en el servidor, tarda un par de segundos) ── */
+    .cargando-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(2px); z-index: 10002; align-items: center; justify-content: center; padding: 20px;
+    }
+    .cargando-overlay.visible { display: flex; }
+    .cargando-card {
+      background: #fff; border-radius: 16px; padding: 36px 32px; max-width: 300px; width: 100%;
+      text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,.3);
+      font-family: 'Montserrat', sans-serif; animation: sbisSlide .22s cubic-bezier(.22,1,.36,1);
+    }
+    .cargando-card i { font-size: 2.2rem; color: var(--guinda, #6B0F2B); }
+    .cargando-card h3 { margin: 14px 0 6px; font-size: 1.02rem; color: #2b2226; }
+    .cargando-card p { margin: 0; font-size: .82rem; color: #7a6f74; line-height: 1.4; }
     .detalle-modal {
       width: 100%; max-width: 420px; border-radius: 14px; overflow: hidden;
       font-family: 'Montserrat', sans-serif; box-shadow: 0 12px 30px rgba(0,0,0,.25);
@@ -464,6 +480,15 @@
         </div>
         <span class="detalle-tag" id="detalle-estatus"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- Ventana "Apartando sala…" mientras el servidor asigna el folio y genera el PDF de la Nota -->
+  <div class="cargando-overlay" id="cargando-overlay">
+    <div class="cargando-card">
+      <i class="ti ti-loader-2 spin"></i>
+      <h3 id="cargando-titulo">Apartando sala…</h3>
+      <p id="cargando-sub">Generando la Nota (PDF). Esto puede tardar unos segundos.</p>
     </div>
   </div>
 
