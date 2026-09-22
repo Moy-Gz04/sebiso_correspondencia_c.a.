@@ -30,6 +30,33 @@
       margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
     }
     .panel-sala .campo { margin-bottom: 12px; }
+
+    /* Tarjetita "Próximo número de tarjeta" — folio editable de la
+       Nota. Se permiten duplicados a propósito (el aviso solo informa,
+       nunca bloquea el botón de apartar). */
+    .tarjeta-folio-nota {
+      background: linear-gradient(150deg, #fdf6f8 0%, #f6ecef 100%);
+      border: 1px solid #e8d3da; border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 16px;
+    }
+    .tfn-cabeza { margin-bottom: 8px; }
+    .tfn-label {
+      font-size: 11.5px; font-weight: 700; color: var(--guinda, #6B0F2B);
+      text-transform: uppercase; letter-spacing: .3px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tfn-input {
+      width: 100%; padding: 8px 12px; border: 1px solid #d8ccd0; border-radius: 7px;
+      font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700;
+      color: #3D1420; background: #fff; letter-spacing: .5px;
+    }
+    .tfn-input:focus { outline: none; border-color: var(--guinda, #6B0F2B); }
+    .tfn-aviso {
+      margin: 8px 0 0; font-size: 11.5px; color: #a15b00; line-height: 1.4;
+      display: flex; align-items: flex-start; gap: 5px;
+      background: #fff6e6; border: 1px solid #f0dba8; border-radius: 6px; padding: 7px 9px;
+    }
+    .tfn-aviso i { margin-top: 1px; flex-shrink: 0; }
     .panel-sala label {
       display: block; font-size: 12px; font-weight: 600; color: #6b6b6b;
       margin-bottom: 5px; text-transform: uppercase; letter-spacing: .3px;
@@ -360,6 +387,15 @@
         </div>
 
         <div class="panel-sala">
+          <div class="tarjeta-folio-nota">
+            <div class="tfn-cabeza">
+              <span class="tfn-label"><i class="ti ti-hash"></i> Próximo número de tarjeta</span>
+            </div>
+            <input type="text" id="input-folio-nota" class="tfn-input" inputmode="numeric" placeholder="0077" oninput="revisarFolioNotaDuplicado()"/>
+            <p class="tfn-aviso" id="aviso-folio-nota-duplicado" style="display:none;">
+              <i class="ti ti-alert-triangle"></i> Ya existe una Nota con este número — se puede repetir, pero verifica que sea intencional.
+            </p>
+          </div>
           <h2 id="titulo-panel-apartar"><i class="ti ti-calendar-plus"></i> Apartar Sala</h2>
           <div class="campo">
             <label for="select-sala">Sala</label>

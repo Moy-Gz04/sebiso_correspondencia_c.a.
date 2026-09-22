@@ -225,6 +225,17 @@ async function siguienteNotaAutomatica() {
   return String(siguiente).padStart(4, '0');
 }
 
+/* Normaliza el número de tarjeta que la persona escribió a mano en el
+   formulario: si es puramente numérico se rellena a 4 dígitos (igual
+   formato que el automático, "76" -> "0076"); si trae letras u otro
+   formato se deja tal cual. Vacío/undefined -> null (cae al automático
+   en el caller). */
+function normalizarFolioNota(valor) {
+  const t = valor == null ? '' : String(valor).trim();
+  if (!t) return null;
+  return /^\d+$/.test(t) ? t.padStart(4, '0') : t;
+}
+
 /* "15:00" -> "en un horario de 15:00 a 17:00 horas" */
 function formatearHoraNota(horaInicio, horaFin) {
   const corta = (h) => String(h).slice(0, 5); // "15:00:00" -> "15:00"
@@ -1747,6 +1758,43 @@ app.delete('/api/salas/:id', verifyToken, onlyGestionCompleta, async (req, res) 
   }
 });
 
+/* ══ GET /api/salas/proximo-folio-nota — sugerencia del número de
+   tarjeta (Nota) para el próximo apartado, MÁS la lista de folios ya
+   usados (para que el frontend avise si se repite uno, sin bloquear
+   nada — los duplicados están permitidos a propósito).
+   Sugerencia = el folio numérico más alto que exista (en apartados
+   vigentes o en el historial) + 1. Es solo eso, un cálculo de lectura:
+   no reserva nada ni toca ninguna secuencia, así que se puede pedir
+   tantas veces como se quiera sin gastar folios. Si la persona edita
+   el número antes de apartar la sala, ese valor manual es el que se
+   usa (ver POST /api/salas/apartados) y la SIGUIENTE sugerencia sale
+   de ahí en adelante (max+1), tal como se pidió. ══ */
+app.get('/api/salas/proximo-folio-nota', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [{ max_folio }] = await sql`
+      SELECT MAX(v) AS max_folio FROM (
+        SELECT NULLIF(regexp_replace(folio_nota, '[^0-9]', '', 'g'), '')::int AS v
+          FROM salas_apartados WHERE folio_nota IS NOT NULL
+        UNION ALL
+        SELECT NULLIF(regexp_replace(folio_nota, '[^0-9]', '', 'g'), '')::int AS v
+          FROM salas_historial WHERE folio_nota IS NOT NULL
+      ) t`;
+    const siguiente = (max_folio ?? 76) + 1;
+
+    const usados = await sql`
+      SELECT folio_nota FROM salas_apartados WHERE folio_nota IS NOT NULL
+      UNION
+      SELECT folio_nota FROM salas_historial WHERE folio_nota IS NOT NULL`;
+
+    res.json({
+      siguiente: String(siguiente).padStart(4, '0'),
+      usados: usados.map(r => r.folio_nota),
+    });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo calcular el siguiente folio de Nota.');
+  }
+});
+
 /* ══ GET /api/salas/apartados — trae todos los apartados vigentes
    (de todas las salas), ordenados del más próximo al más lejano,
    para el tendedero de tarjetas. ══ */
@@ -1797,7 +1845,11 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     const [sala] = await sql`SELECT nombre FROM salas WHERE id = ${sala_id}`;
     if (!sala) return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
 
-    const folioNota = await siguienteNotaAutomatica();
+    // El número de la tarjeta (folio de la Nota) se puede editar en el
+    // formulario antes de apartar — si viene, se usa TAL CUAL (se
+    // permiten duplicados a propósito, el frontend solo avisa). Si no
+    // viene (o llega vacío), se cae al automático de siempre.
+    const folioNota = normalizarFolioNota(req.body.folio_nota) || await siguienteNotaAutomatica();
     const notaPdfUrl = await generarNotaSalaPDF({
       notj: folioNota, sala: sala.nombre, np: numPersonas,
       horaInicio: hora_inicio, horaFin: hora_fin, fecha, descripcion: desc, prestamo: solicitudPrestamo,

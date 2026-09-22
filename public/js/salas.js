@@ -375,6 +375,7 @@ async function apartarSala() {
   const inputDescripcion = document.getElementById('input-descripcion-apartado');
   const inputOficio = document.getElementById('input-oficio-apartado');
   const inputPrestamo = document.getElementById('input-prestamo-apartado');
+  const inputFolioNota = document.getElementById('input-folio-nota');
   const errorEl = document.getElementById('error-apartar-sala');
   const btn = document.getElementById('btn-apartar-sala');
 
@@ -388,6 +389,9 @@ async function apartarSala() {
   const descripcion = inputDescripcion.value.trim();
   const no_oficio = inputOficio.value.trim();
   const prestamo = inputPrestamo.value.trim();
+  // Solo al crear: al editar, la tarjetita de folio queda oculta y el
+  // número de la Nota ya asignada no se toca (ver editarApartado).
+  const folio_nota = (EDITANDO_ID === null && inputFolioNota) ? inputFolioNota.value.trim() : undefined;
 
   if (!sala_id)      { errorEl.textContent = 'Registra o selecciona una sala primero.'; return; }
   if (!fecha)        { errorEl.textContent = 'Selecciona una fecha.'; return; }
@@ -407,7 +411,7 @@ async function apartarSala() {
     const res = await fetch(`${API}/salas/apartados${editando ? '/' + EDITANDO_ID : ''}`, {
       method: editando ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-      body: JSON.stringify({ sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo }),
+      body: JSON.stringify({ sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota }),
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
@@ -421,6 +425,7 @@ async function apartarSala() {
       inputDescripcion.value = '';
       inputOficio.value = '';
       inputPrestamo.value = '';
+      await cargarProximoFolioNota(); // el próximo sugerido sale del que se acaba de usar
     }
 
     await cargarApartados();
@@ -467,6 +472,10 @@ function editarApartado(id) {
   document.getElementById('titulo-panel-apartar').innerHTML = '<i class="ti ti-pencil"></i> Editar Apartado';
   document.getElementById('btn-apartar-sala').innerHTML = '<i class="ti ti-check"></i> Guardar cambios';
   document.getElementById('btn-cancelar-edicion').style.display = 'inline-flex';
+  // El folio de una Nota ya generada no se toca al editar — se oculta
+  // la tarjetita para no dar a entender que se puede cambiar aquí.
+  const tarjetaFolio = document.querySelector('.tarjeta-folio-nota');
+  if (tarjetaFolio) tarjetaFolio.style.display = 'none';
 
   document.getElementById('titulo-panel-apartar').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -481,6 +490,8 @@ function cancelarEdicionApartado() {
   document.getElementById('input-descripcion-apartado').value = '';
   document.getElementById('input-oficio-apartado').value = '';
   document.getElementById('input-prestamo-apartado').value = '';
+  const tarjetaFolio = document.querySelector('.tarjeta-folio-nota');
+  if (tarjetaFolio) tarjetaFolio.style.display = '';
 }
 
 /* Quita una tarjeta del tendedero. Si ya venció (ya pasó su hora de
@@ -603,7 +614,50 @@ document.addEventListener('DOMContentLoaded', () => {
   cargarSalas();
   cargarApartados();
   cargarHistorial();
+  cargarProximoFolioNota();
 });
+
+/* ════════════════════════════════════════════════════
+   Tarjetita "Próximo número de tarjeta" (folio de la Nota)
+   ════════════════════════════════════════════════════ */
+let FOLIOS_NOTA_USADOS = [];
+
+/* Trae la sugerencia (último folio existente + 1) y la lista de folios
+   ya usados, y la deja lista en el input. Se llama al cargar la página
+   y otra vez después de apartar una sala (para que la sugerencia
+   avance al número que realmente se usó, sea el automático o uno que
+   la persona haya escrito a mano). */
+async function cargarProximoFolioNota() {
+  const input = document.getElementById('input-folio-nota');
+  if (!input) return;
+  try {
+    const res = await fetch(`${API}/salas/proximo-folio-nota`, {
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    input.value = data.siguiente;
+    FOLIOS_NOTA_USADOS = data.usados || [];
+    revisarFolioNotaDuplicado();
+  } catch { /* si falla, el input se queda con lo último que tenía */ }
+}
+
+/* Normaliza igual que el backend (rellena a 4 dígitos si es solo
+   número) para comparar como corresponde contra FOLIOS_NOTA_USADOS. */
+function normalizarFolioNotaCliente(valor) {
+  const t = (valor || '').trim();
+  if (!t) return '';
+  return /^\d+$/.test(t) ? t.padStart(4, '0') : t;
+}
+
+function revisarFolioNotaDuplicado() {
+  const input = document.getElementById('input-folio-nota');
+  const aviso = document.getElementById('aviso-folio-nota-duplicado');
+  if (!input || !aviso) return;
+  const valor = normalizarFolioNotaCliente(input.value);
+  const repetido = valor && FOLIOS_NOTA_USADOS.includes(valor);
+  aviso.style.display = repetido ? 'flex' : 'none';
+}
 
 window.addEventListener('pageshow', (evento) => {
   if (evento.persisted) verificarAcceso();
