@@ -299,30 +299,44 @@ function sbisConfirm({ titulo = '¿Estás seguro?', mensaje = '', btnOk = 'Acept
 /* ════════════════════════════════════════════════════
    CARGA Y RENDER
    ════════════════════════════════════════════════════ */
-async function cargarOficios(estatus = 'todos') {
+/* Siempre trae TODOS los oficios de la bandeja (sin filtrar por estatus
+   en el servidor) y los guarda en DATOS_TODOS. Los chips de filtro ya
+   no vuelven a pedirle nada al servidor — filtran esta misma lista en
+   el navegador (ver aplicarFiltroActual). Así los numeritos de "Por
+   Corregir" / "Para Atender" siempre reflejan el total real, sin
+   importar qué pestaña esté abierta en ese momento (antes desaparecían
+   al cambiar de filtro, porque solo se contaba lo que el servidor
+   había mandado para ESE filtro). */
+let DATOS_TODOS = [];
+
+async function cargarOficios() {
   const lista = document.getElementById('lista');
   lista.innerHTML = `<div class="cargando-msg">
     <i class="ti ti-loader-2 spin"></i> Cargando registros...
   </div>`;
 
   try {
-    const url = estatus === 'todos' ? `${API}/oficios` : `${API}/oficios?estatus=${estatus}`;
-    const res = await apiFetch(url);
+    const res = await apiFetch(`${API}/oficios`);
     if (!res.ok) throw new Error();
-    DATOS = await res.json();
+    DATOS_TODOS = await res.json();
     actualizarBadgeAsignados();
     actualizarBadgeRechazados();
-
-    if (filtroActual === 'asignados_mi') {
-      renderLista(filtrarAsignadosAMi(DATOS));
-    } else {
-      renderLista(DATOS);
-    }
+    aplicarFiltroActual();
   } catch {
     lista.innerHTML = `<div class="cargando-msg error">
       <i class="ti ti-alert-circle"></i> No se pudo conectar con el servidor.
     </div>`;
   }
+}
+
+/* Filtra DATOS_TODOS según filtroActual y pinta la lista — sin red,
+   instantáneo. DATOS queda con el subconjunto visible (lo sigue usando
+   buscar() como base de la búsqueda en vivo). */
+function aplicarFiltroActual() {
+  DATOS = filtroActual === 'asignados_mi' ? filtrarAsignadosAMi(DATOS_TODOS)
+    : filtroActual === 'todos' ? DATOS_TODOS
+    : DATOS_TODOS.filter(r => r.estatus === filtroActual);
+  renderLista(DATOS);
 }
 
 /* Documentos de respuesta (Turno / Seguimiento): una tarjeta por
@@ -602,7 +616,7 @@ function filtrar(btn, estatus) {
   if (buscador) buscador.value = '';
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = 'none';
-  cargarOficios(estatus);
+  aplicarFiltroActual();
 }
 
 /* ── Filtro "Para Atender": oficios asignados a mí ──
@@ -620,22 +634,27 @@ function filtrarAsignadosAMi(lista) {
   );
 }
 
+/* Los tres badges (aquí y "Por Corregir" abajo) siempre leen de
+   DATOS_TODOS, NUNCA de DATOS (el subconjunto que se está mostrando
+   ahora mismo) — así el numerito no desaparece ni cambia solo por
+   moverse de pestaña. */
 function actualizarBadgeAsignados() {
   const badge = document.getElementById('badge-asignados');
   if (!badge) return;
-  const total = filtrarAsignadosAMi(DATOS).length;
+  const total = filtrarAsignadosAMi(DATOS_TODOS).length;
   badge.textContent = total;
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
 }
 
 /* Numerito rojo (parpadeante mientras haya al menos uno) del chip "Por
-   Corregir": cuenta los oficios en estatus 'rechazado' dentro de DATOS,
-   igual criterio que el resto de los chips por estatus — todos los del
-   área, no solo los asignados a mí (a diferencia de "Para Atender"). */
+   Corregir": cuenta los oficios en estatus 'rechazado' dentro de
+   DATOS_TODOS, igual criterio que el resto de los chips por estatus —
+   todos los del área, no solo los asignados a mí (a diferencia de
+   "Para Atender"). */
 function actualizarBadgeRechazados() {
   const badge = document.getElementById('badge-rechazados');
   if (!badge) return;
-  const total = DATOS.filter(r => r.estatus === 'rechazado').length;
+  const total = DATOS_TODOS.filter(r => r.estatus === 'rechazado').length;
   badge.textContent = total;
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
   badge.classList.toggle('chip-badge-alerta', total > 0);
@@ -649,7 +668,7 @@ function filtrarPorAsignados(btn) {
   if (buscador) buscador.value = '';
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = 'none';
-  cargarOficios('todos');
+  aplicarFiltroActual();
 }
 
 /* Búsqueda en tiempo real sobre los datos ya cargados: N. Control,
@@ -866,7 +885,7 @@ async function guardarSubturnar() {
     const meAutoasigne = Number(usuarioId) === USUARIO.id;
 
     cerrarSubturnar();
-    cargarOficios(filtroActual === 'asignados_mi' ? 'todos' : filtroActual);
+    cargarOficios();
     await sbisAlert({
       titulo:  meAutoasigne ? 'Oficio autoasignado' : 'Oficio turnado',
       mensaje: meAutoasigne
@@ -1027,7 +1046,7 @@ async function guardarAtencion() {
       throw new Error(await leerMensajeError(res, 'No se pudo guardar.'));
     }
     cerrarAtender();
-    cargarOficios(filtroActual === 'asignados_mi' ? 'todos' : filtroActual);
+    cargarOficios();
     await sbisAlert({
       titulo:  'Oficio atendido',
       mensaje: 'Se notificó a Administración para su revisión.',
@@ -1049,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
   aplicarFiltroInicial();
   mostrarFecha();
-  cargarOficios(filtroActual);
+  cargarOficios();
   iniciarHeartbeat();
   iniciarContadorUsuariosActivos();
 
@@ -1068,6 +1087,6 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('pageshow', (evento) => {
   if (evento.persisted) {
     if (!iniciarSesion()) return;
-    cargarOficios(filtroActual === 'asignados_mi' ? 'todos' : filtroActual);
+    cargarOficios();
   }
 });

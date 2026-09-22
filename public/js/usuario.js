@@ -253,35 +253,49 @@ function sbisAlert({ titulo = 'Aviso', mensaje = '', btnOk = 'Aceptar', tipo = '
    CARGA Y RENDER
    ════════════════════════════════════════════════════ */
 /* Numerito azul (parpadeante mientras haya al menos uno) del chip "Por
-   Atender": cuenta los oficios en estatus 'sub_turnado' dentro de DATOS
-   — para usuario_area toda su bandeja ya es personal (ver GET
-   /api/oficios), no hace falta filtrar por asignado como en area.js. */
+   Atender": cuenta los oficios en estatus 'sub_turnado' dentro de
+   DATOS_TODOS (la lista completa, no el subconjunto que se esté
+   mostrando ahora) — para usuario_area toda su bandeja ya es personal
+   (ver GET /api/oficios), no hace falta filtrar por asignado como en
+   area.js. Leer de DATOS_TODOS en vez de DATOS es lo que hace que el
+   numerito no desaparezca al cambiar de pestaña. */
 function actualizarBadgePorAtender() {
   const badge = document.getElementById('badge-por-atender');
   if (!badge) return;
-  const total = DATOS.filter(r => r.estatus === 'sub_turnado').length;
+  const total = DATOS_TODOS.filter(r => r.estatus === 'sub_turnado').length;
   badge.textContent = total;
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
 }
 
-async function cargarOficios(estatus = 'todos') {
+/* Siempre trae TODOS los oficios (sin filtrar por estatus en el
+   servidor) y los guarda en DATOS_TODOS; los chips filtran esa lista
+   en el navegador (aplicarFiltroActual), sin volver a pedirle nada al
+   servidor. Mismo motivo que en area.js: así el badge de "Por Atender"
+   no depende de qué filtro esté activo. */
+let DATOS_TODOS = [];
+
+async function cargarOficios() {
   const lista = document.getElementById('lista');
   lista.innerHTML = `<div class="cargando-msg">
     <i class="ti ti-loader-2 spin"></i> Cargando registros...
   </div>`;
 
   try {
-    const url = estatus === 'todos' ? `${API}/oficios` : `${API}/oficios?estatus=${estatus}`;
-    const res = await apiFetch(url);
+    const res = await apiFetch(`${API}/oficios`);
     if (!res.ok) throw new Error();
-    DATOS = await res.json();
+    DATOS_TODOS = await res.json();
     actualizarBadgePorAtender();
-    renderLista(DATOS);
+    aplicarFiltroActual();
   } catch {
     lista.innerHTML = `<div class="cargando-msg error">
       <i class="ti ti-alert-circle"></i> No se pudo conectar con el servidor.
     </div>`;
   }
+}
+
+function aplicarFiltroActual() {
+  DATOS = filtroActual === 'todos' ? DATOS_TODOS : DATOS_TODOS.filter(r => r.estatus === filtroActual);
+  renderLista(DATOS);
 }
 
 /* Documentos de respuesta (Turno / Seguimiento): etiqueta fija según
@@ -494,7 +508,7 @@ function filtrar(btn, estatus) {
   if (buscador) buscador.value = '';
   const btnL = document.getElementById('btn-limpiar-busqueda');
   if (btnL) btnL.style.display = 'none';
-  cargarOficios(estatus);
+  aplicarFiltroActual();
 }
 
 /* Búsqueda en tiempo real: N. Control, N. Referencia, remitente y
@@ -708,7 +722,7 @@ async function guardarAtencion() {
       throw new Error(await leerMensajeError(res, 'No se pudo guardar.'));
     }
     cerrarAtender();
-    cargarOficios(filtroActual);
+    cargarOficios();
     await sbisAlert({
       titulo:  'Oficio atendido',
       mensaje: 'Se notificó a Administración para su revisión.',
@@ -730,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
   aplicarFiltroInicial();
   mostrarFecha();
-  cargarOficios(filtroActual);
+  cargarOficios();
   iniciarHeartbeat();
   iniciarContadorUsuariosActivos();
   document.getElementById('modal-atender').addEventListener('click', function (e) {
@@ -745,6 +759,6 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('pageshow', (evento) => {
   if (evento.persisted) {
     if (!iniciarSesion()) return;
-    cargarOficios(filtroActual);
+    cargarOficios();
   }
 });
