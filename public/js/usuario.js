@@ -267,6 +267,17 @@ function actualizarBadgePorAtender() {
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
 }
 
+/* Numerito rojo (parpadeante) del chip "Por Corregir" — mismo criterio
+   que actualizarBadgePorAtender, leyendo siempre de DATOS_TODOS para
+   que no dependa de qué pestaña esté abierta. */
+function actualizarBadgeRechazados() {
+  const badge = document.getElementById('badge-rechazados');
+  if (!badge) return;
+  const total = DATOS_TODOS.filter(r => r.estatus === 'rechazado').length;
+  badge.textContent = total;
+  badge.style.display = total > 0 ? 'inline-flex' : 'none';
+}
+
 /* Siempre trae TODOS los oficios (sin filtrar por estatus en el
    servidor) y los guarda en DATOS_TODOS; los chips filtran esa lista
    en el navegador (aplicarFiltroActual), sin volver a pedirle nada al
@@ -285,6 +296,7 @@ async function cargarOficios() {
     if (!res.ok) throw new Error();
     DATOS_TODOS = await res.json();
     actualizarBadgePorAtender();
+    actualizarBadgeRechazados();
     aplicarFiltroActual();
   } catch {
     lista.innerHTML = `<div class="cargando-msg error">
