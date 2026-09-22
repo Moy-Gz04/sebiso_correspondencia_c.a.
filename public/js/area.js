@@ -301,6 +301,7 @@ async function cargarOficios(estatus = 'todos') {
     if (!res.ok) throw new Error();
     DATOS = await res.json();
     actualizarBadgeAsignados();
+    actualizarBadgeRechazados();
 
     if (filtroActual === 'asignados_mi') {
       renderLista(filtrarAsignadosAMi(DATOS));
@@ -601,6 +602,19 @@ function actualizarBadgeAsignados() {
   const total = filtrarAsignadosAMi(DATOS).length;
   badge.textContent = total;
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
+}
+
+/* Numerito rojo (parpadeante mientras haya al menos uno) del chip "Por
+   Corregir": cuenta los oficios en estatus 'rechazado' dentro de DATOS,
+   igual criterio que el resto de los chips por estatus — todos los del
+   área, no solo los asignados a mí (a diferencia de "Para Atender"). */
+function actualizarBadgeRechazados() {
+  const badge = document.getElementById('badge-rechazados');
+  if (!badge) return;
+  const total = DATOS.filter(r => r.estatus === 'rechazado').length;
+  badge.textContent = total;
+  badge.style.display = total > 0 ? 'inline-flex' : 'none';
+  badge.classList.toggle('chip-badge-alerta', total > 0);
 }
 
 function filtrarPorAsignados(btn) {
