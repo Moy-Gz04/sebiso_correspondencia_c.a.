@@ -58,6 +58,16 @@ function aplicarMenuSegunPermiso() {
   document.querySelectorAll('.menu-solo-gestion').forEach(el => el.remove());
 }
 
+/* Al entrar al sistema, arranca en "Pendientes" (estatus 'turnado') en
+   vez de "Todos" — lo que de verdad les toca resolver, sin tener que
+   filtrar ellos mismos. Mismo criterio que usuario.js (aplicarFiltroInicial),
+   que ya arranca en "Por Atender" para usuario_area. */
+function aplicarFiltroInicial() {
+  filtroActual = 'turnado';
+  const chipDefault = document.querySelector('.chip[data-estatus="turnado"]');
+  if (chipDefault) { document.querySelectorAll('.chip').forEach(b => b.classList.remove('on')); chipDefault.classList.add('on'); }
+}
+
 /* Icono elegante en vez de emoji para el usuario del header */
 function pintarUsuarioHeader(username) {
   const elUser = document.getElementById('header-usuario');
@@ -417,6 +427,19 @@ function construirTarjeta(r, i) {
        </div>`
     : '';
 
+  // Motivo de corrección que dejó Administración al rechazar el oficio.
+  // Faltaba en esta vista (solo existía en usuario.js e historial.js):
+  // el área veía la etiqueta "POR CORREGIR" pero no el texto de qué
+  // corregir, así que no sabían qué estaba mal sin ir a preguntar.
+  const notaRechazoHTML = (r.estatus === 'rechazado' && r.nota_rechazo)
+    ? `<div class="obs-bloque" style="grid-column:1/-1;margin-bottom:14px;">
+         <span class="obs-label" style="color:var(--alerta);">
+           <i class="ti ti-alert-triangle"></i> Nota de corrección de Administración
+         </span>
+         <div class="nota-rechazo-box">${r.nota_rechazo}</div>
+       </div>`
+    : '';
+
   // Botones de acción para el área
   let botonesHTML = '';
   if (r.estatus === 'turnado') {
@@ -536,6 +559,7 @@ function construirTarjeta(r, i) {
       </div>
 
       <div class="t-inferior">
+        ${notaRechazoHTML}
         ${notaAtencionHTML}
         <div class="obs-bloque">
           <span class="obs-label">Descripción del Asunto</span>
@@ -1023,8 +1047,9 @@ async function guardarAtencion() {
    ════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   if (!iniciarSesion()) return;
+  aplicarFiltroInicial();
   mostrarFecha();
-  cargarOficios();
+  cargarOficios(filtroActual);
   iniciarHeartbeat();
   iniciarContadorUsuariosActivos();
 

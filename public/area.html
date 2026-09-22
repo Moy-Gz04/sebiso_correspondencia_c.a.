@@ -45,6 +45,11 @@
       font-size: 13px; color: #333; line-height: 1.55; min-height: 40px;
       font-family: 'Montserrat', sans-serif;
     }
+    .nota-rechazo-box {
+      background:#fdecea; border:1px solid #f5c2c0; border-left:3px solid #c62828;
+      border-radius:6px; padding:12px 14px; font-size:13px; color:#7a1313; line-height:1.5;
+      font-family: 'Montserrat', sans-serif;
+    }
 
     /* Botones acción */
     .btn-subturnar, .btn-reasignar, .btn-atender {
@@ -93,6 +98,15 @@
     @keyframes parpadeoRojo {
       0%, 100% { opacity: 1;    box-shadow: 0 0 0 0 rgba(198,40,40,0.55); }
       50%      { opacity: 0.5;  box-shadow: 0 0 0 5px rgba(198,40,40,0); }
+    }
+    /* Numerito de "Para Atender" (o "Por Atender" en la bandeja personal):
+       azul en vez de rojo, para distinguirlo de "Por Corregir" — mismo
+       parpadeo, otro color, otra urgencia. */
+    .chip-badge-azul { background: #1565c0 !important; animation: parpadeoAzul 1.1s ease-in-out infinite; }
+    .chip.on .chip-badge-azul { background: rgba(255,255,255,0.35) !important; }
+    @keyframes parpadeoAzul {
+      0%, 100% { opacity: 1;    box-shadow: 0 0 0 0 rgba(21,101,192,0.55); }
+      50%      { opacity: 0.5;  box-shadow: 0 0 0 5px rgba(21,101,192,0); }
     }
 
     /* ══ MODAL SUB-TURNAR ══ */
@@ -311,16 +325,16 @@
 
       <!-- Filtros -->
       <div class="filtros-barra">
-        <button class="chip on" onclick="filtrar(this,'todos')">Todos</button>
-        <button class="chip" onclick="filtrar(this,'turnado')">Pendientes</button>
-        <button class="chip" onclick="filtrar(this,'sub_turnado')">Sub-turnados</button>
-        <button class="chip chip-con-badge" onclick="filtrar(this,'rechazado')" title="Oficios que regresaron para corregirse">
+        <button class="chip" data-estatus="todos" onclick="filtrar(this,'todos')">Todos</button>
+        <button class="chip" data-estatus="turnado" onclick="filtrar(this,'turnado')">Pendientes</button>
+        <button class="chip" data-estatus="sub_turnado" onclick="filtrar(this,'sub_turnado')">Sub-turnados</button>
+        <button class="chip chip-con-badge" data-estatus="rechazado" onclick="filtrar(this,'rechazado')" title="Oficios que regresaron para corregirse">
           Por Corregir <span class="chip-badge" id="badge-rechazados">0</span>
         </button>
-        <button class="chip" onclick="filtrar(this,'atendido')">Atendidos</button>
-        <button class="chip" onclick="filtrar(this,'completado')">Completados</button>
-        <button class="chip chip-con-badge" onclick="filtrarPorAsignados(this)" title="Oficios asignados a mí, pendientes de atención">
-          Para Atender <span class="chip-badge" id="badge-asignados">0</span>
+        <button class="chip" data-estatus="atendido" onclick="filtrar(this,'atendido')">Atendidos</button>
+        <button class="chip" data-estatus="completado" onclick="filtrar(this,'completado')">Completados</button>
+        <button class="chip chip-con-badge" data-estatus="asignados_mi" onclick="filtrarPorAsignados(this)" title="Oficios asignados a mí, pendientes de atención">
+          Para Atender <span class="chip-badge chip-badge-azul" id="badge-asignados">0</span>
         </button>
         <div class="filtro-spacer"></div>
         <span class="filtro-total">Total: <strong id="tot">0</strong> registros</span>

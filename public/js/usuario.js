@@ -252,6 +252,18 @@ function sbisAlert({ titulo = 'Aviso', mensaje = '', btnOk = 'Aceptar', tipo = '
 /* ════════════════════════════════════════════════════
    CARGA Y RENDER
    ════════════════════════════════════════════════════ */
+/* Numerito azul (parpadeante mientras haya al menos uno) del chip "Por
+   Atender": cuenta los oficios en estatus 'sub_turnado' dentro de DATOS
+   — para usuario_area toda su bandeja ya es personal (ver GET
+   /api/oficios), no hace falta filtrar por asignado como en area.js. */
+function actualizarBadgePorAtender() {
+  const badge = document.getElementById('badge-por-atender');
+  if (!badge) return;
+  const total = DATOS.filter(r => r.estatus === 'sub_turnado').length;
+  badge.textContent = total;
+  badge.style.display = total > 0 ? 'inline-flex' : 'none';
+}
+
 async function cargarOficios(estatus = 'todos') {
   const lista = document.getElementById('lista');
   lista.innerHTML = `<div class="cargando-msg">
@@ -263,6 +275,7 @@ async function cargarOficios(estatus = 'todos') {
     const res = await apiFetch(url);
     if (!res.ok) throw new Error();
     DATOS = await res.json();
+    actualizarBadgePorAtender();
     renderLista(DATOS);
   } catch {
     lista.innerHTML = `<div class="cargando-msg error">
