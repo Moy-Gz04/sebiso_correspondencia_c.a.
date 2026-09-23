@@ -450,12 +450,28 @@ Reglas estrictas:
     'gemini-3-flash-preview',
   ];
 
-  async function intentar(modelo) {
+  // Además de rotar modelo, rotamos CUENTA: cada API key tiene su propia
+  // cuota diaria en Google, así que si la cuenta principal se queda sin
+  // cuota, se sigue intentando con la(s) cuenta(s) extra antes de darse
+  // por vencido. GEMINI_API_KEY_3 (y cualquier GEMINI_API_KEY_N futura)
+  // son opcionales -- si no están configuradas simplemente no se usan.
+  const CUENTAS = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_3]
+    .filter(Boolean);
+
+  // Combinación completa modelo x cuenta: primero se agota cada modelo
+  // en la cuenta principal, y si con ninguno de los 4 hubo suerte recién
+  // ahí se pasa a repetir la ronda con la siguiente cuenta.
+  const COMBOS = [];
+  for (const key of CUENTAS) {
+    for (const modelo of MODELOS_VISION) COMBOS.push({ modelo, key });
+  }
+
+  async function intentar(modelo, apiKey) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000); // imagen (y el modelo de respaldo) tardan mas que texto
     try {
       const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
         {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -495,21 +511,21 @@ Reglas estrictas:
   // La extracción de imagen (a diferencia de limpiarDescripcionConIA) se
   // deja con más intentos y una pequeña espera entre cada uno: es un
   // flujo en segundo plano (no hay usuario esperando en vivo), así que
-  // vale la pena recorrer TODOS los modelos de MODELOS_VISION antes de
-  // rendirse (uno de intentos extra por si el primero de la vuelta
-  // vuelve a estar disponible).
-  const INTENTOS = MODELOS_VISION.length + 1;
+  // vale la pena recorrer TODAS las combinaciones de modelo x cuenta
+  // antes de rendirse (una vuelta extra por si el primer combo vuelve a
+  // estar disponible).
+  const INTENTOS = COMBOS.length + 1;
   for (let intento = 1; intento <= INTENTOS; intento++) {
-    const modelo = MODELOS_VISION[(intento - 1) % MODELOS_VISION.length];
+    const { modelo, key } = COMBOS[(intento - 1) % COMBOS.length];
     try {
-      const datos = await intentar(modelo);
+      const datos = await intentar(modelo, key);
       if (datos) return datos;
     } catch (err) {
       console.error(`⚠️  Intento ${intento}/${INTENTOS} (${modelo}) de extraer datos con Gemini Vision falló:`, err.message);
     }
     if (intento < INTENTOS) await new Promise(r => setTimeout(r, 3000));
   }
-  throw new Error(`No se pudo leer la imagen con IA tras probar los ${MODELOS_VISION.length} modelos disponibles.`);
+  throw new Error(`No se pudo leer la imagen con IA tras probar los ${COMBOS.length} combos de modelo/cuenta disponibles.`);
 }
 
 /* Procesa un registro pendiente: llama a Gemini Vision y actualiza su
