@@ -3,11 +3,79 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Nuevo Registro — Secretaría de Bienestar e Inclusión Social</title>
+  <title>Registro Automático — Secretaría de Bienestar e Inclusión Social</title>
   <link rel="stylesheet" href="css/styles.css"/>
   <link rel="stylesheet" href="css/captura.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+  <style>
+    /* ── Panel "Registros pendientes" (fotos capturadas desde el celular,
+       en proceso o listas para seleccionar) ── */
+    .panel-pendientes-ia {
+      background: #fff; border: 1px solid #e6dde1; border-radius: 12px;
+      padding: 18px 20px; margin-bottom: 22px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    }
+    .pendientes-ia-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+    }
+    .pendientes-ia-titulo {
+      font-size: 15px; font-weight: 700; color: var(--guinda, #6B0F2B);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-abrir-movil {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 14px; border-radius: 7px; text-decoration: none;
+      background: linear-gradient(135deg, var(--guinda, #6B0F2B) 0%, var(--guinda-oscuro, #3D1420) 100%);
+      color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 13px;
+    }
+    .btn-abrir-movil:hover { background: #8B1535; }
+    .pendientes-ia-lista {
+      display: flex; flex-wrap: wrap; gap: 14px;
+    }
+    .pendientes-ia-vacio {
+      color: #918a8d; font-size: 13px; margin: 6px 0; width: 100%;
+    }
+    .tarjeta-pendiente-ia {
+      position: relative; width: 108px; border-radius: 10px; overflow: hidden;
+      border: 2px solid #e6dde1; cursor: pointer; background: #f5f0f1;
+      transition: border-color .15s, transform .15s;
+    }
+    .tarjeta-pendiente-ia:hover { transform: translateY(-2px); }
+    .tarjeta-pendiente-ia.estado-listo { border-color: #2e7d32; cursor: pointer; }
+    .tarjeta-pendiente-ia.estado-procesando { cursor: default; }
+    .tarjeta-pendiente-ia.estado-error { border-color: #c62828; }
+    .tarjeta-pendiente-ia.seleccionada { border-color: var(--guinda, #6B0F2B); box-shadow: 0 0 0 2px var(--guinda, #6B0F2B); }
+    .tpi-thumb { width: 108px; height: 108px; object-fit: cover; display: block; background: #e6dde1; }
+    .tpi-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.35); color: #fff; font-size: 22px;
+    }
+    .tpi-overlay.spin i { animation: girar 1s linear infinite; }
+    @keyframes girar { to { transform: rotate(360deg); } }
+    .tpi-badge {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      font-size: 10px; font-weight: 700; text-align: center; padding: 3px 2px;
+      color: #fff; font-family: 'Montserrat', sans-serif;
+    }
+    .tpi-badge.b-listo { background: rgba(46,125,50,0.9); }
+    .tpi-badge.b-procesando { background: rgba(107,15,43,0.75); }
+    .tpi-badge.b-error { background: rgba(198,40,40,0.9); }
+    .tpi-reintentar {
+      position: absolute; top: 3px; right: 3px; background: #fff; border: none;
+      border-radius: 50%; width: 22px; height: 22px; font-size: 12px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; color: var(--guinda, #6B0F2B);
+    }
+    .tpi-descartar {
+      position: absolute; top: 3px; left: 3px; background: rgba(0,0,0,0.5); border: none;
+      border-radius: 50%; width: 20px; height: 20px; font-size: 11px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; color: #fff;
+    }
+    .aviso-pendiente-usado {
+      display: flex; align-items: center; gap: 8px; background: #eef7ee; border: 1px solid #b8dab8;
+      color: #2e7d32; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px;
+    }
+  </style>
 </head>
 <body>
 
@@ -50,8 +118,8 @@
       <label for="menu-toggle" class="menu-toggle-btn" title="Menú"><i class="ti ti-menu-2"></i></label>
       <ul class="menu-lista">
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/historial'">Historial</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item active" onclick="location.href='/captura'">Nuevo Registro</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/captura-auto'">Registro Automático</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item active" onclick="location.href='/captura-auto'">Registro Automático</a></li>
         <li><a style="cursor:pointer" class="menu-item" onclick="location.href='/area'">Bandeja de Oficios</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/no-oficio'">No. de Oficio</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/circular'">No. Circular</a></li>
@@ -69,8 +137,26 @@
       <div class="seccion-titulo-bloque">
         <div class="seccion-titulo-txt">
           <span class="seccion-titulo-eyebrow">Captura de correspondencia</span>
-          <h1 class="seccion-titulo-h1">Nuevo Registro de Oficio</h1>
+          <h1 class="seccion-titulo-h1">Registro Automático de Oficio</h1>
         </div>
+      </div>
+
+      <!-- ── Registros pendientes (fotos capturadas desde el celular) ── -->
+      <div class="panel-pendientes-ia">
+        <div class="pendientes-ia-header">
+          <span class="pendientes-ia-titulo"><i class="ti ti-camera"></i> Fotos por procesar</span>
+          <a href="/captura-movil" target="_blank" class="btn-abrir-movil">
+            <i class="ti ti-device-mobile"></i> Abrir captura desde celular
+          </a>
+        </div>
+        <div class="pendientes-ia-lista" id="pendientes-ia-lista">
+          <p class="pendientes-ia-vacio">Cargando…</p>
+        </div>
+      </div>
+
+      <div class="aviso-pendiente-usado" id="aviso-pendiente-usado" style="display:none;">
+        <i class="ti ti-circle-check"></i>
+        <span>Datos cargados desde la foto seleccionada — revisa y completa lo que falte antes de guardar.</span>
       </div>
 
       <!-- Toast de notificación -->
@@ -85,6 +171,7 @@
            vive dentro de un solo contenedor.
            ════════════════════════════════ -->
       <form id="form-captura" class="card-captura-unica" novalidate>
+        <input type="hidden" id="pendiente_ia_id" value=""/>
 
         <!-- ── Datos del Oficio ── -->
         <div class="captura-subseccion">
@@ -259,7 +346,7 @@
     </div>
   </footer>
 
-  <script src="js/captura.js"></script>
+  <script src="js/captura-auto.js"></script>
   <script src="js/lluvia.js"></script>
 </body>
 </html>

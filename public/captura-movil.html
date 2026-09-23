@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Captura desde Celular — Secretaría de Bienestar e Inclusión Social</title>
+  <link rel="stylesheet" href="css/styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: 'Montserrat', sans-serif; background: #f5f0f1;
+      color: var(--txt, #201017); min-height: 100vh;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    header.cm-header {
+      background: linear-gradient(135deg, var(--guinda, #5F2132) 0%, var(--guinda-oscuro, #3D1420) 100%);
+      color: #fff; padding: calc(14px + env(safe-area-inset-top, 0px)) 18px 14px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .cm-header-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .cm-header-eyebrow { font-size: 10px; letter-spacing: .6px; text-transform: uppercase; opacity: .8; }
+    .cm-header-titulo { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cm-header button {
+      background: rgba(255,255,255,0.15); border: none; color: #fff; border-radius: 7px;
+      padding: 7px 10px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 5px;
+      flex-shrink: 0;
+    }
+
+    main { padding: 18px 16px 40px; max-width: 480px; margin: 0 auto; }
+
+    .cm-card {
+      background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+    }
+
+    /* ── Botón/zona de captura ── */
+    .cm-captura-zona {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 38px 16px; border: 2px dashed var(--dorado, #A9824C);
+      border-radius: 12px; background: var(--dorado-claro, #F6EEDD); cursor: pointer;
+      text-align: center;
+    }
+    .cm-captura-zona i { font-size: 40px; color: var(--guinda, #5F2132); }
+    .cm-captura-zona strong { font-size: 15px; color: var(--guinda, #5F2132); }
+    .cm-captura-zona span { font-size: 12px; color: var(--txt2, #6B5563); }
+    #input-foto { display: none; }
+
+    .cm-preview { display: none; }
+    .cm-preview.visible { display: block; }
+    .cm-preview img { width: 100%; border-radius: 10px; display: block; max-height: 340px; object-fit: contain; background: #eee; }
+    .cm-preview-acciones { display: flex; gap: 10px; margin-top: 12px; }
+
+    .btn-cm { border: none; border-radius: 9px; padding: 13px 16px; font-weight: 700; font-size: 14px;
+      display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; flex: 1; }
+    .btn-cm-primario { background: linear-gradient(135deg, var(--guinda, #5F2132) 0%, var(--guinda-oscuro, #3D1420) 100%); color: #fff; }
+    .btn-cm-primario:disabled { opacity: .6; }
+    .btn-cm-secundario { background: #f0e9eb; color: var(--guinda, #5F2132); }
+
+    .cm-exito {
+      display: none; align-items: center; gap: 10px; background: var(--verde-claro, #e6f4eb);
+      color: var(--verde-ok, #1a6e35); border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px;
+    }
+    .cm-exito.visible { display: flex; }
+    .cm-exito i { font-size: 20px; flex-shrink: 0; }
+
+    .cm-error-msg {
+      display: none; background: #fdecea; color: #a32d2d; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-top: 10px;
+    }
+    .cm-error-msg.visible { display: block; }
+
+    /* ── Lista de fotos recientes ── */
+    .cm-recientes-titulo { font-size: 13px; font-weight: 700; color: var(--guinda, #5F2132); margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+    .cm-recientes-lista { display: flex; flex-direction: column; gap: 8px; }
+    .cm-recientes-vacio { font-size: 12.5px; color: var(--txt2, #6B5563); }
+    .cm-item-reciente { display: flex; align-items: center; gap: 10px; background: #faf7f5; border-radius: 8px; padding: 7px; }
+    .cm-item-reciente img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; background: #eee; flex-shrink: 0; }
+    .cm-item-info { min-width: 0; flex: 1; }
+    .cm-item-estado { font-size: 12px; font-weight: 700; display: block; }
+    .cm-item-estado.e-listo { color: var(--verde-ok, #1a6e35); }
+    .cm-item-estado.e-procesando { color: var(--dorado-oscuro, #7C5D31); }
+    .cm-item-estado.e-error { color: #a32d2d; }
+    .cm-item-hora { font-size: 11px; color: var(--txt2, #6B5563); }
+
+    /* Spinner del botón mientras sube */
+    .spin { animation: cmgirar 1s linear infinite; display: inline-block; }
+    @keyframes cmgirar { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <header class="cm-header">
+    <div class="cm-header-txt">
+      <span class="cm-header-eyebrow">Registro Automático</span>
+      <span class="cm-header-titulo" id="cm-usuario">Captura desde celular</span>
+    </div>
+    <button onclick="cerrarSesion()"><i class="ti ti-logout"></i> Salir</button>
+  </header>
+
+  <main>
+
+    <div class="cm-exito" id="cm-exito">
+      <i class="ti ti-circle-check"></i>
+      <span>Foto enviada. Se está procesando — ya puedes tomar otra, o ir a la PC y seleccionarla en "Registro Automático".</span>
+    </div>
+
+    <div class="cm-card">
+      <div class="cm-captura-zona" id="cm-captura-zona" onclick="document.getElementById('input-foto').click()">
+        <i class="ti ti-camera-plus"></i>
+        <strong>Tomar foto del oficio</strong>
+        <span>Toca aquí para abrir la cámara</span>
+      </div>
+      <input type="file" id="input-foto" accept="image/*" capture="environment"/>
+
+      <div class="cm-preview" id="cm-preview">
+        <img id="cm-preview-img" alt="Vista previa"/>
+        <div class="cm-preview-acciones">
+          <button type="button" class="btn-cm btn-cm-secundario" id="btn-cambiar-foto">
+            <i class="ti ti-refresh"></i> Cambiar
+          </button>
+          <button type="button" class="btn-cm btn-cm-primario" id="btn-enviar-foto">
+            <i class="ti ti-send"></i> Enviar
+          </button>
+        </div>
+        <div class="cm-error-msg" id="cm-error-msg"></div>
+      </div>
+    </div>
+
+    <div class="cm-card">
+      <p class="cm-recientes-titulo"><i class="ti ti-history"></i> Tus fotos recientes</p>
+      <div class="cm-recientes-lista" id="cm-recientes-lista">
+        <p class="cm-recientes-vacio">Cargando…</p>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="js/captura-movil.js"></script>
+</body>
+</html>

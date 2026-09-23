@@ -123,7 +123,7 @@ app.use('/api', limitadorApi);
    usuario.js, captura.js, no-oficio.js, minutario.js): así, después de
    Cerrar Sesión, la tecla Atrás no puede dejar visible una versión
    cacheada de una pantalla que ya no debería ser accesible. */
-const PAGINAS = ['login', 'historial', 'area', 'captura', 'usuario', 'no-oficio', 'circular', 'tarjeta-informativa', 'minutario', 'salas'];
+const PAGINAS = ['login', 'historial', 'area', 'captura', 'captura-auto', 'captura-movil', 'usuario', 'no-oficio', 'circular', 'tarjeta-informativa', 'minutario', 'salas'];
 
 function sinCache(res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -395,6 +395,120 @@ async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, 
   }
   console.error('⚠️  No se pudo generar el PDF de la Nota tras 2 intentos.');
   return null;
+}
+
+
+/* ══ REGISTRO AUTOMÁTICO — extracción de datos de oficio desde foto ══
+   Recibe la imagen de un oficio (tomada con el celular) y le pide a
+   Gemini que lea el documento y devuelva los mismos campos que el
+   formulario de "Nuevo Registro" — para que la persona solo tenga que
+   revisar/completar en vez de transcribir todo a mano. Usa
+   responseMimeType 'application/json' (en vez de pedir JSON en texto
+   libre) para no depender de que el modelo respete el formato por su
+   cuenta. Mismo modelo y patrón de reintento que limpiarDescripcionConIA. */
+const CAMPOS_EXTRAIBLES = [
+  'f_oficio', 'f_sello', 'numero', 'n_referencia',
+  'remitente', 'dependencia', 'instruccion', 'descripcion',
+];
+
+async function extraerDatosOficioDeImagen(base64, mimeType) {
+  const prompt = `Eres un asistente que ayuda a digitalizar correspondencia oficial de gobierno en México.
+
+Te voy a dar la foto de un oficio (documento físico, puede estar inclinado, con sombras, escrito a mano o a máquina). Léelo con cuidado y extrae SOLO estos datos, en este formato JSON exacto:
+
+{
+  "f_oficio": "fecha del oficio en formato YYYY-MM-DD, o cadena vacía si no aparece",
+  "f_sello": "fecha del sello de recibido, si hay uno visible, en formato YYYY-MM-DD, o cadena vacía",
+  "numero": "el número/folio del oficio tal como aparece (ej. 'DGA/112/2026'), o cadena vacía",
+  "n_referencia": "número de referencia o expediente si aparece por separado del número de oficio, o cadena vacía",
+  "remitente": "nombre completo y cargo de quien firma o envía el oficio, o cadena vacía",
+  "dependencia": "nombre de la dependencia, dirección o institución de la que proviene, o cadena vacía",
+  "instruccion": "instrucción manuscrita o sello de trámite si lo hay (ej. 'Para su atención'), o cadena vacía",
+  "descripcion": "un resumen breve (2-3 líneas) del asunto/contenido del oficio, en tus propias palabras, o cadena vacía si no se alcanza a leer nada"
+}
+
+Reglas estrictas:
+- Si un dato no aparece o no se alcanza a leer, deja el campo como cadena vacía "" — NUNCA inventes ni adivines.
+- Las fechas SIEMPRE en formato YYYY-MM-DD. Si el año no es visible pero el resto sí, no adivines el año.
+- Devuelve ÚNICAMENTE el objeto JSON, sin explicaciones ni texto adicional.`;
+
+  async function intentar() {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000); // imagen tarda mas que texto
+    try {
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: mimeType, data: base64 } },
+              ],
+            }],
+            generationConfig: {
+              maxOutputTokens: 2048,
+              responseMimeType: 'application/json',
+            },
+          }),
+          signal: controller.signal,
+        }
+      );
+      const data = await resp.json();
+      const texto = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('')?.trim();
+      if (!texto) {
+        console.warn('⚠️  Gemini Vision no devolvió texto útil (finishReason=' + data?.candidates?.[0]?.finishReason + '):', JSON.stringify(data).slice(0, 300));
+        return null;
+      }
+      const parseado = JSON.parse(texto);
+      // Solo nos quedamos con los campos que conocemos, y como string.
+      const limpio = {};
+      for (const campo of CAMPOS_EXTRAIBLES) {
+        limpio[campo] = typeof parseado[campo] === 'string' ? parseado[campo] : '';
+      }
+      return limpio;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  // La extracción de imagen (a diferencia de limpiarDescripcionConIA) se
+  // deja con 3 intentos y una pequeña espera entre cada uno: es un flujo
+  // en segundo plano (no hay usuario esperando en vivo), así que vale la
+  // pena insistir un poco más ante una caída pasajera de Gemini (vistas
+  // en producción: 503 "alta demanda" que se resuelve solo en segundos).
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      const datos = await intentar();
+      if (datos) return datos;
+    } catch (err) {
+      console.error(`⚠️  Intento ${intento}/3 de extraer datos con Gemini Vision falló:`, err.message);
+    }
+    if (intento < 3) await new Promise(r => setTimeout(r, 3000));
+  }
+  throw new Error('No se pudo leer la imagen con IA tras 3 intentos.');
+}
+
+/* Procesa un registro pendiente en segundo plano: llama a Gemini Vision
+   y actualiza su estado. Se dispara sin await desde el endpoint de
+   subida — quien tomó la foto no debe esperar a que termine. */
+async function procesarRegistroPendienteIA(id, base64, mimeType) {
+  try {
+    const datos = await extraerDatosOficioDeImagen(base64, mimeType);
+    await sql`
+      UPDATE oficios_pendientes_ia
+      SET estado = 'listo', datos_json = ${JSON.stringify(datos)}::jsonb
+      WHERE id = ${id}`;
+    console.log(`✅  Registro pendiente IA #${id} listo.`);
+  } catch (err) {
+    await sql`
+      UPDATE oficios_pendientes_ia
+      SET estado = 'error', error_mensaje = ${err.message}
+      WHERE id = ${id}`;
+    console.error(`⚠️  Registro pendiente IA #${id} falló:`, err.message);
+  }
 }
 
 /* ── JWT ── */
@@ -812,6 +926,130 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
   }
 });
 
+/* ══════════════════════════════════════════════════════
+   REGISTRO AUTOMÁTICO (IA) — captura de oficio por foto
+   Flujo: el celular sube la foto (este endpoint responde de
+   inmediato, sin esperar a Gemini) -> se procesa en segundo plano
+   -> la PC (Nuevo Registro Automático) lista los pendientes y, al
+   elegir uno ya "listo", rellena el formulario con datos_json.
+   Mismo permiso que Nuevo Registro (Coordinación Administrativa).
+   ══════════════════════════════════════════════════════ */
+
+/* ══ POST /api/oficios/pendientes — subir una foto para procesar ══ */
+app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, upload.single('imagen'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
+
+    const [nuevo] = await sql`
+      INSERT INTO oficios_pendientes_ia (imagen, imagen_mime, creado_por)
+      VALUES (${req.file.buffer}, ${req.file.mimetype}, ${req.user.username})
+      RETURNING id, estado, creado_en`;
+
+    // Sin await a propósito: quien tomó la foto no debe esperar a Gemini.
+    procesarRegistroPendienteIA(nuevo.id, req.file.buffer.toString('base64'), req.file.mimetype)
+      .catch(err => console.error('⚠️  Error inesperado procesando pendiente IA:', err.message));
+
+    res.status(201).json({ id: nuevo.id, estado: nuevo.estado, creado_en: nuevo.creado_en });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo subir la imagen.');
+  }
+});
+
+/* ══ GET /api/oficios/pendientes — lista para elegir en "Registro Automático"
+   No trae la imagen completa (pesada); trae si_tiene_imagen para que el
+   frontend arme la miniatura con GET /pendientes/:id/imagen bajo demanda.
+   Solo los últimos 3 días y los que no se hayan usado ya. ══ */
+app.get('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, async (req, res) => {
+  try {
+    const rows = await sql`
+      SELECT id, estado, datos_json, error_mensaje, creado_por, creado_en
+      FROM oficios_pendientes_ia
+      WHERE usado = FALSE AND creado_en > NOW() - INTERVAL '3 days'
+      ORDER BY creado_en DESC`;
+    res.json(rows);
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron obtener los registros pendientes.');
+  }
+});
+
+/* ══ GET /api/oficios/pendientes/:id/imagen — sirve la foto original ══ */
+/* Un <img src="..."> nunca puede mandar el header Authorization, así que
+   servir la foto directo detrás de verifyToken no funciona (se probó y
+   dio 401 en cada miniatura). Mismo patrón que ya usa el sistema para
+   documentos (ver /doc-token/:slot + /api/docs/:token más abajo en el
+   archivo): este endpoint SÍ pide Bearer token y solo entrega una URL
+   de un solo propósito, corta vida, que el <img> puede usar directo. */
+app.get('/api/oficios/pendientes/:id/imagen-token', verifyToken, onlyCoordOrAdmin, async (req, res) => {
+  try {
+    const [row] = await sql`SELECT id FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
+    if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    const token = jwt.sign(
+      { propósito: 'imagen_pendiente', pendienteId: row.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '30m' }
+    );
+    res.json({ url: `/api/pendientes-imagen/${token}` });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo generar el enlace de la imagen.');
+  }
+});
+
+/* ══ GET /api/pendientes-imagen/:token — sirve la foto para un <img src>.
+   Público (sin Authorization header) pero solo aceptable con el token
+   de un solo propósito emitido arriba. ══ */
+app.get('/api/pendientes-imagen/:token', async (req, res) => {
+  try {
+    let payload;
+    try {
+      payload = jwt.verify(req.params.token, process.env.JWT_SECRET);
+    } catch {
+      return res.status(401).end();
+    }
+    if (payload?.propósito !== 'imagen_pendiente') return res.status(401).end();
+
+    const [row] = await sql`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${payload.pendienteId}`;
+    if (!row) return res.status(404).end();
+    res.set('Content-Type', row.imagen_mime);
+    res.set('Cache-Control', 'private, max-age=1800');
+    res.send(row.imagen);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo obtener la imagen.');
+  }
+});
+
+/* ══ POST /api/oficios/pendientes/:id/reintentar — reprocesar con IA sin
+   volver a tomar la foto (usa la imagen ya guardada). Para cuando Gemini
+   falló por una caída pasajera. ══ */
+app.post('/api/oficios/pendientes/:id/reintentar', verifyToken, onlyCoordOrAdmin, async (req, res) => {
+  try {
+    const [row] = await sql`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
+    if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+
+    await sql`UPDATE oficios_pendientes_ia SET estado = 'procesando', error_mensaje = NULL WHERE id = ${req.params.id}`;
+
+    procesarRegistroPendienteIA(req.params.id, row.imagen.toString('base64'), row.imagen_mime)
+      .catch(err => console.error('⚠️  Error inesperado reprocesando pendiente IA:', err.message));
+
+    res.json({ ok: true, estado: 'procesando' });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo reintentar el procesamiento.');
+  }
+});
+
+/* ══ DELETE /api/oficios/pendientes/:id — descartar uno de la lista.
+   Se llama tanto si la persona lo descarta a mano como, automáticamente,
+   justo después de usarlo para guardar un registro (ver captura-auto.js). ══ */
+app.delete('/api/oficios/pendientes/:id', verifyToken, onlyCoordOrAdmin, async (req, res) => {
+  try {
+    const rows = await sql`DELETE FROM oficios_pendientes_ia WHERE id = ${req.params.id} RETURNING id`;
+    if (!rows[0]) return res.status(404).json({ mensaje: 'No encontrado.' });
+    res.json({ ok: true });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo eliminar el registro pendiente.');
+  }
+});
+
 /* ══ GET /api/oficios/:id ══ */
 app.get('/api/oficios/:id', verifyToken, async (req, res) => {
   try {
@@ -829,6 +1067,7 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
 
 /* ══ POST /api/oficios — Exclusivo de Coordinación Administrativa (o el
    admin legado) ══ */
+
 app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
   { name: 'doc1', maxCount: 1 },
   { name: 'doc2', maxCount: 1 }
