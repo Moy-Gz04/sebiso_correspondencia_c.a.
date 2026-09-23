@@ -883,14 +883,133 @@ function seleccionarPendiente(id) {
   document.querySelector('.card-captura-unica')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-/* Toma la foto COMPLETA de un pendiente y la procesa con <canvas> para
-   que se vea como un documento escaneado en impresora en vez de una
-   foto de celular: blanco y negro (escala de grises) con contraste
-   ajustado automáticamente (igual que el "auto-niveles" de un
-   escáner/copiadora), para que el texto se lea nítido y el fondo salga
-   parejo. Esto NO endereza el documento si la foto quedó inclinada
-   (eso necesitaría detectar los bordes del papel, fuera de alcance de
-   esta primera versión) — solo corrige tono y contraste.
+/* OpenCV.js (cargado en captura-auto.html, solo en el navegador) tarda
+   unos segundos en inicializar. obtenerCV() espera a que esté listo,
+   con límite de tiempo: si no carga a tiempo (o el navegador/red no lo
+   permiten), se sigue sin corrección de perspectiva y solo con el
+   ajuste de tono/contraste — nunca bloquea el guardado. */
+let CV_PROMESA = null;
+function obtenerCV() {
+  if (CV_PROMESA) return CV_PROMESA;
+  CV_PROMESA = new Promise((resolve, reject) => {
+    const limite = setTimeout(() => reject(new Error('OpenCV tardó demasiado en cargar.')), 20000);
+    const listo = (cvObj) => { clearTimeout(limite); resolve(cvObj); };
+    const intervalo = setInterval(() => {
+      if (window.cv && typeof window.cv.Mat === 'function') {
+        clearInterval(intervalo);
+        listo(window.cv);
+      } else if (window.cv && typeof window.cv.then === 'function') {
+        clearInterval(intervalo);
+        window.cv.then(listo, reject);
+      }
+    }, 150);
+  });
+  return CV_PROMESA;
+}
+
+/* Busca en la foto el contorno de 4 lados más grande (la hoja del
+   oficio) y aplica corrección de perspectiva para "aplanarla" y
+   recortar el fondo — el mismo principio que usan las apps de escaneo
+   por celular (CamScanner y similares). Devuelve un <canvas> ya
+   enderezado y recortado, o null si no se encontró una hoja clara (foto
+   muy inclinada, fondo confuso, bordes tapados, etc.) — en ese caso NO
+   se arriesga un recorte equivocado y se sigue con la foto completa tal
+   cual, sin perspectiva corregida. */
+function detectarYEnderezarHoja(cv, canvasOrigen) {
+  const src = cv.imread(canvasOrigen);
+  const gris = new cv.Mat();
+  const desenfocado = new cv.Mat();
+  const bordes = new cv.Mat();
+  const dilatado = new cv.Mat();
+  const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
+  const contornos = new cv.MatVector();
+  const jerarquia = new cv.Mat();
+  let mejorContorno = null;
+  let canvasResultado = null;
+
+  try {
+    cv.cvtColor(src, gris, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gris, desenfocado, new cv.Size(5, 5), 0);
+    cv.Canny(desenfocado, bordes, 50, 150);
+    cv.dilate(bordes, dilatado, kernel);
+    cv.findContours(dilatado, contornos, jerarquia, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    const areaTotal = canvasOrigen.width * canvasOrigen.height;
+    let mejorArea = 0;
+
+    for (let i = 0; i < contornos.size(); i++) {
+      const c = contornos.get(i);
+      const area = cv.contourArea(c);
+      // La hoja debe ocupar una porción real de la foto (al menos 20%);
+      // si no, es ruido del fondo, no el documento.
+      if (area < areaTotal * 0.2) { c.delete(); continue; }
+
+      const perimetro = cv.arcLength(c, true);
+      const aprox = new cv.Mat();
+      cv.approxPolyDP(c, aprox, 0.02 * perimetro, true);
+
+      if (aprox.rows === 4 && area > mejorArea) {
+        if (mejorContorno) mejorContorno.delete();
+        mejorContorno = aprox;
+        mejorArea = area;
+      } else {
+        aprox.delete();
+      }
+      c.delete();
+    }
+
+    if (!mejorContorno) return null;
+
+    const puntos = [];
+    for (let i = 0; i < 4; i++) {
+      puntos.push({ x: mejorContorno.data32S[i * 2], y: mejorContorno.data32S[i * 2 + 1] });
+    }
+    puntos.sort((a, b) => a.y - b.y);
+    const [supIzq, supDer] = puntos.slice(0, 2).sort((a, b) => a.x - b.x);
+    const [infIzq, infDer] = puntos.slice(2, 4).sort((a, b) => a.x - b.x);
+
+    const ancho = Math.round(Math.max(
+      Math.hypot(supDer.x - supIzq.x, supDer.y - supIzq.y),
+      Math.hypot(infDer.x - infIzq.x, infDer.y - infIzq.y)
+    ));
+    const alto = Math.round(Math.max(
+      Math.hypot(infIzq.x - supIzq.x, infIzq.y - supIzq.y),
+      Math.hypot(infDer.x - supDer.x, infDer.y - supDer.y)
+    ));
+    if (ancho < 100 || alto < 100) return null; // resultado absurdo: se descarta
+
+    const origenPts   = cv.matFromArray(4, 1, cv.CV_32FC2, [
+      supIzq.x, supIzq.y, supDer.x, supDer.y, infDer.x, infDer.y, infIzq.x, infIzq.y,
+    ]);
+    const destinoPts   = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, ancho, 0, ancho, alto, 0, alto]);
+    const transformacion = cv.getPerspectiveTransform(origenPts, destinoPts);
+    const enderezado     = new cv.Mat();
+    cv.warpPerspective(src, enderezado, transformacion, new cv.Size(ancho, alto));
+
+    canvasResultado = document.createElement('canvas');
+    canvasResultado.width = ancho;
+    canvasResultado.height = alto;
+    cv.imshow(canvasResultado, enderezado);
+
+    origenPts.delete(); destinoPts.delete(); transformacion.delete(); enderezado.delete();
+    return canvasResultado;
+  } finally {
+    src.delete(); gris.delete(); desenfocado.delete(); bordes.delete();
+    dilatado.delete(); kernel.delete(); contornos.delete(); jerarquia.delete();
+    mejorContorno?.delete();
+  }
+}
+
+/* Toma la foto COMPLETA de un pendiente y la procesa para que se vea
+   como un documento escaneado en impresora en vez de una foto de
+   celular:
+   1) Detecta los bordes de la hoja y corrige la perspectiva (endereza
+      el ángulo y recorta el fondo) con OpenCV.js — si no encuentra una
+      hoja clara, sigue con la foto completa tal cual venía.
+   2) Escala de grises con contraste ajustado automáticamente
+      ("auto-niveles", igual que hace un escáner/copiadora al leer un
+      documento), para que el texto se lea nítido y el fondo salga
+      parejo.
    Devuelve un Blob JPEG, o null si algo falla (nunca debe bloquear el
    guardado del registro). */
 async function generarDocumentoEscaneado(id) {
@@ -913,18 +1032,31 @@ async function generarDocumentoEscaneado(id) {
       h = Math.round(h * escala);
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, w, h);
+    const canvasBase = document.createElement('canvas');
+    canvasBase.width = w;
+    canvasBase.height = h;
+    canvasBase.getContext('2d').drawImage(img, 0, 0, w, h);
 
-    const datos = ctx.getImageData(0, 0, w, h);
+    // Corrección de perspectiva (mejor esfuerzo): si OpenCV no carga a
+    // tiempo o no detecta una hoja clara, se sigue con canvasBase tal
+    // cual — nunca bloquea ni arriesga un recorte equivocado.
+    let canvasTrabajo = canvasBase;
+    try {
+      const cv = await obtenerCV();
+      const enderezado = detectarYEnderezarHoja(cv, canvasBase);
+      if (enderezado) canvasTrabajo = enderezado;
+    } catch (err) {
+      console.warn('⚠️  Corrección de perspectiva no disponible, se usa la foto tal cual:', err.message);
+    }
+
+    const ctx = canvasTrabajo.getContext('2d');
+    const w2 = canvasTrabajo.width, h2 = canvasTrabajo.height;
+    const datos = ctx.getImageData(0, 0, w2, h2);
     const px = datos.data;
-    const total = w * h;
+    const total = w2 * h2;
 
-    // 1) Escala de grises (luminancia perceptual) + histograma, en un
-    //    solo recorrido.
+    // Escala de grises (luminancia perceptual) + histograma, en un solo
+    // recorrido.
     const gris = new Uint8ClampedArray(total);
     const histograma = new Uint32Array(256);
     for (let i = 0, p = 0; i < total; i++, p += 4) {
@@ -933,9 +1065,9 @@ async function generarDocumentoEscaneado(id) {
       histograma[g | 0]++;
     }
 
-    // 2) "Auto-niveles": se recortan el 1% más oscuro y el 1% más claro
-    //    (sombras/brillos raros de una foto de celular) y se estira el
-    //    resto a 0-255, tal como hace un escáner al ajustar la lectura.
+    // "Auto-niveles": se recortan el 1% más oscuro y el 1% más claro
+    // (sombras/brillos raros de una foto de celular) y se estira el
+    // resto a 0-255, tal como hace un escáner al ajustar la lectura.
     const recorte = total * 0.01;
     let acumulado = 0, lo = 0;
     for (; lo < 255; lo++) { acumulado += histograma[lo]; if (acumulado > recorte) break; }
@@ -952,7 +1084,7 @@ async function generarDocumentoEscaneado(id) {
 
     ctx.putImageData(datos, 0, 0);
 
-    return await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+    return await new Promise(resolve => canvasTrabajo.toBlob(resolve, 'image/jpeg', 0.88));
   } catch (err) {
     console.error('⚠️  No se pudo generar el documento con aspecto de escaneo:', err.message);
     return null;
