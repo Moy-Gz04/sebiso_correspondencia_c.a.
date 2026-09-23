@@ -451,6 +451,7 @@ function limpiarForm() {
   // persona solo se equivocó y quiere volver a seleccionarla) — solo
   // se quita la marca de "ya se usó esta" en pantalla.
   PENDIENTE_SELECCIONADO_ID = null;
+  DOC3_AUTO_PROMISE = null;
   document.getElementById('pendiente_ia_id').value = '';
   const aviso = document.getElementById('aviso-pendiente-usado');
   if (aviso) aviso.style.display = 'none';
@@ -485,6 +486,19 @@ async function enviarForm(e) {
       const el = document.getElementById(c);
       if (el) fd.append(c, el.value);
     });
+
+    // Si el registro viene de una foto de Registro Automático, se
+    // adjunta ya mismo como documento de Turno (doc3) para que el área
+    // a la que se turne no tenga que volver a digitalizarlo. Si por
+    // algo falló el procesamiento (o tardó y aún no terminaba), no se
+    // adjunta nada y el registro se guarda igual — el área receptora
+    // puede subirlo ella misma, como pasa siempre en un registro manual.
+    if (PENDIENTE_SELECCIONADO_ID && DOC3_AUTO_PROMISE) {
+      try {
+        const doc3Blob = await DOC3_AUTO_PROMISE;
+        if (doc3Blob) fd.append('doc3', doc3Blob, 'oficio-escaneado.jpg');
+      } catch { /* se guarda sin doc3; el área receptora lo sube si hace falta */ }
+    }
 
     const res = await fetch(`${API}/oficios`, {
       method:  'POST',
@@ -682,6 +696,15 @@ let PENDIENTES_IA = [];
 let PENDIENTE_SELECCIONADO_ID = null;
 let TIMER_POLL_PENDIENTES = null;
 
+/* Promesa del "documento de Turno" (doc3) generado a partir de la foto
+   seleccionada, con aspecto de escaneo — ver generarDocumentoEscaneado
+   más abajo. Se dispara al seleccionar la foto (no al guardar) para que
+   ya esté lista, o casi, para cuando la persona termine de revisar el
+   formulario y le dé Guardar. Solo aplica a Registro Automático: en
+   Nuevo Registro (manual) nunca se llena y el área receptora sigue
+   subiendo su propio documento de Turno como siempre. */
+let DOC3_AUTO_PROMISE = null;
+
 /* Trae la lista de pendientes y repinta el panel. Se llama al cargar
    la página y luego cada 6s (mientras la página siga abierta) para
    que "procesando" pase a "listo" solo, sin que la persona tenga que
@@ -852,8 +875,88 @@ function seleccionarPendiente(id) {
   document.getElementById('aviso-pendiente-usado').style.display = 'flex';
   pintarPendientesIA();
 
+  // Se dispara ya (no hasta Guardar) para que esté lista, o casi, para
+  // cuando la persona termine de revisar el formulario.
+  DOC3_AUTO_PROMISE = generarDocumentoEscaneado(id);
+
   document.getElementById('titulo-panel-apartar')?.scrollIntoView?.({ behavior: 'smooth' });
   document.querySelector('.card-captura-unica')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* Toma la foto COMPLETA de un pendiente y la procesa con <canvas> para
+   que se vea como un documento escaneado en impresora en vez de una
+   foto de celular: blanco y negro (escala de grises) con contraste
+   ajustado automáticamente (igual que el "auto-niveles" de un
+   escáner/copiadora), para que el texto se lea nítido y el fondo salga
+   parejo. Esto NO endereza el documento si la foto quedó inclinada
+   (eso necesitaría detectar los bordes del papel, fuera de alcance de
+   esta primera versión) — solo corrige tono y contraste.
+   Devuelve un Blob JPEG, o null si algo falla (nunca debe bloquear el
+   guardado del registro). */
+async function generarDocumentoEscaneado(id) {
+  try {
+    const url = await obtenerUrlImagenPendiente(id, 'full');
+    if (!url) return null;
+
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error('No se pudo cargar la imagen.'));
+      im.src = url;
+    });
+
+    const DIMENSION_MAXIMA = 2000;
+    let { naturalWidth: w, naturalHeight: h } = img;
+    if (w > DIMENSION_MAXIMA || h > DIMENSION_MAXIMA) {
+      const escala = DIMENSION_MAXIMA / Math.max(w, h);
+      w = Math.round(w * escala);
+      h = Math.round(h * escala);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const datos = ctx.getImageData(0, 0, w, h);
+    const px = datos.data;
+    const total = w * h;
+
+    // 1) Escala de grises (luminancia perceptual) + histograma, en un
+    //    solo recorrido.
+    const gris = new Uint8ClampedArray(total);
+    const histograma = new Uint32Array(256);
+    for (let i = 0, p = 0; i < total; i++, p += 4) {
+      const g = 0.299 * px[p] + 0.587 * px[p + 1] + 0.114 * px[p + 2];
+      gris[i] = g;
+      histograma[g | 0]++;
+    }
+
+    // 2) "Auto-niveles": se recortan el 1% más oscuro y el 1% más claro
+    //    (sombras/brillos raros de una foto de celular) y se estira el
+    //    resto a 0-255, tal como hace un escáner al ajustar la lectura.
+    const recorte = total * 0.01;
+    let acumulado = 0, lo = 0;
+    for (; lo < 255; lo++) { acumulado += histograma[lo]; if (acumulado > recorte) break; }
+    acumulado = 0;
+    let hi = 255;
+    for (; hi > 0; hi--) { acumulado += histograma[hi]; if (acumulado > recorte) break; }
+    if (hi <= lo) { lo = 0; hi = 255; } // imagen casi plana: no se toca
+
+    const rango = hi - lo || 1;
+    for (let i = 0, p = 0; i < total; i++, p += 4) {
+      const v = Math.min(255, Math.max(0, ((gris[i] - lo) / rango) * 255));
+      px[p] = px[p + 1] = px[p + 2] = v;
+    }
+
+    ctx.putImageData(datos, 0, 0);
+
+    return await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.88));
+  } catch (err) {
+    console.error('⚠️  No se pudo generar el documento con aspecto de escaneo:', err.message);
+    return null;
+  }
 }
 
 async function reintentarPendiente(id) {
@@ -882,6 +985,7 @@ async function descartarPendiente(id) {
     });
     if (PENDIENTE_SELECCIONADO_ID === id) {
       PENDIENTE_SELECCIONADO_ID = null;
+      DOC3_AUTO_PROMISE = null;
       document.getElementById('pendiente_ia_id').value = '';
       document.getElementById('aviso-pendiente-usado').style.display = 'none';
     }
@@ -902,6 +1006,7 @@ async function limpiarPendienteUsado() {
     });
   } catch { /* no crítico: si falla, la foto solo se queda visible un rato más */ }
   PENDIENTE_SELECCIONADO_ID = null;
+  DOC3_AUTO_PROMISE = null;
   document.getElementById('pendiente_ia_id').value = '';
   const aviso = document.getElementById('aviso-pendiente-usado');
   if (aviso) aviso.style.display = 'none';

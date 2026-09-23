@@ -1170,7 +1170,8 @@ app.get('/api/oficios/:id', verifyToken, async (req, res) => {
 
 app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
   { name: 'doc1', maxCount: 1 },
-  { name: 'doc2', maxCount: 1 }
+  { name: 'doc2', maxCount: 1 },
+  { name: 'doc3', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const {
@@ -1190,15 +1191,23 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
     const files     = req.files || {};
     const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
     const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
+    // "doc3" (documento de Turno) solo llega aquí desde Registro
+    // Automático: la propia foto del oficio, ya procesada a aspecto de
+    // escaneo en el navegador (ver captura-auto.js), para que el área a
+    // la que se turne ya no tenga que volver a digitalizarlo. En un
+    // registro manual (Nuevo Registro) nunca se manda este campo, así
+    // que ruta_doc3 queda null igual que antes.
+    const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
 
-    const turnadoPor = turnado_a ? req.user.username : null;
+    const turnadoPor      = turnado_a ? req.user.username : null;
+    const doc3SubidoPor   = ruta_doc3 ? req.user.username : null;
 
     const [nuevo] = await sql`
       INSERT INTO oficios (
         n_control, f_sello, f_oficio, dias_entrega, numero,
         n_referencia, remitente, dependencia, instruccion, f_registro,
         folio_despacho, turnado_a, turnado_por, hora_recibido, estatus, descripcion,
-        ruta_doc1, ruta_doc2, area_origen
+        ruta_doc1, ruta_doc2, ruta_doc3, doc3_subido_por, area_origen
       ) VALUES (
         ${n_control},
         ${f_sello        || null},
@@ -1218,6 +1227,8 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
         ${descripcion    || null},
         ${ruta_doc1},
         ${ruta_doc2},
+        ${ruta_doc3},
+        ${doc3SubidoPor},
         ${areaOrigen}
       )
       RETURNING *`;
