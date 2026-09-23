@@ -738,9 +738,26 @@ async function obtenerUrlImagenPendiente(id) {
   }
 }
 
+/* Vista previa grande al pasar el cursor sobre una miniatura. */
+function mostrarPreviewImagen(url) {
+  const cont = document.getElementById('preview-imagen-flotante');
+  const img  = document.getElementById('preview-imagen-flotante-img');
+  if (!cont || !img) return;
+  img.src = url;
+  cont.classList.add('visible');
+}
+
+function ocultarPreviewImagen() {
+  document.getElementById('preview-imagen-flotante')?.classList.remove('visible');
+}
+
 async function pintarPendientesIA() {
   const cont = document.getElementById('pendientes-ia-lista');
   if (!cont) return;
+  // Si la lista se vuelve a pintar (p. ej. por el polling) mientras el
+  // cursor está sobre una miniatura, el <img> viejo desaparece sin
+  // disparar mouseleave y la vista previa se quedaría pegada en pantalla.
+  ocultarPreviewImagen();
 
   if (!PENDIENTES_IA.length) {
     cont.innerHTML = '<p class="pendientes-ia-vacio">Todavía no hay fotos pendientes. Tómala desde tu celular con "Abrir captura desde celular".</p>';
@@ -774,7 +791,8 @@ async function pintarPendientesIA() {
       <div class="tarjeta-pendiente-ia estado-${p.estado} ${seleccionada}" ${clicable}>
         <button type="button" class="tpi-descartar" title="Descartar" onclick="event.stopPropagation(); descartarPendiente(${p.id})"><i class="ti ti-x"></i></button>
         ${btnReintentar}
-        <img class="tpi-thumb" src="${urls[i]}" loading="lazy" alt="Foto del oficio"/>
+        <img class="tpi-thumb" src="${urls[i]}" loading="lazy" alt="Foto del oficio"
+             onmouseenter="mostrarPreviewImagen('${urls[i]}')" onmouseleave="ocultarPreviewImagen()"/>
         ${overlay}
         ${badge}
       </div>`;

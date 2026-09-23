@@ -293,8 +293,13 @@
       <label for="menu-toggle" class="menu-toggle-btn" title="Menú"><i class="ti ti-menu-2"></i></label>
       <ul class="menu-lista">
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/historial'">Historial</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/captura-auto'">Registro Automático</a></li>
+        <li class="menu-solo-gestion menu-submenu" id="menu-registro">
+          <a style="cursor:pointer" class="menu-item menu-item-submenu-trigger">Registro <i class="ti ti-chevron-down"></i></a>
+          <ul class="submenu-lista">
+            <li><a style="cursor:pointer" class="submenu-item" onclick="location.href='/captura-auto'">Registro Automático</a></li>
+            <li><a style="cursor:pointer" class="submenu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
+          </ul>
+        </li>
         <li><a style="cursor:pointer" class="menu-item active" onclick="location.href='/area'">Bandeja de Oficios</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/no-oficio'">No. de Oficio</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/circular'">No. Circular</a></li>
@@ -471,5 +476,6 @@
 
   <script src="js/area.js"></script>
   <script src="js/lluvia.js"></script>
+  <script src="js/menu-registro.js"></script>
 </body>
 </html>

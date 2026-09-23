@@ -75,6 +75,20 @@
       display: flex; align-items: center; gap: 8px; background: #eef7ee; border: 1px solid #b8dab8;
       color: #2e7d32; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px;
     }
+    /* Vista previa grande al pasar el cursor sobre una miniatura: se
+       muestra centrada mientras el mouse está encima y desaparece al
+       retirarlo. pointer-events: none para que nunca estorbe al clic. */
+    .preview-imagen-flotante {
+      display: none; position: fixed; inset: 0; z-index: 500;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55); padding: 40px; pointer-events: none;
+    }
+    .preview-imagen-flotante.visible { display: flex; }
+    .preview-imagen-flotante img {
+      max-width: min(90vw, 720px); max-height: 85vh;
+      border-radius: 12px; border: 3px solid #fff;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
   </style>
 </head>
 <body>
@@ -118,8 +132,13 @@
       <label for="menu-toggle" class="menu-toggle-btn" title="Menú"><i class="ti ti-menu-2"></i></label>
       <ul class="menu-lista">
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/historial'">Historial</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item active" onclick="location.href='/captura-auto'">Registro Automático</a></li>
+        <li class="menu-solo-gestion menu-submenu" id="menu-registro">
+          <a style="cursor:pointer" class="menu-item menu-item-submenu-trigger active">Registro <i class="ti ti-chevron-down"></i></a>
+          <ul class="submenu-lista">
+            <li><a style="cursor:pointer" class="submenu-item active" onclick="location.href='/captura-auto'">Registro Automático</a></li>
+            <li><a style="cursor:pointer" class="submenu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
+          </ul>
+        </li>
         <li><a style="cursor:pointer" class="menu-item" onclick="location.href='/area'">Bandeja de Oficios</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/no-oficio'">No. de Oficio</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/circular'">No. Circular</a></li>
@@ -346,7 +365,13 @@
     </div>
   </footer>
 
+  <!-- Vista previa grande al pasar el cursor sobre una miniatura de foto pendiente -->
+  <div class="preview-imagen-flotante" id="preview-imagen-flotante">
+    <img id="preview-imagen-flotante-img" src="" alt="Vista previa de la foto"/>
+  </div>
+
   <script src="js/captura-auto.js"></script>
   <script src="js/lluvia.js"></script>
+  <script src="js/menu-registro.js"></script>
 </body>
 </html>
