@@ -613,11 +613,14 @@ function sincronizarNumeroConReferencia() {
    registro con éxito o al pulsar "Limpiar".
 
    No se recuerdan n_control ni f_registro: los pone el
-   sistema, no el usuario.
+   sistema, no el usuario. Tampoco se recuerda "instruccion": es un
+   campo que se llena a mano para CADA oficio en particular, así que
+   no debe arrastrarse de una captura a la siguiente — se limpia solo
+   al guardar (enviarForm) y nunca se restaura de un borrador viejo.
    ════════════════════════════════════════════════════ */
 const CAMPOS_BORRADOR = [
   'f_oficio', 'f_sello', 'dias_entrega', 'numero', 'n_referencia',
-  'remitente', 'dependencia', 'instruccion', 'folio_despacho',
+  'remitente', 'dependencia', 'folio_despacho',
   'descripcion', 'turnado_a'
 ];
 
@@ -646,7 +649,12 @@ function restaurarBorrador() {
   } catch { guardado = null; }
   if (!guardado || !guardado.datos) return;
 
+  // Se filtra por CAMPOS_BORRADOR (y no solo por si el <input> existe)
+  // para que un borrador viejo guardado con una lista de campos
+  // distinta —p. ej. de antes de quitar "instruccion" de aquí— no
+  // restaure algo que ya no debería recordarse.
   Object.entries(guardado.datos).forEach(([id, valor]) => {
+    if (!CAMPOS_BORRADOR.includes(id)) return;
     const el = document.getElementById(id);
     if (el && valor != null && valor !== '') el.value = valor;
   });
