@@ -924,7 +924,7 @@ function detectarYEnderezarHoja(cv, canvasOrigen) {
   const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
   const contornos = new cv.MatVector();
   const jerarquia = new cv.Mat();
-  let mejorContorno = null;
+  let hullMasGrande = null;
   let canvasResultado = null;
 
   try {
@@ -934,36 +934,49 @@ function detectarYEnderezarHoja(cv, canvasOrigen) {
     cv.dilate(bordes, dilatado, kernel);
     cv.findContours(dilatado, contornos, jerarquia, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
+    // No se exige que el contorno se aproxime a exactamente 4 esquinas
+    // limpias (approxPolyDP con eso falla seguido: sombras, pliegues o
+    // el borde de la hoja ligeramente curvo lo rompen en más o menos
+    // vértices). En vez de eso: se toma el contorno más grande que
+    // ocupe una porción real de la foto, se limpia con un "convex
+    // hull" (envolvente convexa, para unir el contorno en una sola
+    // silueta aunque haya quedado picoteado) y se le ajusta el
+    // rectángulo rotado mínimo que lo contiene — así siempre se obtiene
+    // un rectángulo aunque el contorno no haya salido perfecto.
     const areaTotal = canvasOrigen.width * canvasOrigen.height;
     let mejorArea = 0;
 
     for (let i = 0; i < contornos.size(); i++) {
       const c = contornos.get(i);
       const area = cv.contourArea(c);
-      // La hoja debe ocupar una porción real de la foto (al menos 20%);
+      // La hoja debe ocupar una porción real de la foto (al menos 15%);
       // si no, es ruido del fondo, no el documento.
-      if (area < areaTotal * 0.2) { c.delete(); continue; }
+      if (area < areaTotal * 0.15 || area <= mejorArea) { c.delete(); continue; }
 
-      const perimetro = cv.arcLength(c, true);
-      const aprox = new cv.Mat();
-      cv.approxPolyDP(c, aprox, 0.02 * perimetro, true);
-
-      if (aprox.rows === 4 && area > mejorArea) {
-        if (mejorContorno) mejorContorno.delete();
-        mejorContorno = aprox;
-        mejorArea = area;
-      } else {
-        aprox.delete();
-      }
+      const hull = new cv.Mat();
+      cv.convexHull(c, hull, false, true);
       c.delete();
+      if (hullMasGrande) hullMasGrande.delete();
+      hullMasGrande = hull;
+      mejorArea = area;
     }
 
-    if (!mejorContorno) return null;
+    if (!hullMasGrande) return null;
 
-    const puntos = [];
-    for (let i = 0; i < 4; i++) {
-      puntos.push({ x: mejorContorno.data32S[i * 2], y: mejorContorno.data32S[i * 2 + 1] });
-    }
+    const rectMin = cv.minAreaRect(hullMasGrande);
+    const { x: cx, y: cy } = rectMin.center;
+    const { width: rw, height: rh } = rectMin.size;
+    const anguloRad = rectMin.angle * Math.PI / 180;
+    const cosA = Math.cos(anguloRad), senA = Math.sin(anguloRad);
+    const hw = rw / 2, hh = rh / 2;
+    // Las 4 esquinas del rectángulo rotado, calculadas a mano (rotar los
+    // 4 vértices de un rectángulo sin rotar y trasladar al centro) — no
+    // depende de si esta build de OpenCV.js expone cv.boxPoints.
+    const puntos = [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([x, y]) => ({
+      x: cx + x * cosA - y * senA,
+      y: cy + x * senA + y * cosA,
+    }));
+
     puntos.sort((a, b) => a.y - b.y);
     const [supIzq, supDer] = puntos.slice(0, 2).sort((a, b) => a.x - b.x);
     const [infIzq, infDer] = puntos.slice(2, 4).sort((a, b) => a.x - b.x);
@@ -996,7 +1009,7 @@ function detectarYEnderezarHoja(cv, canvasOrigen) {
   } finally {
     src.delete(); gris.delete(); desenfocado.delete(); bordes.delete();
     dilatado.delete(); kernel.delete(); contornos.delete(); jerarquia.delete();
-    mejorContorno?.delete();
+    hullMasGrande?.delete();
   }
 }
 
