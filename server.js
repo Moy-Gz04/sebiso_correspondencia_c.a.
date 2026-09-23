@@ -435,15 +435,20 @@ Reglas estrictas:
 - Las fechas SIEMPRE en formato YYYY-MM-DD. Si el año no es visible pero el resto sí, no adivines el año.
 - Devuelve ÚNICAMENTE el objeto JSON, sin explicaciones ni texto adicional.`;
 
-  // gemini-3.1-flash-lite es el modelo principal (rápido, sin "pensar").
-  // gemini-3-flash-preview es el respaldo: se probó en vivo durante una
-  // caída real de -lite (503 "alta demanda" sostenido) y sí respondió
-  // bien con visión — es un modelo "razonador" (tarda más, ~10s) pero
-  // sirve exactamente para este caso: cuando el rápido no está
-  // disponible. Los 3 intentos alternan de modelo (1º y 3º el rápido,
-  // 2º el de respaldo) en vez de insistir 3 veces con el mismo que ya
-  // está caído.
-  const MODELOS_VISION = ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'];
+  // Varios modelos en rotación, no solo dos: cada uno tiene su propia
+  // cuota/disponibilidad en Google, así que cuando uno está caído (503
+  // "alta demanda") o agotó su cuota (429) casi siempre otro sí
+  // responde. Verificado en vivo el 2026-09-23: -flash-lite y
+  // -flash-preview cayeron a la vez (503 y 429 respectivamente) pero
+  // flash-lite-latest y 3.6-flash sí contestaron. Orden: los rápidos
+  // primero, los "razonadores" (más lentos, ~10s) al final como último
+  // recurso.
+  const MODELOS_VISION = [
+    'gemini-3.1-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-3.6-flash',
+    'gemini-3-flash-preview',
+  ];
 
   async function intentar(modelo) {
     const controller = new AbortController();
@@ -488,21 +493,23 @@ Reglas estrictas:
   }
 
   // La extracción de imagen (a diferencia de limpiarDescripcionConIA) se
-  // deja con 3 intentos y una pequeña espera entre cada uno: es un flujo
-  // en segundo plano (no hay usuario esperando en vivo), así que vale la
-  // pena insistir un poco más ante una caída pasajera de Gemini (vistas
-  // en producción: 503 "alta demanda" que se resuelve solo en segundos).
-  for (let intento = 1; intento <= 3; intento++) {
+  // deja con más intentos y una pequeña espera entre cada uno: es un
+  // flujo en segundo plano (no hay usuario esperando en vivo), así que
+  // vale la pena recorrer TODOS los modelos de MODELOS_VISION antes de
+  // rendirse (uno de intentos extra por si el primero de la vuelta
+  // vuelve a estar disponible).
+  const INTENTOS = MODELOS_VISION.length + 1;
+  for (let intento = 1; intento <= INTENTOS; intento++) {
     const modelo = MODELOS_VISION[(intento - 1) % MODELOS_VISION.length];
     try {
       const datos = await intentar(modelo);
       if (datos) return datos;
     } catch (err) {
-      console.error(`⚠️  Intento ${intento}/3 (${modelo}) de extraer datos con Gemini Vision falló:`, err.message);
+      console.error(`⚠️  Intento ${intento}/${INTENTOS} (${modelo}) de extraer datos con Gemini Vision falló:`, err.message);
     }
-    if (intento < 3) await new Promise(r => setTimeout(r, 3000));
+    if (intento < INTENTOS) await new Promise(r => setTimeout(r, 3000));
   }
-  throw new Error('No se pudo leer la imagen con IA tras 3 intentos.');
+  throw new Error(`No se pudo leer la imagen con IA tras probar los ${MODELOS_VISION.length} modelos disponibles.`);
 }
 
 /* Procesa un registro pendiente: llama a Gemini Vision y actualiza su
