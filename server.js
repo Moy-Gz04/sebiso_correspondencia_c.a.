@@ -455,7 +455,7 @@ Reglas estrictas:
   // cuota, se sigue intentando con la(s) cuenta(s) extra antes de darse
   // por vencido. GEMINI_API_KEY_3 (y cualquier GEMINI_API_KEY_N futura)
   // son opcionales -- si no están configuradas simplemente no se usan.
-  const CUENTAS = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_3]
+  const CUENTAS = [process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_3, process.env.GEMINI_API_KEY_5]
     .filter(Boolean);
 
   // Combinación completa modelo x cuenta: primero se agota cada modelo
