@@ -424,15 +424,16 @@ Te voy a dar la foto de un oficio (documento físico, puede estar inclinado, con
 {
   "f_oficio": "fecha del oficio en formato YYYY-MM-DD, o cadena vacía si no aparece",
   "f_sello": "fecha del sello de recibido, si hay uno visible, en formato YYYY-MM-DD, o cadena vacía",
-  "numero": "el número/folio del oficio tal como aparece (ej. 'DGA/112/2026'), o cadena vacía",
-  "remitente": "nombre completo y cargo de quien firma o envía el oficio, o cadena vacía",
-  "dependencia": "nombre de la dependencia, dirección o institución de la que proviene, o cadena vacía",
+  "numero": "el número/folio del oficio (normalmente aparece justo DEBAJO de la fecha, ej. 'DGA/112/2026'). Si el documento no trae ningún número/folio visible, escribe exactamente 'SN' (sin número) — nunca lo dejes en blanco ni inventes uno",
+  "remitente": "nombre completo y cargo de quien firma el oficio, tal como aparece en la firma (ej. 'Lic. Marlen Elva Arista Amador, Directora de Gestión Institucional'), o cadena vacía",
+  "dependencia": "la institución/secretaría de la que proviene, seguida del área o dirección específica de quien firma, separadas por coma. El área sale del cargo del firmante convertido a nombre de área (ej. si firma 'Directora de Gestión Institucional' el área es 'Dirección de Gestión Institucional'). Ejemplo completo: 'Secretaría de Bienestar e Inclusión Social (SEBISO), Dirección de Gestión Institucional'. Si no hay cargo/área identificable, deja solo la institución",
   "descripcion": "un resumen breve (2-3 líneas) del asunto/contenido del oficio, en tus propias palabras, o cadena vacía si no se alcanza a leer nada"
 }
 
 Reglas estrictas:
-- Si un dato no aparece o no se alcanza a leer, deja el campo como cadena vacía "" — NUNCA inventes ni adivines.
+- Si un dato no aparece o no se alcanza a leer, deja el campo como cadena vacía "" (excepto "numero", que en ese caso lleva "SN") — NUNCA inventes ni adivines.
 - Las fechas SIEMPRE en formato YYYY-MM-DD. Si el año no es visible pero el resto sí, no adivines el año.
+- NUNCA extraigas ni inventes un campo de "instrucción" o nota manuscrita añadida al margen — eso no se pide aquí y no debe aparecer en ningún campo.
 - Devuelve ÚNICAMENTE el objeto JSON, sin explicaciones ni texto adicional.`;
 
   // Varios modelos en rotación, no solo dos: cada uno tiene su propia
