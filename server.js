@@ -505,9 +505,8 @@ Reglas estrictas:
   throw new Error('No se pudo leer la imagen con IA tras 3 intentos.');
 }
 
-/* Procesa un registro pendiente en segundo plano: llama a Gemini Vision
-   y actualiza su estado. Se dispara sin await desde el endpoint de
-   subida — quien tomó la foto no debe esperar a que termine. */
+/* Procesa un registro pendiente: llama a Gemini Vision y actualiza su
+   estado. */
 async function procesarRegistroPendienteIA(id, base64, mimeType) {
   try {
     const datos = await extraerDatosOficioDeImagen(base64, mimeType);
@@ -523,6 +522,30 @@ async function procesarRegistroPendienteIA(id, base64, mimeType) {
       WHERE id = ${id}`;
     console.error(`⚠️  Registro pendiente IA #${id} falló:`, err.message);
   }
+}
+
+/* Cola en memoria para procesar los registros pendientes de UNO EN UNO.
+   Antes cada foto disparaba su propia llamada a Gemini sin esperar a
+   las demás, así que si llegaban varias fotos casi juntas se mandaban
+   peticiones en paralelo y eso saturaba la API (más 429/503 de los
+   normales). Encolar no la hace más lenta en el caso normal (una foto
+   a la vez de todos modos), y evita ese pico cuando llegan varias
+   juntas. */
+const COLA_PENDIENTES_IA = [];
+let procesandoColaIA = false;
+
+function encolarRegistroPendienteIA(id, base64, mimeType) {
+  COLA_PENDIENTES_IA.push({ id, base64, mimeType });
+  if (!procesandoColaIA) procesarColaIA();
+}
+
+async function procesarColaIA() {
+  procesandoColaIA = true;
+  let item;
+  while ((item = COLA_PENDIENTES_IA.shift())) {
+    await procesarRegistroPendienteIA(item.id, item.base64, item.mimeType);
+  }
+  procesandoColaIA = false;
 }
 
 /* ── JWT ── */
@@ -959,9 +982,11 @@ app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, upload.single
       VALUES (${req.file.buffer}, ${req.file.mimetype}, ${req.user.username})
       RETURNING id, estado, creado_en`;
 
-    // Sin await a propósito: quien tomó la foto no debe esperar a Gemini.
-    procesarRegistroPendienteIA(nuevo.id, req.file.buffer.toString('base64'), req.file.mimetype)
-      .catch(err => console.error('⚠️  Error inesperado procesando pendiente IA:', err.message));
+    // Se encola (no se procesa directo) para que, si llegan varias fotos
+    // casi juntas, no se disparen todas a la vez contra Gemini — quien
+    // tomó la foto no espera de todos modos, la cola corre en segundo
+    // plano.
+    encolarRegistroPendienteIA(nuevo.id, req.file.buffer.toString('base64'), req.file.mimetype);
 
     res.status(201).json({ id: nuevo.id, estado: nuevo.estado, creado_en: nuevo.creado_en });
   } catch (err) {
@@ -1042,8 +1067,7 @@ app.post('/api/oficios/pendientes/:id/reintentar', verifyToken, onlyCoordOrAdmin
 
     await sql`UPDATE oficios_pendientes_ia SET estado = 'procesando', error_mensaje = NULL WHERE id = ${req.params.id}`;
 
-    procesarRegistroPendienteIA(req.params.id, row.imagen.toString('base64'), row.imagen_mime)
-      .catch(err => console.error('⚠️  Error inesperado reprocesando pendiente IA:', err.message));
+    encolarRegistroPendienteIA(req.params.id, row.imagen.toString('base64'), row.imagen_mime);
 
     res.json({ ok: true, estado: 'procesando' });
   } catch (err) {
