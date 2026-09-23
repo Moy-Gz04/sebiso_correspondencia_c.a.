@@ -432,12 +432,22 @@ Reglas estrictas:
 - Las fechas SIEMPRE en formato YYYY-MM-DD. Si el año no es visible pero el resto sí, no adivines el año.
 - Devuelve ÚNICAMENTE el objeto JSON, sin explicaciones ni texto adicional.`;
 
-  async function intentar() {
+  // gemini-3.1-flash-lite es el modelo principal (rápido, sin "pensar").
+  // gemini-3-flash-preview es el respaldo: se probó en vivo durante una
+  // caída real de -lite (503 "alta demanda" sostenido) y sí respondió
+  // bien con visión — es un modelo "razonador" (tarda más, ~10s) pero
+  // sirve exactamente para este caso: cuando el rápido no está
+  // disponible. Los 3 intentos alternan de modelo (1º y 3º el rápido,
+  // 2º el de respaldo) en vez de insistir 3 veces con el mismo que ya
+  // está caído.
+  const MODELOS_VISION = ['gemini-3.1-flash-lite', 'gemini-3-flash-preview'];
+
+  async function intentar(modelo) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 25000); // imagen tarda mas que texto
+    const timeout = setTimeout(() => controller.abort(), 30000); // imagen (y el modelo de respaldo) tardan mas que texto
     try {
       const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${process.env.GEMINI_API_KEY}`,
         {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -459,7 +469,7 @@ Reglas estrictas:
       const data = await resp.json();
       const texto = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('')?.trim();
       if (!texto) {
-        console.warn('⚠️  Gemini Vision no devolvió texto útil (finishReason=' + data?.candidates?.[0]?.finishReason + '):', JSON.stringify(data).slice(0, 300));
+        console.warn(`⚠️  Gemini Vision (${modelo}) no devolvió texto útil (finishReason=` + data?.candidates?.[0]?.finishReason + '):', JSON.stringify(data).slice(0, 300));
         return null;
       }
       const parseado = JSON.parse(texto);
@@ -480,11 +490,12 @@ Reglas estrictas:
   // pena insistir un poco más ante una caída pasajera de Gemini (vistas
   // en producción: 503 "alta demanda" que se resuelve solo en segundos).
   for (let intento = 1; intento <= 3; intento++) {
+    const modelo = MODELOS_VISION[(intento - 1) % MODELOS_VISION.length];
     try {
-      const datos = await intentar();
+      const datos = await intentar(modelo);
       if (datos) return datos;
     } catch (err) {
-      console.error(`⚠️  Intento ${intento}/3 de extraer datos con Gemini Vision falló:`, err.message);
+      console.error(`⚠️  Intento ${intento}/3 (${modelo}) de extraer datos con Gemini Vision falló:`, err.message);
     }
     if (intento < 3) await new Promise(r => setTimeout(r, 3000));
   }
