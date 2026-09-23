@@ -1034,17 +1034,27 @@ app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin,
 });
 
 /* ══ GET /api/oficios/pendientes — lista para elegir en "Registro Automático"
-   No trae la imagen completa (pesada); trae si_tiene_imagen para que el
-   frontend arme la miniatura con GET /pendientes/:id/imagen bajo demanda.
+   La miniatura (imagen_thumb, ya de por sí ~5-10 KB) va incluida aquí
+   mismo como data URI -- antes el frontend tenía que pedir, por cada
+   foto, un token aparte (GET /imagen-token) y luego la imagen
+   (GET /pendientes-imagen/:token): dos viajes de red extra por
+   miniatura, solo para pintar la lista. Con 10 fotos eso eran hasta 20
+   peticiones antes de ver algo. Ahora todo llega en esta única
+   respuesta; la foto COMPLETA sigue pidiéndose aparte (con token) y
+   solo al pasar el cursor encima, para la vista previa grande.
    Solo los últimos 3 días y los que no se hayan usado ya. ══ */
 app.get('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
     const rows = await sql`
-      SELECT id, estado, datos_json, error_mensaje, creado_por, creado_en
+      SELECT id, estado, datos_json, error_mensaje, creado_por, creado_en, imagen_thumb
       FROM oficios_pendientes_ia
       WHERE usado = FALSE AND creado_en > NOW() - INTERVAL '3 days'
       ORDER BY creado_en DESC`;
-    res.json(rows);
+    const conMiniatura = rows.map(({ imagen_thumb, ...resto }) => ({
+      ...resto,
+      miniatura: imagen_thumb ? `data:image/jpeg;base64,${imagen_thumb.toString('base64')}` : null,
+    }));
+    res.json(conMiniatura);
   } catch (err) {
     manejarError(res, err, 'No se pudieron obtener los registros pendientes.');
   }

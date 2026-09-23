@@ -771,7 +771,7 @@ function ocultarPreviewImagen() {
   document.getElementById('preview-imagen-flotante')?.classList.remove('visible');
 }
 
-async function pintarPendientesIA() {
+function pintarPendientesIA() {
   const cont = document.getElementById('pendientes-ia-lista');
   if (!cont) return;
   // Si la lista se vuelve a pintar (p. ej. por el polling) mientras el
@@ -784,11 +784,12 @@ async function pintarPendientesIA() {
     return;
   }
 
-  // Se piden todos los tokens de imagen en paralelo antes de pintar,
-  // así no hay parpadeo de "imagen rota" mientras llegan uno por uno.
-  const urls = await Promise.all(PENDIENTES_IA.map(p => obtenerUrlImagenPendiente(p.id)));
-
-  cont.innerHTML = PENDIENTES_IA.map((p, i) => {
+  // La miniatura ya viene incluida en PENDIENTES_IA (GET /oficios/pendientes
+  // la manda como data URI) -- ya no hay que pedir un token aparte por
+  // cada foto solo para pintar la lista. Eso sí sigue haciendo falta,
+  // pero solo al pasar el cursor encima (ver mostrarPreviewImagenCompleta),
+  // y por eso esta función ya no necesita ser async.
+  cont.innerHTML = PENDIENTES_IA.map((p) => {
     const seleccionada = p.id === PENDIENTE_SELECCIONADO_ID ? 'seleccionada' : '';
     const clicable = p.estado === 'listo' ? `onclick="seleccionarPendiente(${p.id})"` : '';
 
@@ -811,7 +812,7 @@ async function pintarPendientesIA() {
       <div class="tarjeta-pendiente-ia estado-${p.estado} ${seleccionada}" ${clicable}>
         <button type="button" class="tpi-descartar" title="Descartar" onclick="event.stopPropagation(); descartarPendiente(${p.id})"><i class="ti ti-x"></i></button>
         ${btnReintentar}
-        <img class="tpi-thumb" src="${urls[i]}" loading="lazy" alt="Foto del oficio"
+        <img class="tpi-thumb" src="${p.miniatura || ''}" loading="lazy" alt="Foto del oficio"
              onmouseenter="mostrarPreviewImagenCompleta(${p.id})" onmouseleave="ocultarPreviewImagen()"/>
         ${overlay}
         ${badge}

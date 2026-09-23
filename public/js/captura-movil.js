@@ -151,27 +151,6 @@ function tiempoRelativo(fechaISO) {
 
 const ETIQUETA_ESTADO = { procesando: 'Procesando…', listo: 'Listo para usar', error: 'Error — ver en PC' };
 
-/* Un <img src> no puede mandar Authorization — se pide primero una URL
-   de un solo propósito por foto (mismo patrón que captura-auto.js). */
-const URLS_IMAGEN_CM = {};
-async function obtenerUrlImagenPendiente(id) {
-  if (URLS_IMAGEN_CM[id]) return URLS_IMAGEN_CM[id];
-  try {
-    // tipo=mini: miniatura ligera (~5-10 KB) en vez de la foto completa
-    // tal cual sale de la cámara — en datos móviles la diferencia se
-    // nota mucho para solo pintar un cuadrito chico.
-    const res = await fetch(`${API}/oficios/pendientes/${id}/imagen-token?tipo=mini`, {
-      headers: { 'Authorization': `Bearer ${TOKEN}` },
-    });
-    if (!res.ok) return '';
-    const data = await res.json();
-    URLS_IMAGEN_CM[id] = data.url;
-    return data.url;
-  } catch {
-    return '';
-  }
-}
-
 async function cargarRecientes() {
   const cont = document.getElementById('cm-recientes-lista');
   try {
@@ -187,12 +166,14 @@ async function cargarRecientes() {
       return;
     }
 
+    // La miniatura ya viene incluida en la respuesta (data URI) --
+    // igual que en Registro Automático, ya no hace falta pedir un token
+    // aparte por cada foto solo para pintar la lista.
     const recientes = lista.slice(0, 8);
-    const urls = await Promise.all(recientes.map(p => obtenerUrlImagenPendiente(p.id)));
 
-    cont.innerHTML = recientes.map((p, i) => `
+    cont.innerHTML = recientes.map((p) => `
       <div class="cm-item-reciente">
-        <img src="${urls[i]}" alt=""/>
+        <img src="${p.miniatura || ''}" alt=""/>
         <div class="cm-item-info">
           <span class="cm-item-estado e-${p.estado}">${ETIQUETA_ESTADO[p.estado] || p.estado}</span>
           <span class="cm-item-hora">${tiempoRelativo(p.creado_en)}</span>
