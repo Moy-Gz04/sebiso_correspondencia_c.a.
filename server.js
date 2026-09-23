@@ -406,9 +406,14 @@ async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, 
    responseMimeType 'application/json' (en vez de pedir JSON en texto
    libre) para no depender de que el modelo respete el formato por su
    cuenta. Mismo modelo y patrón de reintento que limpiarDescripcionConIA. */
+// "instruccion" y "n_referencia" se quitaron a propósito: Instrucción
+// es un campo que llena la persona a mano (nunca la IA), y N.
+// Referencia siempre debe quedar igual a Número de Oficio -- eso ya
+// no lo decide la IA, se copia directo en el frontend (ver
+// seleccionarPendiente en captura-auto.js).
 const CAMPOS_EXTRAIBLES = [
-  'f_oficio', 'f_sello', 'numero', 'n_referencia',
-  'remitente', 'dependencia', 'instruccion', 'descripcion',
+  'f_oficio', 'f_sello', 'numero',
+  'remitente', 'dependencia', 'descripcion',
 ];
 
 async function extraerDatosOficioDeImagen(base64, mimeType) {
@@ -420,10 +425,8 @@ Te voy a dar la foto de un oficio (documento físico, puede estar inclinado, con
   "f_oficio": "fecha del oficio en formato YYYY-MM-DD, o cadena vacía si no aparece",
   "f_sello": "fecha del sello de recibido, si hay uno visible, en formato YYYY-MM-DD, o cadena vacía",
   "numero": "el número/folio del oficio tal como aparece (ej. 'DGA/112/2026'), o cadena vacía",
-  "n_referencia": "número de referencia o expediente si aparece por separado del número de oficio, o cadena vacía",
   "remitente": "nombre completo y cargo de quien firma o envía el oficio, o cadena vacía",
   "dependencia": "nombre de la dependencia, dirección o institución de la que proviene, o cadena vacía",
-  "instruccion": "instrucción manuscrita o sello de trámite si lo hay (ej. 'Para su atención'), o cadena vacía",
   "descripcion": "un resumen breve (2-3 líneas) del asunto/contenido del oficio, en tus propias palabras, o cadena vacía si no se alcanza a leer nada"
 }
 

@@ -784,13 +784,21 @@ function seleccionarPendiente(id) {
   if (!p || p.estado !== 'listo' || !p.datos_json) return;
 
   const datos = p.datos_json;
-  const camposIA = ['f_oficio', 'f_sello', 'numero', 'n_referencia', 'remitente', 'dependencia', 'instruccion', 'descripcion'];
+  // "instruccion" queda fuera a propósito: es un campo que llena la
+  // persona a mano, la IA nunca lo debe tocar.
+  const camposIA = ['f_oficio', 'f_sello', 'numero', 'remitente', 'dependencia', 'descripcion'];
   camposIA.forEach(campo => {
     const valor = datos[campo];
     if (!valor) return;
     const el = document.getElementById(campo);
     if (el) el.value = valor;
   });
+
+  // N. Referencia siempre es igual a Número de Oficio — se copia
+  // directo aquí en vez de pedírselo a la IA por separado.
+  const numeroEl = document.getElementById('numero');
+  const referenciaEl = document.getElementById('n_referencia');
+  if (numeroEl?.value && referenciaEl) referenciaEl.value = numeroEl.value;
 
   PENDIENTE_SELECCIONADO_ID = id;
   document.getElementById('pendiente_ia_id').value = id;
