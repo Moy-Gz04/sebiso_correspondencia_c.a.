@@ -720,25 +720,44 @@ function tiempoRelativo(fechaISO) {
 /* Las URLs de imagen son tokens de un solo propósito (ver
    /imagen-token en server.js) — se piden una vez por id y se guardan
    aquí, porque un <img src> no puede mandar el header Authorization
-   y por eso no se puede usar directo el endpoint autenticado normal. */
+   y por eso no se puede usar directo el endpoint autenticado normal.
+   Se cachea por separado "mini" (miniatura ligera, para la lista) y
+   "full" (foto completa, solo se pide al pasar el cursor encima). */
 const URLS_IMAGEN_PENDIENTE = {};
 
-async function obtenerUrlImagenPendiente(id) {
-  if (URLS_IMAGEN_PENDIENTE[id]) return URLS_IMAGEN_PENDIENTE[id];
+async function obtenerUrlImagenPendiente(id, tipo = 'mini') {
+  const clave = `${id}:${tipo}`;
+  if (URLS_IMAGEN_PENDIENTE[clave]) return URLS_IMAGEN_PENDIENTE[clave];
   try {
-    const res = await fetch(`${API}/oficios/pendientes/${id}/imagen-token`, {
+    const res = await fetch(`${API}/oficios/pendientes/${id}/imagen-token?tipo=${tipo}`, {
       headers: { 'Authorization': `Bearer ${TOKEN}` },
     });
     if (!res.ok) return '';
     const data = await res.json();
-    URLS_IMAGEN_PENDIENTE[id] = data.url;
+    URLS_IMAGEN_PENDIENTE[clave] = data.url;
     return data.url;
   } catch {
     return '';
   }
 }
 
-/* Vista previa grande al pasar el cursor sobre una miniatura. */
+/* Vista previa grande al pasar el cursor sobre una miniatura. Pide la
+   foto COMPLETA (no la miniatura de la lista) para que se alcance a
+   leer el documento; se pide justo al pasar el cursor, no antes, para
+   no descargar de más las fotos que nunca se llegan a mirar en
+   grande. */
+let HOVER_PREVIEW_ID = null;
+
+async function mostrarPreviewImagenCompleta(id) {
+  HOVER_PREVIEW_ID = id;
+  const url = await obtenerUrlImagenPendiente(id, 'full');
+  // Si el cursor ya se movió a otra miniatura (o se retiró) mientras se
+  // pedía la foto completa, no la mostramos: sería la del cuadro
+  // equivocado o una que el usuario ya dejó de mirar.
+  if (!url || HOVER_PREVIEW_ID !== id) return;
+  mostrarPreviewImagen(url);
+}
+
 function mostrarPreviewImagen(url) {
   const cont = document.getElementById('preview-imagen-flotante');
   const img  = document.getElementById('preview-imagen-flotante-img');
@@ -748,6 +767,7 @@ function mostrarPreviewImagen(url) {
 }
 
 function ocultarPreviewImagen() {
+  HOVER_PREVIEW_ID = null;
   document.getElementById('preview-imagen-flotante')?.classList.remove('visible');
 }
 
@@ -792,7 +812,7 @@ async function pintarPendientesIA() {
         <button type="button" class="tpi-descartar" title="Descartar" onclick="event.stopPropagation(); descartarPendiente(${p.id})"><i class="ti ti-x"></i></button>
         ${btnReintentar}
         <img class="tpi-thumb" src="${urls[i]}" loading="lazy" alt="Foto del oficio"
-             onmouseenter="mostrarPreviewImagen('${urls[i]}')" onmouseleave="ocultarPreviewImagen()"/>
+             onmouseenter="mostrarPreviewImagenCompleta(${p.id})" onmouseleave="ocultarPreviewImagen()"/>
         ${overlay}
         ${badge}
       </div>`;

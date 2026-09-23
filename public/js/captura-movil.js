@@ -54,6 +54,38 @@ function mostrarPreview(archivo) {
   img.onload = () => URL.revokeObjectURL(url);
 }
 
+/* Redimensiona/recomprime una foto con <canvas> — se usa tanto para
+   achicar la foto completa (las fotos de cámara pueden pesar varios MB
+   y eso es lento de subir con datos móviles, y más lento aún de leer
+   por Gemini) como para generar la miniatura de la lista. Se hace en
+   el navegador a propósito, sin librerías nuevas del lado del
+   servidor. */
+function redimensionarImagen(archivo, dimensionMaxima, calidad) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(archivo);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > dimensionMaxima || height > dimensionMaxima) {
+        const escala = dimensionMaxima / Math.max(width, height);
+        width = Math.round(width * escala);
+        height = Math.round(height * escala);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        blob => blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen.')),
+        'image/jpeg', calidad
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen.')); };
+    img.src = url;
+  });
+}
+
 async function enviarFoto() {
   if (!ARCHIVO_SELECCIONADO) return;
   const btn = document.getElementById('btn-enviar-foto');
@@ -64,7 +96,26 @@ async function enviarFoto() {
 
   try {
     const fd = new FormData();
-    fd.append('imagen', ARCHIVO_SELECCIONADO, ARCHIVO_SELECCIONADO.name || 'foto.jpg');
+
+    // Foto completa: se achica a 1800px de lado más largo (de sobra
+    // para que Gemini lea el texto) en vez de subir los 4000+px tal
+    // cual salen de la cámara. Si algo falla al procesarla (navegador
+    // viejo, formato raro), se sube el archivo original tal cual —
+    // nunca se bloquea el envío por esto.
+    let archivoParaSubir = ARCHIVO_SELECCIONADO;
+    try {
+      const foto = await redimensionarImagen(ARCHIVO_SELECCIONADO, 1800, 0.85);
+      archivoParaSubir = new File([foto], 'foto.jpg', { type: 'image/jpeg' });
+    } catch { /* se sube el original */ }
+    fd.append('imagen', archivoParaSubir, archivoParaSubir.name || 'foto.jpg');
+
+    // Miniatura (~240px) para la lista de pendientes — opcional, si
+    // falla simplemente no se manda y el servidor cae de vuelta a
+    // mostrar la imagen completa donde se necesite.
+    try {
+      const mini = await redimensionarImagen(ARCHIVO_SELECCIONADO, 240, 0.7);
+      fd.append('imagen_thumb', mini, 'miniatura.jpg');
+    } catch { /* sin miniatura, no es crítico */ }
 
     const res = await fetch(`${API}/oficios/pendientes`, {
       method: 'POST',
@@ -106,7 +157,10 @@ const URLS_IMAGEN_CM = {};
 async function obtenerUrlImagenPendiente(id) {
   if (URLS_IMAGEN_CM[id]) return URLS_IMAGEN_CM[id];
   try {
-    const res = await fetch(`${API}/oficios/pendientes/${id}/imagen-token`, {
+    // tipo=mini: miniatura ligera (~5-10 KB) en vez de la foto completa
+    // tal cual sale de la cámara — en datos móviles la diferencia se
+    // nota mucho para solo pintar un cuadrito chico.
+    const res = await fetch(`${API}/oficios/pendientes/${id}/imagen-token?tipo=mini`, {
       headers: { 'Authorization': `Bearer ${TOKEN}` },
     });
     if (!res.ok) return '';

@@ -996,21 +996,36 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
    Mismo permiso que Nuevo Registro (Coordinación Administrativa).
    ══════════════════════════════════════════════════════ */
 
-/* ══ POST /api/oficios/pendientes — subir una foto para procesar ══ */
-app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, upload.single('imagen'), async (req, res) => {
+/* ══ POST /api/oficios/pendientes — subir una foto para procesar ══
+   Recibe DOS archivos: "imagen" (la foto, ya comprimida por el propio
+   navegador del celular antes de subirla — ver captura-movil.js) y
+   "imagen_thumb" (una miniatura de ~240px generada también en el
+   navegador con <canvas>, para pintar la lista de "Fotos por
+   procesar" sin tener que descargar la foto completa). Se genera del
+   lado del cliente y no en el servidor a propósito: así no se necesita
+   ninguna librería de procesamiento de imágenes con binarios nativos
+   (riesgo real de incompatibilidad entre el Windows donde se
+   desarrolla y el Linux donde corre Render). "imagen_thumb" es
+   opcional por si un navegador viejo no soporta canvas.toBlob: en ese
+   caso simplemente no hay miniatura y se sirve la imagen completa. */
+app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin,
+  upload.fields([{ name: 'imagen', maxCount: 1 }, { name: 'imagen_thumb', maxCount: 1 }]),
+  async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
+    const archivoImagen = req.files?.imagen?.[0];
+    if (!archivoImagen) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
+    const archivoThumb = req.files?.imagen_thumb?.[0];
 
     const [nuevo] = await sql`
-      INSERT INTO oficios_pendientes_ia (imagen, imagen_mime, creado_por)
-      VALUES (${req.file.buffer}, ${req.file.mimetype}, ${req.user.username})
+      INSERT INTO oficios_pendientes_ia (imagen, imagen_mime, imagen_thumb, creado_por)
+      VALUES (${archivoImagen.buffer}, ${archivoImagen.mimetype}, ${archivoThumb?.buffer ?? null}, ${req.user.username})
       RETURNING id, estado, creado_en`;
 
     // Se encola (no se procesa directo) para que, si llegan varias fotos
     // casi juntas, no se disparen todas a la vez contra Gemini — quien
     // tomó la foto no espera de todos modos, la cola corre en segundo
     // plano.
-    encolarRegistroPendienteIA(nuevo.id, req.file.buffer.toString('base64'), req.file.mimetype);
+    encolarRegistroPendienteIA(nuevo.id, archivoImagen.buffer.toString('base64'), archivoImagen.mimetype);
 
     res.status(201).json({ id: nuevo.id, estado: nuevo.estado, creado_en: nuevo.creado_en });
   } catch (err) {
@@ -1047,8 +1062,12 @@ app.get('/api/oficios/pendientes/:id/imagen-token', verifyToken, onlyCoordOrAdmi
     const [row] = await sql`SELECT id FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
     if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
 
+    // ?tipo=mini (miniatura ligera, para la lista) o "full" (foto
+    // completa, para la vista previa al pasar el cursor). Por defecto
+    // "full" para no romper a nadie que no mande el parámetro.
+    const tipo = req.query.tipo === 'mini' ? 'mini' : 'full';
     const token = jwt.sign(
-      { propósito: 'imagen_pendiente', pendienteId: row.id },
+      { propósito: 'imagen_pendiente', pendienteId: row.id, tipo },
       process.env.JWT_SECRET,
       { expiresIn: '30m' }
     );
@@ -1071,8 +1090,17 @@ app.get('/api/pendientes-imagen/:token', async (req, res) => {
     }
     if (payload?.propósito !== 'imagen_pendiente') return res.status(401).end();
 
-    const [row] = await sql`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${payload.pendienteId}`;
+    const [row] = await sql`SELECT imagen, imagen_mime, imagen_thumb FROM oficios_pendientes_ia WHERE id = ${payload.pendienteId}`;
     if (!row) return res.status(404).end();
+
+    // Si se pidió miniatura y sí existe, se sirve esa (mucho más
+    // ligera); si no hay miniatura (fotos viejas antes de este
+    // cambio) cae de vuelta a la imagen completa.
+    if (payload.tipo === 'mini' && row.imagen_thumb) {
+      res.set('Content-Type', 'image/jpeg');
+      res.set('Cache-Control', 'private, max-age=1800');
+      return res.send(row.imagen_thumb);
+    }
     res.set('Content-Type', row.imagen_mime);
     res.set('Cache-Control', 'private, max-age=1800');
     res.send(row.imagen);
