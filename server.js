@@ -426,7 +426,7 @@ Te voy a dar la foto de un oficio (documento físico, puede estar inclinado, con
   "f_sello": "fecha del sello de recibido, si hay uno visible, en formato YYYY-MM-DD, o cadena vacía",
   "numero": "el número/folio del oficio (normalmente aparece justo DEBAJO de la fecha, ej. 'DGA/112/2026'). Si el documento no trae ningún número/folio visible, escribe exactamente 'SN' (sin número) — nunca lo dejes en blanco ni inventes uno",
   "remitente": "nombre completo y cargo de quien firma el oficio, tal como aparece en la firma (ej. 'Lic. Marlen Elva Arista Amador, Directora de Gestión Institucional'), o cadena vacía",
-  "dependencia": "la institución/secretaría de la que proviene, seguida del área o dirección específica de quien firma, separadas por coma. El área sale del cargo del firmante convertido a nombre de área (ej. si firma 'Directora de Gestión Institucional' el área es 'Dirección de Gestión Institucional'). Ejemplo completo: 'Secretaría de Bienestar e Inclusión Social (SEBISO), Dirección de Gestión Institucional'. Si no hay cargo/área identificable, deja solo la institución",
+  "dependencia": "la institución/secretaría de la que proviene, seguida del área o dirección específica de quien firma, separadas por coma. El área sale del cargo del firmante convertido a nombre de área (ej. si firma 'Directora de Gestión Institucional' el área es 'Dirección de Gestión Institucional'). Ejemplo completo: 'SEBISO, Dirección de Gestión Institucional'. Si no hay cargo/área identificable, deja solo la institución. IMPORTANTE: máximo 110 caracteres en total — usa siglas o el nombre corto de la institución (ej. 'SEBISO' en vez de 'Secretaría de Bienestar e Inclusión Social') si con el nombre completo no cabe junto con el área",
   "descripcion": "un resumen breve (2-3 líneas) del asunto/contenido del oficio, en tus propias palabras, o cadena vacía si no se alcanza a leer nada"
 }
 
@@ -835,6 +835,17 @@ function manejarError(res, err, mensajeGenerico, status = 500) {
   res.status(status).json({ mensaje: PROD ? mensajeGenerico : `${mensajeGenerico} ${err.message}` });
 }
 
+/* Recorta un texto al límite de una columna varchar antes de guardarlo
+   -- así un valor más largo de lo esperado (typeo manual, o la IA de
+   Registro Automático leyendo un dato más largo de lo usual) nunca
+   tumba el guardado con un error de Postgres (22001, "value too long
+   for type character varying"), solo se guarda recortado. */
+function truncar(valor, maximo) {
+  if (valor == null) return valor;
+  const texto = String(valor);
+  return texto.length > maximo ? texto.slice(0, maximo) : texto;
+}
+
 /* ══ HEALTH CHECK ══ */
 app.get('/api/ping', (req, res) => res.json({ ok: true, ts: new Date() }));
 
@@ -1213,14 +1224,14 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
         ${f_sello        || null},
         ${f_oficio},
         ${Number(dias_entrega) || 0},
-        ${numero         || null},
-        ${n_referencia   || null},
-        ${remitente.trim()},
-        ${dependencia    || null},
+        ${truncar(numero, 60)         || null},
+        ${truncar(n_referencia, 80)   || null},
+        ${truncar(remitente.trim(), 300)},
+        ${truncar(dependencia, 120)   || null},
         ${instruccion    || null},
         ${f_registro     || new Date().toISOString().split('T')[0]},
-        ${folio_despacho || null},
-        ${turnado_a      || null},
+        ${truncar(folio_despacho, 40) || null},
+        ${truncar(turnado_a, 120)     || null},
         ${turnadoPor},
         ${hora_recibido  || null},
         ${estatusInicial},
@@ -1285,7 +1296,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       const [updated] = await sql`
         UPDATE oficios SET
           estatus                 = COALESCE(${nuevoEstatus},   estatus),
-          turnado_a               = COALESCE(${turnado_a      ?? null}, turnado_a),
+          turnado_a               = COALESCE(${truncar(turnado_a, 120) ?? null}, turnado_a),
           turnado_por             = COALESCE(${turnadoPor}, turnado_por),
           instruccion             = COALESCE(${instruccion    ?? null}, instruccion),
           descripcion             = COALESCE(${descripcion    ?? null}, descripcion),
@@ -1295,12 +1306,12 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           f_sello                 = COALESCE(${f_sello        ?? null}, f_sello),
           f_oficio                = COALESCE(${f_oficio       ?? null}, f_oficio),
           dias_entrega            = COALESCE(${dias_entrega !== undefined && dias_entrega !== null && dias_entrega !== '' ? Number(dias_entrega) : null}, dias_entrega),
-          numero                  = COALESCE(${numero         ?? null}, numero),
-          n_referencia            = COALESCE(${n_referencia   ?? null}, n_referencia),
-          remitente               = COALESCE(${remitente      ?? null}, remitente),
-          dependencia             = COALESCE(${dependencia    ?? null}, dependencia),
+          numero                  = COALESCE(${truncar(numero, 60)       ?? null}, numero),
+          n_referencia            = COALESCE(${truncar(n_referencia, 80) ?? null}, n_referencia),
+          remitente               = COALESCE(${truncar(remitente, 300)  ?? null}, remitente),
+          dependencia             = COALESCE(${truncar(dependencia, 120) ?? null}, dependencia),
           f_registro              = COALESCE(${f_registro     ?? null}, f_registro),
-          folio_despacho          = COALESCE(${folio_despacho ?? null}, folio_despacho),
+          folio_despacho          = COALESCE(${truncar(folio_despacho, 40) ?? null}, folio_despacho),
           hora_recibido           = COALESCE(${hora_recibido  ?? null}, hora_recibido),
           ruta_doc1               = COALESCE(${ruta_doc1}, ruta_doc1),
           ruta_doc2               = COALESCE(${ruta_doc2}, ruta_doc2),
