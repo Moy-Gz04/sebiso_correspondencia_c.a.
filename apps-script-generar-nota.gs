@@ -51,6 +51,14 @@ function fechaRegistroPorDefecto_() {
   return 'a ' + p[0] + ' de ' + MESES_ES[Number(p[1]) - 1] + ' del ' + p[2];
 }
 
+/** Reemplaza el marcador en el cuerpo, el encabezado y el pie del documento
+ *  (replaceText del cuerpo solo NO llega al encabezado ni al pie). */
+function reemplazarTodo_(doc, marcador, valor) {
+  [doc.getBody(), doc.getHeader(), doc.getFooter()].forEach(function (seccion) {
+    if (seccion) seccion.replaceText(marcador, valor);
+  });
+}
+
 function generarNota_(data) {
   var plantilla = DriveApp.getFileById(PLANTILLA_NOTA_ID);
   var carpeta   = DriveApp.getFolderById(CARPETA_NOTAS_ID);
@@ -58,16 +66,15 @@ function generarNota_(data) {
   var nombreCopia = 'Nota ' + (data.notj || '') + ' - ' + (data.sala || 'Sala');
   var copia = plantilla.makeCopy(nombreCopia, carpeta);
 
-  var doc  = DocumentApp.openById(copia.getId());
-  var body = doc.getBody();
+  var doc = DocumentApp.openById(copia.getId());
 
-  body.replaceText('<<NOTJ>>', data.notj || '');
-  body.replaceText('<<NP>>', data.np || '');
-  body.replaceText('<<HORA>>', data.hora || '');
-  body.replaceText('<<FECHA>>', data.fecha || '');
-  body.replaceText('<<FECHAREG>>', data.fechareg || fechaRegistroPorDefecto_());
-  body.replaceText('<<ASUNTO>>', data.asunto || '');
-  body.replaceText('<<SOLICITUD>>', data.solicitud || '');
+  reemplazarTodo_(doc, '<<NOTJ>>', data.notj || '');
+  reemplazarTodo_(doc, '<<NP>>', data.np || '');
+  reemplazarTodo_(doc, '<<HORA>>', data.hora || '');
+  reemplazarTodo_(doc, '<<FECHA>>', data.fecha || '');
+  reemplazarTodo_(doc, '<<FECHAREG>>', data.fechareg || fechaRegistroPorDefecto_());
+  reemplazarTodo_(doc, '<<ASUNTO>>', data.asunto || '');
+  reemplazarTodo_(doc, '<<SOLICITUD>>', data.solicitud || '');
 
   doc.saveAndClose();
 
