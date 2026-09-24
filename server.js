@@ -73,6 +73,39 @@ app.use((req, res, next) => {
   return res.status(410).sendFile(path.join(__dirname, 'public', 'migrado.html'));
 });
 
+/* ── Cachés en memoria para reducir la transferencia de datos de Neon ──
+   Neon cobra por los datos que SALEN de la base hacia el servidor. Lo que
+   más pesaba eran lecturas repetidas de lo mismo:
+   · GET /api/oficios bajaba TODA la lista (~1,200 filas) en cada carga y
+     tras cada acción de cada persona.
+   · Las fotos pendientes se leían completas (~700 KB) de la base solo para
+     mostrar la miniatura o la vista previa.
+   La lista de oficios se guarda por rol/área/usuario/filtro hasta que
+   alguien escribe algo (cualquier POST/PUT/PATCH/DELETE la invalida) o
+   pasan 2 minutos. Hay una sola instancia del servidor, así que la caché
+   no puede quedar desincronizada entre instancias. */
+const CACHE_OFICIOS = new Map();          // clave -> { rows, exp }
+const CACHE_OFICIOS_TTL = 2 * 60 * 1000;
+const CACHE_OFICIOS_MAX = 40;
+let GENERACION_OFICIOS = 0;               // sube con cada escritura: una lectura que empezó antes no puede guardar datos viejos
+function guardarCacheOficios(clave, rows) {
+  if (CACHE_OFICIOS.size >= CACHE_OFICIOS_MAX) CACHE_OFICIOS.delete(CACHE_OFICIOS.keys().next().value);
+  CACHE_OFICIOS.set(clave, { rows, exp: Date.now() + CACHE_OFICIOS_TTL });
+}
+app.use('/api', (req, res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) res.on('close', () => { GENERACION_OFICIOS++; CACHE_OFICIOS.clear(); });
+  next();
+});
+
+const CACHE_MINIATURAS = new Map();       // id de foto pendiente -> Buffer (~16 KB c/u)
+const CACHE_FOTOS = new Map();            // id -> { imagen, imagen_mime } (LRU corto: pesan ~700 KB)
+const CACHE_FOTOS_MAX = 6;
+function guardarEnCacheLimitada(mapa, max, clave, valor) {
+  mapa.delete(clave);
+  if (mapa.size >= max) mapa.delete(mapa.keys().next().value);
+  mapa.set(clave, valor);
+}
+
 /* ── CORS restringido ──
    Antes: origin: '*' permitía que cualquier sitio hiciera peticiones
    autenticadas contra la API si robaba un token. Ahora solo se acepta
@@ -942,6 +975,11 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
     const { rol, area, id } = req.user;
     let rows;
 
+    const generacion = GENERACION_OFICIOS;
+    const claveCache = [rol, area, id, estatus ?? '', origen ?? ''].join('|');
+    const enCache = CACHE_OFICIOS.get(claveCache);
+    if (enCache && enCache.exp > Date.now()) return res.json(enCache.rows.map(sanitizarOficio));
+
     if (rol === 'admin') {
       rows = estatus && estatus !== 'todos'
         ? await sql`
@@ -1009,6 +1047,7 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
       return res.status(403).json({ mensaje: 'Rol no reconocido.' });
     }
 
+    if (generacion === GENERACION_OFICIOS) guardarCacheOficios(claveCache, rows);
     res.json(rows.map(sanitizarOficio));
   } catch (err) {
     manejarError(res, err, 'Error al obtener registros.');
@@ -1074,14 +1113,22 @@ app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin,
 app.get('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
     const rows = await sql`
-      SELECT id, estado, datos_json, error_mensaje, creado_por, creado_en, imagen_thumb
+      SELECT id, estado, datos_json, error_mensaje, creado_por, creado_en,
+             (imagen_thumb IS NOT NULL) AS tiene_miniatura
       FROM oficios_pendientes_ia
       WHERE usado = FALSE AND creado_en > NOW() - INTERVAL '3 days'
       ORDER BY creado_en DESC`;
-    const conMiniatura = rows.map(({ imagen_thumb, ...resto }) => ({
-      ...resto,
-      miniatura: imagen_thumb ? `data:image/jpeg;base64,${imagen_thumb.toString('base64')}` : null,
-    }));
+    // Las miniaturas se leen de la base una sola vez y luego se sirven de
+    // memoria; antes viajaban desde Neon en cada consulta de la lista.
+    const faltan = rows.filter(r => r.tiene_miniatura && !CACHE_MINIATURAS.has(r.id)).map(r => r.id);
+    if (faltan.length) {
+      const nuevas = await sql`SELECT id, imagen_thumb FROM oficios_pendientes_ia WHERE id = ANY(${faltan})`;
+      for (const n of nuevas) guardarEnCacheLimitada(CACHE_MINIATURAS, 200, n.id, n.imagen_thumb);
+    }
+    const conMiniatura = rows.map(({ tiene_miniatura, ...resto }) => {
+      const thumb = tiene_miniatura ? CACHE_MINIATURAS.get(resto.id) : null;
+      return { ...resto, miniatura: thumb ? `data:image/jpeg;base64,${thumb.toString('base64')}` : null };
+    });
     res.json(conMiniatura);
   } catch (err) {
     manejarError(res, err, 'No se pudieron obtener los registros pendientes.');
@@ -1128,20 +1175,38 @@ app.get('/api/pendientes-imagen/:token', async (req, res) => {
     }
     if (payload?.propósito !== 'imagen_pendiente') return res.status(401).end();
 
-    const [row] = await sql`SELECT imagen, imagen_mime, imagen_thumb FROM oficios_pendientes_ia WHERE id = ${payload.pendienteId}`;
-    if (!row) return res.status(404).end();
+    const pid = payload.pendienteId;
 
     // Si se pidió miniatura y sí existe, se sirve esa (mucho más
     // ligera); si no hay miniatura (fotos viejas antes de este
-    // cambio) cae de vuelta a la imagen completa.
-    if (payload.tipo === 'mini' && row.imagen_thumb) {
-      res.set('Content-Type', 'image/jpeg');
-      res.set('Cache-Control', 'private, max-age=1800');
-      return res.send(row.imagen_thumb);
+    // cambio) cae de vuelta a la imagen completa. Solo se pide a la
+    // base lo que hace falta: antes SIEMPRE se leía la foto completa
+    // (~700 KB) aunque solo se sirviera la miniatura.
+    if (payload.tipo === 'mini') {
+      let thumb = CACHE_MINIATURAS.get(pid);
+      if (thumb === undefined) {
+        const [t] = await sql`SELECT imagen_thumb FROM oficios_pendientes_ia WHERE id = ${pid}`;
+        if (!t) return res.status(404).end();
+        thumb = t.imagen_thumb;
+        if (thumb) guardarEnCacheLimitada(CACHE_MINIATURAS, 200, pid, thumb);
+      }
+      if (thumb) {
+        res.set('Content-Type', 'image/jpeg');
+        res.set('Cache-Control', 'private, max-age=1800');
+        return res.send(thumb);
+      }
     }
-    res.set('Content-Type', row.imagen_mime);
+
+    let foto = CACHE_FOTOS.get(pid);
+    if (!foto) {
+      const [row] = await sql`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${pid}`;
+      if (!row) return res.status(404).end();
+      foto = { imagen: row.imagen, imagen_mime: row.imagen_mime };
+      guardarEnCacheLimitada(CACHE_FOTOS, CACHE_FOTOS_MAX, pid, foto);
+    }
+    res.set('Content-Type', foto.imagen_mime);
     res.set('Cache-Control', 'private, max-age=1800');
-    res.send(row.imagen);
+    res.send(foto.imagen);
   } catch (err) {
     manejarError(res, err, 'No se pudo obtener la imagen.');
   }
@@ -1172,6 +1237,8 @@ app.delete('/api/oficios/pendientes/:id', verifyToken, onlyCoordOrAdmin, async (
   try {
     const rows = await sql`DELETE FROM oficios_pendientes_ia WHERE id = ${req.params.id} RETURNING id`;
     if (!rows[0]) return res.status(404).json({ mensaje: 'No encontrado.' });
+    CACHE_MINIATURAS.delete(rows[0].id);
+    CACHE_FOTOS.delete(rows[0].id);
     res.json({ ok: true });
   } catch (err) {
     manejarError(res, err, 'No se pudo eliminar el registro pendiente.');
