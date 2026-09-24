@@ -234,24 +234,61 @@ const upload = multer({
    a documentos, a través del mismo Apps Script que ya usamos para los
    PDFs de Sheets. Devuelve la URL pública del archivo, o null si no
    había archivo que subir. */
+/* Llama al Apps Script principal (APPS_SCRIPT_URL) con reintentos.
+   Google a veces responde una página HTML de error en vez del JSON del
+   script (fallo pasajero de su infraestructura, no del código). Antes eso
+   reventaba con "SyntaxError: Unexpected token '<'" en cuanto pasaba una
+   sola vez y el registro completo se perdía. Ahora: 3 intentos con espera
+   creciente, tiempo límite por intento y un error CLARO (esDrive) si al
+   final no se logra. Un reintento tras una respuesta perdida podría dejar
+   un archivo repetido en Drive; es preferible a perder el registro. */
+async function llamarAppsScript(payload, { intentos = 3, timeoutMs = 60000 } = {}) {
+  const url = process.env.APPS_SCRIPT_URL;
+  const falla = (mensaje) => { const e = new Error(mensaje); e.esDrive = true; return e; };
+  if (!url) throw falla('El servidor no tiene configurada la conexión con Drive (APPS_SCRIPT_URL).');
+
+  const cuerpo = JSON.stringify(payload);
+  let motivo = 'Drive no respondió.';
+  for (let intento = 1; intento <= intentos; intento++) {
+    if (intento > 1) await new Promise(r => setTimeout(r, 1500 * (intento - 1)));
+    const controller = new AbortController();
+    const limite = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const resp = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: cuerpo, redirect: 'follow', signal: controller.signal,
+      });
+      if (!(resp.headers.get('content-type') || '').includes('json')) {
+        const texto = await resp.text();
+        motivo = `Drive respondió una página de error (HTTP ${resp.status}).`;
+        console.error(`⚠️  Apps Script ${intento}/${intentos}: respuesta que no es JSON (HTTP ${resp.status}):`, texto.slice(0, 200).replace(/s+/g, ' '));
+        continue;
+      }
+      const data = await resp.json();
+      if (!data.ok) {
+        motivo = String(data.error || 'Drive devolvió un error.').slice(0, 200);
+        console.error(`⚠️  Apps Script ${intento}/${intentos}: ${motivo}`);
+        continue;
+      }
+      return data;
+    } catch (err) {
+      motivo = err.name === 'AbortError' ? 'Drive tardó demasiado en responder.' : `No se pudo conectar con Drive (${err.message}).`;
+      console.error(`⚠️  Apps Script ${intento}/${intentos}: ${motivo}`);
+    } finally {
+      clearTimeout(limite);
+    }
+  }
+  throw falla(motivo);
+}
+
 async function subirArchivoADrive(file) {
   if (!file) return null;
-  if (!process.env.APPS_SCRIPT_URL) {
-    throw new Error('APPS_SCRIPT_URL no está configurada en el servidor.');
-  }
-  const resp = await fetch(process.env.APPS_SCRIPT_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      action:          'subirDocumento',
-      nombre:          file.originalname,
-      mimeType:        file.mimetype,
-      contenidoBase64: file.buffer.toString('base64'),
-    }),
-    redirect: 'follow',
+  const data = await llamarAppsScript({
+    action:          'subirDocumento',
+    nombre:          file.originalname,
+    mimeType:        file.mimetype,
+    contenidoBase64: file.buffer.toString('base64'),
   });
-  const data = await resp.json();
-  if (!data.ok) throw new Error(data.error || 'No se pudo subir el archivo a Drive.');
   return data.url;
 }
 
@@ -948,6 +985,11 @@ app.get('/api/docs/:token', async (req, res) => {
    datos u otras integraciones en el mensaje de error). */
 function manejarError(res, err, mensajeGenerico, status = 500) {
   console.error(err);
+  // Fallo de Google Drive (ya reintentado): se dice claro y se pide repetir,
+  // en vez del genérico "Error al guardar".
+  if (err.esDrive) {
+    return res.status(502).json({ mensaje: `No se pudo subir el documento a Drive (${err.message}) No se guardó nada: vuelve a intentarlo en unos segundos.` });
+  }
   res.status(status).json({ mensaje: PROD ? mensajeGenerico : `${mensajeGenerico} ${err.message}` });
 }
 
@@ -2130,15 +2172,7 @@ app.post('/api/oficios/generar-pdf', verifyToken, async (req, res) => {
       control:    o.n_control || '',
     }));
 
-    const resp = await fetch(process.env.APPS_SCRIPT_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ registros }),
-      redirect: 'follow',
-    });
-
-    const data = await resp.json();
-    if (!data.ok) throw new Error(data.error || 'El Apps Script devolvió un error.');
+    const data = await llamarAppsScript({ registros });
 
     const [guardado] = await sql`
       INSERT INTO pdfs_generados (oficio_ids, folios, url, file_id, generado_por, area)
