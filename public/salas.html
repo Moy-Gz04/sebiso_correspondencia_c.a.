@@ -100,6 +100,38 @@
     .chip-sala-borrar:hover { background: #c62828; color: #fff; }
     .campo-error { color: #c62828; font-size: 12.5px; margin-top: 4px; min-height: 16px; }
 
+    /* ── Apartado de varios días ── */
+    .campo-ayuda { font-size: 12px; color: #6b6b6b; margin: 6px 0 10px; line-height: 1.4; }
+    .btn-dias-agregar {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; cursor: pointer;
+      font-family: 'Montserrat', sans-serif; font-size: 12.5px; font-weight: 600;
+      color: #5c2233; background: #f4eef0; border: 1px dashed #b08090; border-radius: 7px;
+    }
+    .btn-dias-agregar:hover { background: #e6dde1; }
+    .dias-lista { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0 12px; }
+    .dias-lista:empty { display: none; }
+    /* Al editar un apartado de un solo día solo se muestra "Fecha" */
+    .modo-una-fecha .campo-fila { grid-template-columns: 1fr; }
+    .modo-una-fecha .campo-fila .campo:nth-child(2),
+    .modo-una-fecha .campo-ayuda,
+    .modo-una-fecha .btn-dias-agregar,
+    .modo-una-fecha .dias-lista { display: none; }
+    .chip-dia {
+      background: #f4eef0; color: #5c2233; border: 1px solid #e6dde1; border-radius: 999px;
+      padding: 5px 8px 5px 12px; font-size: 12.5px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums;
+    }
+    .chip-dia button {
+      background: rgba(0,0,0,0.08); border: none; border-radius: 50%; width: 17px; height: 17px;
+      font-size: 10.5px; line-height: 17px; text-align: center; cursor: pointer; color: inherit; padding: 0;
+    }
+    .chip-dia button:hover { background: #c62828; color: #fff; }
+    .ticket-dias-badge {
+      display: inline-flex; align-items: center; gap: 5px; margin: 6px 6px 0 0;
+      padding: 3px 9px; font-size: 0.74rem; font-weight: 700; border-radius: 999px;
+      background: rgba(255,255,255,.65); border: 1px solid rgba(0,0,0,.08);
+    }
+
     /* ── Tendedero de tarjetas (Post-it) ── */
     .tendedero-header {
       display: flex; align-items: baseline; justify-content: space-between;
@@ -407,10 +439,24 @@
             <label for="select-sala">Sala</label>
             <select id="select-sala"></select>
           </div>
-          <div class="campo">
-            <label for="input-fecha-apartado">Fecha</label>
-            <input type="date" id="input-fecha-apartado"/>
+          <div id="bloque-fechas">
+            <div class="campo-fila">
+              <div class="campo">
+                <label for="input-fecha-apartado">Fecha</label>
+                <input type="date" id="input-fecha-apartado"/>
+              </div>
+              <div class="campo">
+                <label for="input-fecha-fin-apartado">Hasta (opcional)</label>
+                <input type="date" id="input-fecha-fin-apartado"/>
+              </div>
+            </div>
+            <p class="campo-ayuda">Para varios días seguidos a la misma hora, pon el primer y el último día. Para días sueltos, agrégalos uno por uno.</p>
+            <button type="button" class="btn-dias-agregar" id="btn-agregar-dias" onclick="agregarDiasApartado()">
+              <i class="ti ti-calendar-plus"></i> Agregar a la lista de días
+            </button>
+            <div class="dias-lista" id="dias-lista" aria-live="polite"></div>
           </div>
+          <p class="campo-ayuda" id="aviso-edicion-grupo" style="display:none;"></p>
           <div class="campo-fila">
             <div class="campo">
               <label for="input-hora-inicio-apartado">Hora inicio</label>

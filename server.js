@@ -305,6 +305,38 @@ function formatearFechaNota(fechaISO) {
   return `el próximo ${dia} de ${MESES_ES[mes - 1]} de ${anio}`;
 }
 
+/* Igual que formatearFechaNota pero acepta una lista de fechas (apartado
+   de varios días a la misma hora): ["2026-09-29","2026-09-30","2026-10-01"]
+   -> "los próximos días 29 y 30 de septiembre y 1 de octubre de 2026".
+   Con una sola fecha (o un string suelto) da exactamente el texto de siempre. */
+function formatearFechasNota(fechaOLista) {
+  if (!Array.isArray(fechaOLista)) return formatearFechaNota(fechaOLista);
+  const lista = [...new Set(fechaOLista.map(f => (typeof f === 'string' ? f : f.toISOString()).slice(0, 10)))].sort();
+  if (lista.length === 1) return formatearFechaNota(lista[0]);
+
+  const grupos = []; // días consecutivos del mismo mes/año van juntos
+  for (const f of lista) {
+    const [a, m, d] = f.split('-').map(Number);
+    const g = grupos[grupos.length - 1];
+    if (g && g.a === a && g.m === m) g.dias.push(d); else grupos.push({ a, m, dias: [d] });
+  }
+  const mismoAnio = grupos.every(g => g.a === grupos[0].a);
+  const unir = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}` : String(xs[0]));
+  const tramos = grupos.map(g => `${unir(g.dias)} de ${MESES_ES[g.m - 1]}${mismoAnio ? '' : ' de ' + g.a}`);
+  return `los próximos días ${unir(tramos)}${mismoAnio ? ' de ' + grupos[0].a : ''}`;
+}
+
+const MAX_DIAS_APARTADO = 31;
+
+/* Body del apartado -> lista ordenada y sin repetidos de "YYYY-MM-DD".
+   Acepta `fechas` (varios días) o `fecha` (uno, como siempre). null = alguna inválida. */
+function normalizarFechasApartado(fechas, fechaUnica) {
+  const crudas = Array.isArray(fechas) && fechas.length ? fechas : (fechaUnica ? [fechaUnica] : []);
+  const lista = [...new Set(crudas.map(f => String(f).slice(0, 10)))].sort();
+  if (lista.some(f => !/^\d{4}-\d{2}-\d{2}$/.test(f) || Number.isNaN(Date.parse(f)))) return null;
+  return lista;
+}
+
 /* La "Descripción del evento" la escribe cualquier persona, en cualquier
    forma: desde una frase corta ("Reunión de área") hasta un oficio
    completo ya redactado a mano, con SU PROPIA fecha/hora/número de
@@ -323,14 +355,14 @@ async function limpiarDescripcionConIA(descripcionCruda, { fecha, horaInicio, ho
   const prompt = `Eres un asistente que ayuda a redactar oficios de gobierno en México.
 
 Se va a generar un oficio con dos párrafos. El PRIMER párrafo (ya redactado, no lo tocas) dice algo como:
-"...con capacidad para ${personas} personas, en un horario de ${formatearHoraNota(horaInicio, horaFin)}, ${formatearFechaNota(fecha)}."
+"...con capacidad para ${personas} personas, en un horario de ${formatearHoraNota(horaInicio, horaFin)}, ${formatearFechasNota(fecha)}."
 
 El SEGUNDO párrafo empieza con "Lo anterior, con la finalidad de " y tú debes completarlo. Te doy la descripción del evento tal como la escribió la persona que apartó la sala (puede venir corta y limpia, o puede venir como un oficio completo ya redactado, con su propia fecha/hora/número de personas que puede NO coincidir con los datos de arriba):
 
 """${descripcionCruda.trim()}"""
 
 Tu tarea: escribe UNA SOLA frase corta en español formal que complete naturalmente "Lo anterior, con la finalidad de ___." Reglas estrictas:
-- Los datos verdaderos son los del primer párrafo (fecha ${formatearFechaNota(fecha)}, horario ${formatearHoraNota(horaInicio, horaFin)}, ${personas} personas). Si el texto de la persona menciona otra fecha, hora o número de personas, IGNÓRALOS — no los repitas ni los seas fiel a ellos.
+- Los datos verdaderos son los del primer párrafo (fecha ${formatearFechasNota(fecha)}, horario ${formatearHoraNota(horaInicio, horaFin)}, ${personas} personas). Si el texto de la persona menciona otra fecha, hora o número de personas, IGNÓRALOS — no los repitas ni los seas fiel a ellos.
 - No inventes datos (nombres, cargos, motivos) que no estén en el texto.
 - No repitas la fecha, la hora ni el número de personas — ya están en el primer párrafo.
 - Devuelve SOLO la frase (sin comillas, sin "Lo anterior...", sin punto final si ya no hace falta, sin explicaciones ni notas).`;
@@ -416,7 +448,7 @@ async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, 
     sala,
     np:        String(np),
     hora:      formatearHoraNota(horaInicio, horaFin),
-    fecha:     formatearFechaNota(fecha),
+    fecha:     formatearFechasNota(fecha),
     asunto:    construirAsuntoNota(descripcionLimpia),
     solicitud: construirSolicitudNota(prestamo),
   };
@@ -2275,9 +2307,16 @@ app.get('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, re
    apartado se guarda igual — solo queda sin nota_pdf_url. ══ */
 app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo } = req.body || {};
-    if (!sala_id || !fecha || !hora_inicio || !hora_fin) {
+    const { sala_id, fecha, fechas: fechasBody, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo } = req.body || {};
+    // Un apartado puede abarcar VARIOS días a la misma hora (`fechas`);
+    // con `fecha` sola funciona exactamente como siempre.
+    const fechas = normalizarFechasApartado(fechasBody, fecha);
+    if (fechas === null) return res.status(400).json({ mensaje: 'Alguna de las fechas no es válida.' });
+    if (!sala_id || !fechas.length || !hora_inicio || !hora_fin) {
       return res.status(400).json({ mensaje: 'Sala, fecha, hora de inicio y hora de fin son obligatorios.' });
+    }
+    if (fechas.length > MAX_DIAS_APARTADO) {
+      return res.status(400).json({ mensaje: `Un apartado puede abarcar máximo ${MAX_DIAS_APARTADO} días.` });
     }
     if (hora_fin <= hora_inicio) {
       return res.status(400).json({ mensaje: 'La hora de fin debe ser posterior a la hora de inicio.' });
@@ -2296,6 +2335,22 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     const [sala] = await sql`SELECT nombre FROM salas WHERE id = ${sala_id}`;
     if (!sala) return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
 
+    // Con varios días se revisan los choques ANTES de gastar un folio y
+    // generar el PDF, y se dice exactamente qué días están ocupados.
+    // (La exclusión de la BD sigue siendo la garantía final ante carreras.)
+    const ocupados = await sql`
+      SELECT DISTINCT fecha FROM salas_apartados
+      WHERE sala_id = ${sala_id} AND fecha = ANY(${fechas}::date[])
+        AND hora_inicio < ${hora_fin}::time AND hora_fin > ${hora_inicio}::time
+      ORDER BY fecha`;
+    if (ocupados.length) {
+      const dias = ocupados.map(o => {
+        const [a, m, d] = o.fecha.toISOString().slice(0, 10).split('-');
+        return `${d}/${m}/${a}`;
+      }).join(', ');
+      return res.status(409).json({ mensaje: `Esa sala ya está ocupada en ese horario el ${dias}. Elige otro rango o quita ese día.` });
+    }
+
     // El número de la tarjeta (folio de la Nota) se puede editar en el
     // formulario antes de apartar — si viene, se usa TAL CUAL (se
     // permiten duplicados a propósito, el frontend solo avisa). Si no
@@ -2303,22 +2358,29 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     const folioNota = normalizarFolioNota(req.body.folio_nota) || await siguienteNotaAutomatica();
     const notaPdfUrl = await generarNotaSalaPDF({
       notj: folioNota, sala: sala.nombre, np: numPersonas,
-      horaInicio: hora_inicio, horaFin: hora_fin, fecha, descripcion: desc, prestamo: solicitudPrestamo,
+      horaInicio: hora_inicio, horaFin: hora_fin, fecha: fechas, descripcion: desc, prestamo: solicitudPrestamo,
     });
 
-    const [nuevo] = await sql`
+    // Una fila por día (así los choques, el vencimiento y el historial
+    // siguen funcionando por día), TODAS en una sola transacción: o se
+    // aparta cada día o ninguno. Comparten folio, PDF y creado_en (NOW()
+    // es el mismo dentro de la transacción) — el frontend las junta en
+    // una sola tarjeta con esos datos.
+    const resultados = await sql.transaction(fechas.map(f => sql`
       INSERT INTO salas_apartados
         (sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota, nota_pdf_url, creado_por)
       VALUES
-        (${sala_id}, ${fecha}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${solicitudPrestamo}, ${folioNota}, ${notaPdfUrl}, ${req.user.username})
-      RETURNING *`;
+        (${sala_id}, ${f}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${solicitudPrestamo}, ${folioNota}, ${notaPdfUrl}, ${req.user.username})
+      RETURNING id`));
+    const ids = resultados.map(r => r[0].id);
 
-    const [conNombre] = await sql`
+    const filas = await sql`
       SELECT sa.*, s.nombre AS sala_nombre
       FROM salas_apartados sa JOIN salas s ON s.id = sa.sala_id
-      WHERE sa.id = ${nuevo.id}`;
+      WHERE sa.id = ANY(${ids})
+      ORDER BY sa.fecha ASC`;
 
-    res.status(201).json(conNombre);
+    res.status(201).json({ ...filas[0], apartados: filas, fechas });
   } catch (err) {
     if (err.code === '23503') {
       return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
@@ -2336,8 +2398,13 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
    (compara contra las demás filas, no contra sí misma). ══ */
 app.put('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo } = req.body || {};
-    if (!sala_id || !fecha || !hora_inicio || !hora_fin) {
+    const { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, ids } = req.body || {};
+    // Tarjeta de varios días: `ids` trae todas sus filas; los datos comunes
+    // (sala, horario, personas, descripción…) se aplican a todas y cada día
+    // conserva su propia fecha.
+    const idsGrupo = Array.isArray(ids) ? [...new Set(ids.map(Number).filter(Number.isInteger))] : [];
+    const esGrupo = idsGrupo.length > 1;
+    if (!sala_id || (!esGrupo && !fecha) || !hora_inicio || !hora_fin) {
       return res.status(400).json({ mensaje: 'Sala, fecha, hora de inicio y hora de fin son obligatorios.' });
     }
     if (hora_fin <= hora_inicio) {
@@ -2353,6 +2420,22 @@ app.put('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (req
     }
     const oficio = no_oficio?.trim() || null;
     const solicitudPrestamo = prestamo?.trim() || null;
+
+    if (esGrupo) {
+      if (idsGrupo.length > MAX_DIAS_APARTADO) return res.status(400).json({ mensaje: 'Demasiados días en un solo apartado.' });
+      const actualizados = await sql`
+        UPDATE salas_apartados
+        SET sala_id = ${sala_id}, hora_inicio = ${hora_inicio}, hora_fin = ${hora_fin},
+            personas = ${numPersonas}, descripcion = ${desc}, no_oficio = ${oficio}, prestamo = ${solicitudPrestamo}
+        WHERE id = ANY(${idsGrupo})
+        RETURNING id`;
+      if (!actualizados.length) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
+      const filas = await sql`
+        SELECT sa.*, s.nombre AS sala_nombre
+        FROM salas_apartados sa JOIN salas s ON s.id = sa.sala_id
+        WHERE sa.id = ANY(${idsGrupo}) ORDER BY sa.fecha ASC`;
+      return res.json({ ...filas[0], apartados: filas });
+    }
 
     // No se regenera el PDF de la Nota al editar (folio_nota/nota_pdf_url
     // quedan igual) — evitaría gastar un folio nuevo cada vez que se
@@ -2405,6 +2488,40 @@ app.delete('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (
 
     await sql`DELETE FROM salas_apartados WHERE id = ${req.params.id}`;
     res.json({ ok: true, motivo_eliminacion: motivoEliminacion });
+  } catch (err) {
+    manejarError(res, err, 'Error al cancelar el apartado.');
+  }
+});
+
+/* ══ POST /api/salas/apartados/eliminar — quitar una tarjeta de VARIOS
+   días de una sola vez. Body: { ids: [..] }. Igual que el DELETE de un
+   solo día: cada día queda en salas_historial (con "vencido" o
+   "cancelado" según ya haya pasado su hora de fin) y todo ocurre en una
+   sola transacción. ══ */
+app.post('/api/salas/apartados/eliminar', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(Number).filter(Number.isInteger))] : [];
+    if (!ids.length || ids.length > MAX_DIAS_APARTADO) {
+      return res.status(400).json({ mensaje: 'Indica qué días quitar.' });
+    }
+    const apartados = await sql`
+      SELECT sa.*, s.nombre AS sala_nombre
+      FROM salas_apartados sa JOIN salas s ON s.id = sa.sala_id
+      WHERE sa.id = ANY(${ids})`;
+    if (!apartados.length) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
+
+    const ahora = new Date();
+    const consultas = apartados.map(a => {
+      const fin = new Date(`${a.fecha.toISOString().slice(0, 10)}T${a.hora_fin}`);
+      const motivo = fin < ahora ? 'vencido' : 'cancelado';
+      return sql`
+        INSERT INTO salas_historial (sala_id, sala_nombre, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota, nota_pdf_url, creado_por, motivo_eliminacion, eliminado_por)
+        VALUES (${a.sala_id}, ${a.sala_nombre}, ${a.fecha}, ${a.hora_inicio}, ${a.hora_fin}, ${a.personas}, ${a.descripcion}, ${a.no_oficio}, ${a.prestamo}, ${a.folio_nota}, ${a.nota_pdf_url}, ${a.creado_por}, ${motivo}, ${req.user.username})`;
+    });
+    consultas.push(sql`DELETE FROM salas_apartados WHERE id = ANY(${apartados.map(a => a.id)})`);
+    await sql.transaction(consultas);
+
+    res.json({ ok: true, eliminados: apartados.length });
   } catch (err) {
     manejarError(res, err, 'Error al cancelar el apartado.');
   }

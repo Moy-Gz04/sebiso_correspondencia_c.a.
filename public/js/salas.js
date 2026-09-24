@@ -135,12 +135,107 @@ function momentoInicioApartado(ap) {
   return new Date(`${ap.fecha.slice(0, 10)}T${ap.hora_inicio.slice(0, 5)}:00`);
 }
 function momentoFinApartado(ap) {
-  return new Date(`${ap.fecha.slice(0, 10)}T${ap.hora_fin.slice(0, 5)}:00`);
+  // Un apartado de varios días termina al acabar su ÚLTIMO día
+  return new Date(`${(ap.fecha_fin || ap.fecha).slice(0, 10)}T${ap.hora_fin.slice(0, 5)}:00`);
 }
 
 let SALAS = [];
-let APARTADOS = [];
+let APARTADOS = [];            // tarjetas (un apartado de varios días = UNA tarjeta con varias filas)
 let EDITANDO_ID = null;
+let EDITANDO_IDS = [];         // filas de la tarjeta que se está editando
+let DIAS_SELECCIONADOS = [];   // días elegidos en el formulario para un apartado nuevo
+
+const MES_CORTO = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/* ["2026-09-29","2026-09-30","2026-10-01"] -> "29 y 30 sep, 1 oct 2026".
+   Un solo día conserva el formato de siempre (dd/mm/aaaa). */
+function textoDias(fechas) {
+  if (fechas.length === 1) return formatearFechaCorta(fechas[0]);
+  const grupos = [];
+  for (const f of fechas) {
+    const [a, m, d] = f.split('-').map(Number);
+    const g = grupos[grupos.length - 1];
+    if (g && g.a === a && g.m === m) g.d.push(d); else grupos.push({ a, m, d: [d] });
+  }
+  const mismoAnio = grupos.every(g => g.a === grupos[0].a);
+  const unir = xs => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}` : String(xs[0]));
+  const partes = grupos.map(g => `${unir(g.d)} ${MES_CORTO[g.m - 1]}${mismoAnio ? '' : ' ' + g.a}`);
+  return partes.join(', ') + (mismoAnio ? ' ' + grupos[0].a : '');
+}
+
+/* Filas del servidor -> tarjetas. Un apartado de varios días se guarda
+   como una fila por día, todas creadas juntas: comparten folio, PDF,
+   autor, horario, textos y momento de creación, y eso las identifica como
+   UNA sola tarjeta. Cualquier fila suelta (o sin folio) es su propia tarjeta. */
+function agruparApartados(filas) {
+  const grupos = new Map();
+  for (const f of [...filas].sort((a, b) => a.fecha.localeCompare(b.fecha))) {
+    const clave = f.folio_nota
+      ? [f.folio_nota, f.sala_id, f.hora_inicio, f.hora_fin, f.personas, f.descripcion, f.no_oficio, f.prestamo, f.creado_por, f.nota_pdf_url, f.creado_en].join('\u0001')
+      : `solo:${f.id}`;
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(f);
+  }
+  return [...grupos.values()].map(g => ({
+    ...g[0],
+    ids: g.map(x => x.id),
+    fechas: g.map(x => x.fecha.slice(0, 10)),
+    fecha_fin: g[g.length - 1].fecha.slice(0, 10),
+  }));
+}
+
+/* ── Días elegidos para un apartado nuevo ── */
+function expandirRango(desde, hasta) {
+  const [a, m, d] = desde.split('-').map(Number);
+  const inicio = new Date(a, m - 1, d);
+  let fin = inicio;
+  if (hasta) { const [a2, m2, d2] = hasta.split('-').map(Number); fin = new Date(a2, m2 - 1, d2); }
+  if (fin < inicio) return null;
+  const dias = [];
+  for (const x = new Date(inicio); x <= fin; x.setDate(x.getDate() + 1)) {
+    dias.push(fechaISO(x));
+    if (dias.length > 31) return null;
+  }
+  return dias;
+}
+
+function pintarDiasLista() {
+  const cont = document.getElementById('dias-lista');
+  if (!cont) return;
+  cont.innerHTML = DIAS_SELECCIONADOS.map(f => `
+    <span class="chip-dia">${formatearFechaCorta(f)}
+      <button type="button" title="Quitar este día" onclick="quitarDiaApartado('${f}')">✕</button>
+    </span>`).join('');
+}
+
+function quitarDiaApartado(f) {
+  DIAS_SELECCIONADOS = DIAS_SELECCIONADOS.filter(x => x !== f);
+  pintarDiasLista();
+}
+
+/* Suma a la lista lo que haya en "Fecha" (y "Hasta", si se puso).
+   Devuelve true si no hubo problema. */
+function agregarDiasApartado() {
+  const errorEl = document.getElementById('error-apartar-sala');
+  const desde = document.getElementById('input-fecha-apartado').value;
+  const hasta = document.getElementById('input-fecha-fin-apartado').value;
+  errorEl.textContent = '';
+  if (!desde) { errorEl.textContent = 'Selecciona una fecha.'; return false; }
+  const dias = expandirRango(desde, hasta);
+  if (!dias) {
+    errorEl.textContent = hasta && hasta < desde
+      ? 'El día final no puede ser anterior al inicial.'
+      : 'Un apartado puede abarcar máximo 31 días.';
+    return false;
+  }
+  const todos = [...new Set([...DIAS_SELECCIONADOS, ...dias])].sort();
+  if (todos.length > 31) { errorEl.textContent = 'Un apartado puede abarcar máximo 31 días.'; return false; }
+  DIAS_SELECCIONADOS = todos;
+  document.getElementById('input-fecha-apartado').value = '';
+  document.getElementById('input-fecha-fin-apartado').value = '';
+  pintarDiasLista();
+  return true;
+}
 
 /* ════════════════════════════════════════════════════
    Salas (catálogo)
@@ -248,7 +343,7 @@ async function cargarApartados() {
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
     if (!res.ok) throw new Error(data.mensaje || 'Error al cargar los apartados.');
-    APARTADOS = data;
+    APARTADOS = agruparApartados(data);
     pintarTendedero();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
@@ -271,16 +366,17 @@ function pintarTendedero() {
   cont.innerHTML = ordenados.map((ap, i) => {
     const vencido = momentoFinApartado(ap) < new Date();
     const estatus = vencido ? 'Listo para eliminar' : 'Próximo';
-    const fecha = ap.fecha.slice(0, 10);
+    const dias = ap.fechas.length;
     return `
       <div class="ticket ${COLORES_TICKET[i % COLORES_TICKET.length]}" data-id="${ap.id}" data-vencido="${vencido}" onclick="verDetalleTicket(${ap.id})">
         <button class="ticket-close" title="Quitar tarjeta" onclick="event.stopPropagation(); descartarApartado(${ap.id})">✕</button>
         <button class="ticket-edit" title="Editar apartado" onclick="event.stopPropagation(); editarApartado(${ap.id})"><i class="ti ti-pencil"></i></button>
         <div class="ticket-title">${ap.sala_nombre}</div>
-        <div class="ticket-info"><i class="ti ti-clock"></i> ${formatearFechaCorta(fecha)} — ${ap.hora_inicio.slice(0, 5)} a ${ap.hora_fin.slice(0, 5)}</div>
+        <div class="ticket-info"><i class="ti ti-clock"></i> ${textoDias(ap.fechas)} — ${ap.hora_inicio.slice(0, 5)} a ${ap.hora_fin.slice(0, 5)}</div>
         <div class="ticket-info"><i class="ti ti-users"></i> ${ap.personas} persona${ap.personas === 1 ? '' : 's'}</div>
         <div class="ticket-info"><i class="ti ti-align-left"></i> ${ap.descripcion || 'Sin descripción'}</div>
         ${ap.no_oficio ? `<div class="ticket-info"><i class="ti ti-file-text"></i> ${ap.no_oficio}</div>` : ''}
+        ${dias > 1 ? `<span class="ticket-dias-badge"><i class="ti ti-calendar-event"></i> ${dias} días</span>` : ''}
         ${ap.folio_nota ? `<span class="ticket-nota-badge"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</span>` : ''}
         <span class="ticket-tag">${estatus}</span>
       </div>`;
@@ -328,7 +424,7 @@ function verDetalleTicket(id) {
 
   document.getElementById('detalle-modal').className = `detalle-modal ${COLORES_TICKET[colorIdx % COLORES_TICKET.length]}`;
   document.getElementById('detalle-sala').textContent = ap.sala_nombre;
-  document.getElementById('detalle-fechahora').textContent = `${formatearFechaCorta(ap.fecha.slice(0, 10))} — ${ap.hora_inicio.slice(0, 5)} a ${ap.hora_fin.slice(0, 5)}`;
+  document.getElementById('detalle-fechahora').textContent = `${textoDias(ap.fechas)} — ${ap.hora_inicio.slice(0, 5)} a ${ap.hora_fin.slice(0, 5)}`;
   document.getElementById('detalle-personas').textContent = `${ap.personas} persona${ap.personas === 1 ? '' : 's'}`;
   document.getElementById('detalle-descripcion').textContent = ap.descripcion || 'Sin descripción';
   document.getElementById('detalle-oficio-fila').style.display = ap.no_oficio ? '' : 'none';
@@ -381,8 +477,15 @@ async function apartarSala() {
 
   errorEl.textContent = '';
 
+  const editandoGrupo = EDITANDO_IDS.length > 1;
+  // Apartado nuevo: lo que esté escrito en "Fecha"/"Hasta" y aún no se haya
+  // agregado a la lista se suma solo (no hace falta pulsar el botón para
+  // el caso normal de "del día X al día Y").
+  if (EDITANDO_ID === null && inputFecha.value && !agregarDiasApartado()) return;
+  const fechas = EDITANDO_ID === null ? [...DIAS_SELECCIONADOS] : null;
+
   const sala_id = selectSala.value;
-  const fecha   = inputFecha.value;
+  const fecha   = EDITANDO_ID === null ? fechas[0] : inputFecha.value;
   const hora_inicio = inputHoraInicio.value;
   const hora_fin    = inputHoraFin.value;
   const personas = parseInt(inputPersonas.value, 10);
@@ -394,7 +497,7 @@ async function apartarSala() {
   const folio_nota = (EDITANDO_ID === null && inputFolioNota) ? inputFolioNota.value.trim() : undefined;
 
   if (!sala_id)      { errorEl.textContent = 'Registra o selecciona una sala primero.'; return; }
-  if (!fecha)        { errorEl.textContent = 'Selecciona una fecha.'; return; }
+  if (!fecha && !editandoGrupo) { errorEl.textContent = 'Selecciona una fecha.'; return; }
   if (!hora_inicio)  { errorEl.textContent = 'Selecciona la hora de inicio.'; return; }
   if (!hora_fin)     { errorEl.textContent = 'Selecciona la hora de fin.'; return; }
   if (hora_fin <= hora_inicio) { errorEl.textContent = 'La hora de fin debe ser posterior a la de inicio.'; return; }
@@ -402,16 +505,21 @@ async function apartarSala() {
   if (!descripcion) { errorEl.textContent = 'Describe brevemente el evento.'; return; }
 
   const editando = EDITANDO_ID !== null;
+  // El aviso final se arma con las fechas de ESTA tarjeta (al terminar la edición ya se limpia el estado).
+  const fechasParaMensaje = editando ? (APARTADOS.find(a => a.id === EDITANDO_ID)?.fechas ?? [fecha]) : fechas;
   btn.disabled = true;
   mostrarCargando(
     editando ? 'Guardando cambios…' : 'Apartando sala…',
     editando ? 'Un momento, por favor.' : 'Generando la Nota (PDF). Esto puede tardar unos segundos.'
   );
   try {
+    const cuerpo = { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota };
+    if (!editando) cuerpo.fechas = fechas;
+    if (editandoGrupo) cuerpo.ids = EDITANDO_IDS;
     const res = await fetch(`${API}/salas/apartados${editando ? '/' + EDITANDO_ID : ''}`, {
       method: editando ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
-      body: JSON.stringify({ sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota }),
+      body: JSON.stringify(cuerpo),
     });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
@@ -421,6 +529,8 @@ async function apartarSala() {
     }
 
     if (editando) cancelarEdicionApartado(); else {
+      DIAS_SELECCIONADOS = [];
+      pintarDiasLista();
       inputPersonas.value = '';
       inputDescripcion.value = '';
       inputOficio.value = '';
@@ -441,7 +551,7 @@ async function apartarSala() {
       : '';
     await sbisAlert({
       titulo: editando ? 'Apartado actualizado' : 'Sala apartada',
-      mensaje: `${data.sala_nombre} — ${formatearFechaCorta(fecha)} de ${hora_inicio} a ${hora_fin}.${notaMsg}`,
+      mensaje: `${data.sala_nombre} — ${textoDias(fechasParaMensaje)} de ${hora_inicio} a ${hora_fin}.${notaMsg}`,
       tipo: 'success',
     });
   } catch (err) {
@@ -459,8 +569,21 @@ function editarApartado(id) {
   if (!ap) return;
 
   EDITANDO_ID = id;
+  EDITANDO_IDS = ap.ids;
+  const varios = ap.ids.length > 1;
+  // Una tarjeta de varios días se edita como un todo (sala, horario, personas,
+  // descripción…); cada día conserva su fecha. Para cambiar los días hay que
+  // cancelarla y crearla de nuevo.
+  const bloque = document.getElementById('bloque-fechas');
+  bloque.classList.toggle('modo-una-fecha', !varios);
+  bloque.style.display = varios ? 'none' : '';
+  const aviso = document.getElementById('aviso-edicion-grupo');
+  aviso.style.display = varios ? '' : 'none';
+  aviso.textContent = varios
+    ? `Este apartado abarca ${ap.ids.length} días (${textoDias(ap.fechas)}). Los cambios de sala, horario y datos se aplican a todos los días. Para cambiar los días, cancélalo y créalo de nuevo.`
+    : '';
   document.getElementById('select-sala').value = ap.sala_id;
-  document.getElementById('input-fecha-apartado').value = ap.fecha.slice(0, 10);
+  document.getElementById('input-fecha-apartado').value = ap.fechas[0];
   document.getElementById('input-hora-inicio-apartado').value = ap.hora_inicio.slice(0, 5);
   document.getElementById('input-hora-fin-apartado').value = ap.hora_fin.slice(0, 5);
   document.getElementById('input-personas-apartado').value = ap.personas;
@@ -482,6 +605,13 @@ function editarApartado(id) {
 
 function cancelarEdicionApartado() {
   EDITANDO_ID = null;
+  EDITANDO_IDS = [];
+  const bloque = document.getElementById('bloque-fechas');
+  bloque.classList.remove('modo-una-fecha');
+  bloque.style.display = '';
+  document.getElementById('aviso-edicion-grupo').style.display = 'none';
+  document.getElementById('input-fecha-apartado').value = '';
+  document.getElementById('input-fecha-fin-apartado').value = '';
   document.getElementById('titulo-panel-apartar').innerHTML = '<i class="ti ti-calendar-plus"></i> Apartar Sala';
   document.getElementById('btn-apartar-sala').innerHTML = '<i class="ti ti-check"></i> Apartar sala';
   document.getElementById('btn-cancelar-edicion').style.display = 'none';
@@ -502,10 +632,14 @@ async function descartarApartado(id) {
   const ap = APARTADOS.find(a => a.id === id);
   const vencido = ap ? momentoFinApartado(ap) < new Date() : false;
 
+  const varios = (ap?.ids?.length ?? 1) > 1;
+
   if (!vencido) {
     const ok = await sbisConfirm({
       titulo: '¿Cancelar este apartado?',
-      mensaje: 'Todavía no pasa la fecha y hora de este apartado. La sala quedará libre en ese horario otra vez.',
+      mensaje: varios
+        ? `Este apartado abarca ${ap.ids.length} días (${textoDias(ap.fechas)}) y aún no termina. Se cancelarán todos y la sala quedará libre en ese horario otra vez.`
+        : 'Todavía no pasa la fecha y hora de este apartado. La sala quedará libre en ese horario otra vez.',
       btnOk: 'Cancelar apartado',
       tipo: 'danger',
     });
@@ -514,10 +648,17 @@ async function descartarApartado(id) {
 
   const tarjeta = document.querySelector(`.ticket[data-id="${id}"]`);
   try {
-    const res = await fetch(`${API}/salas/apartados/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${TOKEN}` },
-    });
+    // Una tarjeta de varios días se quita completa, en una sola operación
+    const res = varios
+      ? await fetch(`${API}/salas/apartados/eliminar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+          body: JSON.stringify({ ids: ap.ids }),
+        })
+      : await fetch(`${API}/salas/apartados/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${TOKEN}` },
+        });
     if (res.status === 401) { cerrarSesion(); return; }
     const data = await res.json();
     if (!res.ok) throw new Error(data.mensaje || 'No se pudo quitar la tarjeta.');
