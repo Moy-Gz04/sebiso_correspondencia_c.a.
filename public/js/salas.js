@@ -401,7 +401,9 @@ function pintarTarjetaNota(ap) {
   if (!ap.nota_pdf_url) {
     return `
       <div class="nota-card-head"><span class="folio"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</span></div>
-      <div class="nota-card-sinpdf"><i class="ti ti-alert-circle"></i> El PDF no se pudo generar automáticamente — contacta a soporte.</div>`;
+      <div class="nota-card-sinpdf"><i class="ti ti-alert-circle"></i> El PDF de esta Nota no se generó (Drive no respondió). Puedes volver a intentarlo: se conserva el mismo número de Nota.</div>
+      <button type="button" class="btn-reintentar-pdf" id="btn-reintentar-pdf" onclick="regenerarNotaPDF(${ap.id})"><i class="ti ti-refresh"></i> Reintentar generar PDF</button>
+      <p class="reintentar-pdf-msg" id="reintentar-pdf-msg" aria-live="polite"></p>`;
   }
   const fileId = idDriveDesdeUrl(ap.nota_pdf_url);
   return `
@@ -436,6 +438,34 @@ function verDetalleTicket(id) {
   document.getElementById('detalle-estatus').textContent = vencido ? 'Listo para eliminar' : 'Próximo';
 
   document.getElementById('detalle-overlay').classList.add('visible');
+}
+
+/* Vuelve a pedir el PDF de una Nota que quedó sin él. Mismo folio; el PDF
+   queda en todos los días de la tarjeta. */
+async function regenerarNotaPDF(id) {
+  const ap = APARTADOS.find(a => a.id === id);
+  const btn = document.getElementById('btn-reintentar-pdf');
+  const msg = document.getElementById('reintentar-pdf-msg');
+  if (!ap || !btn) return;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader-2 spin"></i> Generando…';
+  msg.textContent = 'Esto puede tardar unos segundos.';
+  try {
+    const res = await fetch(`${API}/salas/apartados/regenerar-nota`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${TOKEN}` },
+      body: JSON.stringify({ ids: ap.ids }),
+    });
+    if (res.status === 401) { cerrarSesion(); return; }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.mensaje || 'No se pudo generar el PDF.');
+    await cargarApartados();
+    verDetalleTicket(id); // se vuelve a pintar el detalle, ya con el PDF
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-refresh"></i> Reintentar generar PDF';
+    msg.textContent = err.message;
+  }
 }
 
 function cerrarDetalleTicket() {
@@ -547,7 +577,7 @@ async function apartarSala() {
     const notaMsg = !editando
       ? (data.nota_pdf_url
           ? ` Nota ${data.folio_nota} generada.`
-          : (data.folio_nota ? ` Nota ${data.folio_nota} asignada (el PDF no se pudo generar automáticamente; contacta a soporte).` : ''))
+          : (data.folio_nota ? ` Nota ${data.folio_nota} asignada, pero el PDF no se generó${data.nota_error ? ' — ' + data.nota_error : ''} Abre la tarjeta y pulsa «Reintentar generar PDF».` : ''))
       : '';
     await sbisAlert({
       titulo: editando ? 'Apartado actualizado' : 'Sala apartada',

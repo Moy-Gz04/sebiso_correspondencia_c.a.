@@ -436,9 +436,11 @@ function construirSolicitudNota(prestamo) {
    falla, no se revienta el apartado completo: se registra el aviso y el
    apartado queda sin nota_pdf_url (se puede reintentar más adelante). */
 async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, descripcion, prestamo }) {
+  // Devuelve { url, motivo }: url si se generó; si no, motivo dice POR QUÉ
+  // (el frontend lo muestra y queda en los logs), en vez de un "no se pudo" mudo.
   if (!process.env.APPS_SCRIPT_NOTA_URL) {
     console.warn('⚠️  APPS_SCRIPT_NOTA_URL no configurada: no se genera el PDF de la Nota.');
-    return null;
+    return { url: null, motivo: 'El servidor no tiene configurada la conexión con Drive (APPS_SCRIPT_NOTA_URL).' };
   }
 
   const descripcionLimpia = await limpiarDescripcionConIA(descripcion, { fecha, horaInicio, horaFin, personas: np });
@@ -457,32 +459,45 @@ async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, 
   // error HTML de Google en vez de mi JSON (visto en producción — fallo
   // de infraestructura pasajero, no del código). Un segundo intento casi
   // siempre lo resuelve.
-  for (let intento = 1; intento <= 2; intento++) {
+  // 3 intentos con espera creciente y tiempo límite por intento (antes eran
+  // 2 seguidos y sin límite: una respuesta colgada bloqueaba el apartado).
+  const INTENTOS = 3;
+  let motivo = 'Drive no respondió.';
+  for (let intento = 1; intento <= INTENTOS; intento++) {
+    if (intento > 1) await new Promise(r => setTimeout(r, 1500 * (intento - 1)));
+    const controller = new AbortController();
+    const limite = setTimeout(() => controller.abort(), 40000);
     try {
       const resp = await fetch(process.env.APPS_SCRIPT_NOTA_URL, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload),
         redirect: 'follow',
+        signal:  controller.signal,
       });
       const contentType = resp.headers.get('content-type') || '';
       if (!contentType.includes('json')) {
         const texto = await resp.text();
-        console.error(`⚠️  Intento ${intento}/2: Apps Script respondió algo que no es JSON (status ${resp.status}):`, texto.slice(0, 300));
+        motivo = `Drive respondió una página de error (HTTP ${resp.status}), no la Nota.`;
+        console.error(`⚠️  Intento ${intento}/${INTENTOS}: Apps Script respondió algo que no es JSON (status ${resp.status}):`, texto.slice(0, 300));
         continue;
       }
       const data = await resp.json();
       if (!data.ok) {
-        console.error(`⚠️  Intento ${intento}/2: Apps Script no pudo generar la Nota:`, data.error);
+        motivo = `Drive no pudo generar la Nota: ${String(data.error || 'error desconocido').slice(0, 200)}`;
+        console.error(`⚠️  Intento ${intento}/${INTENTOS}: Apps Script no pudo generar la Nota:`, data.error);
         continue;
       }
-      return data.url;
+      return { url: data.url, motivo: null };
     } catch (err) {
-      console.error(`⚠️  Intento ${intento}/2 al llamar a APPS_SCRIPT_NOTA_URL falló:`, err.message);
+      motivo = err.name === 'AbortError' ? 'Drive tardó demasiado en responder.' : `No se pudo conectar con Drive (${err.message}).`;
+      console.error(`⚠️  Intento ${intento}/${INTENTOS} al llamar a APPS_SCRIPT_NOTA_URL falló:`, err.message);
+    } finally {
+      clearTimeout(limite);
     }
   }
-  console.error('⚠️  No se pudo generar el PDF de la Nota tras 2 intentos.');
-  return null;
+  console.error(`⚠️  No se pudo generar el PDF de la Nota tras ${INTENTOS} intentos. Motivo: ${motivo}`);
+  return { url: null, motivo };
 }
 
 
@@ -2356,7 +2371,7 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     // permiten duplicados a propósito, el frontend solo avisa). Si no
     // viene (o llega vacío), se cae al automático de siempre.
     const folioNota = normalizarFolioNota(req.body.folio_nota) || await siguienteNotaAutomatica();
-    const notaPdfUrl = await generarNotaSalaPDF({
+    const { url: notaPdfUrl, motivo: notaMotivo } = await generarNotaSalaPDF({
       notj: folioNota, sala: sala.nombre, np: numPersonas,
       horaInicio: hora_inicio, horaFin: hora_fin, fecha: fechas, descripcion: desc, prestamo: solicitudPrestamo,
     });
@@ -2380,7 +2395,7 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
       WHERE sa.id = ANY(${ids})
       ORDER BY sa.fecha ASC`;
 
-    res.status(201).json({ ...filas[0], apartados: filas, fechas });
+    res.status(201).json({ ...filas[0], apartados: filas, fechas, nota_error: notaPdfUrl ? null : notaMotivo });
   } catch (err) {
     if (err.code === '23503') {
       return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
@@ -2490,6 +2505,37 @@ app.delete('/api/salas/apartados/:id', verifyToken, onlyGestionCompleta, async (
     res.json({ ok: true, motivo_eliminacion: motivoEliminacion });
   } catch (err) {
     manejarError(res, err, 'Error al cancelar el apartado.');
+  }
+});
+
+/* ══ POST /api/salas/apartados/regenerar-nota — vuelve a generar el PDF de la
+   Nota de una tarjeta que quedó sin él (Drive falló al apartarla). Usa el
+   MISMO folio (no gasta uno nuevo) y deja el PDF en todos los días de la
+   tarjeta. Body: { ids: [..] }. ══ */
+app.post('/api/salas/apartados/regenerar-nota', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.map(Number).filter(Number.isInteger))] : [];
+    if (!ids.length || ids.length > MAX_DIAS_APARTADO) return res.status(400).json({ mensaje: 'Indica qué apartado regenerar.' });
+
+    const filas = await sql`
+      SELECT sa.*, s.nombre AS sala_nombre
+      FROM salas_apartados sa JOIN salas s ON s.id = sa.sala_id
+      WHERE sa.id = ANY(${ids}) ORDER BY sa.fecha ASC`;
+    if (!filas.length) return res.status(404).json({ mensaje: 'Apartado no encontrado.' });
+    const a = filas[0];
+    if (!a.folio_nota) return res.status(409).json({ mensaje: 'Este apartado no tiene número de Nota.' });
+
+    const { url, motivo } = await generarNotaSalaPDF({
+      notj: a.folio_nota, sala: a.sala_nombre, np: a.personas,
+      horaInicio: a.hora_inicio, horaFin: a.hora_fin,
+      fecha: filas.map(f => f.fecha), descripcion: a.descripcion || '', prestamo: a.prestamo,
+    });
+    if (!url) return res.status(502).json({ mensaje: motivo || 'No se pudo generar el PDF.' });
+
+    await sql`UPDATE salas_apartados SET nota_pdf_url = ${url} WHERE id = ANY(${filas.map(f => f.id)})`;
+    res.json({ ok: true, nota_pdf_url: url });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo regenerar la Nota.');
   }
 });
 
