@@ -41,7 +41,7 @@ function doPost(e) {
 
 function doGet(e) {
   return ContentService
-    .createTextOutput(JSON.stringify({ ok: true, mensaje: 'Apps Script activo.' }))
+    .createTextOutput(JSON.stringify({ ok: true, mensaje: 'Apps Script activo.', version: 'fechareg-2026-09-24' }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
