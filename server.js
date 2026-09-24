@@ -326,6 +326,17 @@ function formatearFechasNota(fechaOLista) {
   return `los próximos días ${unir(tramos)}${mismoAnio ? ' de ' + grupos[0].a : ''}`;
 }
 
+/* Fecha en que se CREA el registro, para <<FECHAREG>> de la Nota:
+   "a 23 de octubre del 2026". Siempre en hora de México — el servidor de
+   Render corre en UTC y de noche caería en el día siguiente. */
+function formatearFechaRegistroNota(fecha = new Date()) {
+  const partes = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone: 'America/Mexico_City', day: 'numeric', month: 'numeric', year: 'numeric' })
+      .formatToParts(new Date(fecha)).map(p => [p.type, p.value])
+  );
+  return `a ${Number(partes.day)} de ${MESES_ES[Number(partes.month) - 1]} del ${partes.year}`;
+}
+
 const MAX_DIAS_APARTADO = 31;
 
 /* Body del apartado -> lista ordenada y sin repetidos de "YYYY-MM-DD".
@@ -435,7 +446,7 @@ function construirSolicitudNota(prestamo) {
    generar el PDF. Si APPS_SCRIPT_NOTA_URL no está configurada, o Drive
    falla, no se revienta el apartado completo: se registra el aviso y el
    apartado queda sin nota_pdf_url (se puede reintentar más adelante). */
-async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, descripcion, prestamo }) {
+async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, descripcion, prestamo, fechaRegistro }) {
   // Devuelve { url, motivo }: url si se generó; si no, motivo dice POR QUÉ
   // (el frontend lo muestra y queda en los logs), en vez de un "no se pudo" mudo.
   if (!process.env.APPS_SCRIPT_NOTA_URL) {
@@ -451,6 +462,8 @@ async function generarNotaSalaPDF({ notj, sala, np, horaInicio, horaFin, fecha, 
     np:        String(np),
     hora:      formatearHoraNota(horaInicio, horaFin),
     fecha:     formatearFechasNota(fecha),
+    // <<FECHAREG>>: cuándo se creó el registro (al regenerar, la del apartado original)
+    fechareg:  formatearFechaRegistroNota(fechaRegistro ?? new Date()),
     asunto:    construirAsuntoNota(descripcionLimpia),
     solicitud: construirSolicitudNota(prestamo),
   };
@@ -2529,6 +2542,7 @@ app.post('/api/salas/apartados/regenerar-nota', verifyToken, onlyGestionCompleta
       notj: a.folio_nota, sala: a.sala_nombre, np: a.personas,
       horaInicio: a.hora_inicio, horaFin: a.hora_fin,
       fecha: filas.map(f => f.fecha), descripcion: a.descripcion || '', prestamo: a.prestamo,
+      fechaRegistro: a.creado_en,
     });
     if (!url) return res.status(502).json({ mensaje: motivo || 'No se pudo generar el PDF.' });
 

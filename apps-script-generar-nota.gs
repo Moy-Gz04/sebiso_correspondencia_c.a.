@@ -4,20 +4,28 @@
  * ya redactados por el backend (server.js), llena la plantilla de Google
  * Docs, exporta el PDF a la carpeta de Drive indicada y devuelve la URL.
  *
- * Despliegue: Implementar > Nueva implementación > Tipo "Aplicación web"
- *   - Ejecutar como: Yo (tu cuenta)
- *   - Quién tiene acceso: Cualquier usuario
- * La URL que te da el despliegue (".../exec") es la que le paso a server.js.
+ * Placeholders de la plantilla: <<NOTJ>> <<NP>> <<HORA>> <<FECHA>>
+ * <<FECHAREG>> <<ASUNTO>> <<SOLICITUD>>. (La sala solo va en el nombre del archivo.)
+ *
+ * <<FECHAREG>> = fecha en que se CREA el registro, con el formato
+ * "a 23 de octubre del 2026". El backend la manda en `fechareg`; si no
+ * llegara (backend viejo), el script la calcula solo con la fecha de hoy
+ * en hora de México.
+ *
+ * Despliegue: Implementar > Administrar implementaciones > (lápiz) >
+ * Versión: "Nueva versión" > Implementar. Así la URL ".../exec" NO cambia.
  */
 
 var PLANTILLA_NOTA_ID = '14UVl9_ddyhg84RaOpy-gkD4RyT2-jV4Ox3vUVjnw_uI';
 var CARPETA_NOTAS_ID  = '1YaW8KYa-1mNPHW4KqwqPRnXbuc2_dFwz';
 
+var MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+                'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
 function doPost(e) {
   var resultado;
   try {
     var data = JSON.parse(e.postData.contents);
-
     if (data.action === 'generarNota') {
       resultado = generarNota_(data);
     } else {
@@ -26,28 +34,23 @@ function doPost(e) {
   } catch (err) {
     resultado = { ok: false, error: String(err) };
   }
-
   return ContentService
     .createTextOutput(JSON.stringify(resultado))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// Prueba rápida desde el navegador (GET) para confirmar que el despliegue
-// responde antes de conectarlo al backend.
 function doGet(e) {
   return ContentService
     .createTextOutput(JSON.stringify({ ok: true, mensaje: 'Apps Script activo.' }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-/**
- * Copia la plantilla, sustituye los placeholders <<...>>, exporta a PDF
- * dentro de la carpeta de notas y borra el Doc intermedio (solo se
- * conserva el PDF final).
- *
- * data esperado:
- *   { action:'generarNota', notj, np, hora, fecha, asunto, solicitud, sala }
- */
+/** "a 23 de octubre del 2026" con la fecha de hoy, en hora de México. */
+function fechaRegistroPorDefecto_() {
+  var p = Utilities.formatDate(new Date(), 'America/Mexico_City', 'd|M|yyyy').split('|');
+  return 'a ' + p[0] + ' de ' + MESES_ES[Number(p[1]) - 1] + ' del ' + p[2];
+}
+
 function generarNota_(data) {
   var plantilla = DriveApp.getFileById(PLANTILLA_NOTA_ID);
   var carpeta   = DriveApp.getFolderById(CARPETA_NOTAS_ID);
@@ -62,6 +65,7 @@ function generarNota_(data) {
   body.replaceText('<<NP>>', data.np || '');
   body.replaceText('<<HORA>>', data.hora || '');
   body.replaceText('<<FECHA>>', data.fecha || '');
+  body.replaceText('<<FECHAREG>>', data.fechareg || fechaRegistroPorDefecto_());
   body.replaceText('<<ASUNTO>>', data.asunto || '');
   body.replaceText('<<SOLICITUD>>', data.solicitud || '');
 
@@ -71,32 +75,43 @@ function generarNota_(data) {
   pdfBlob.setName(nombreCopia + '.pdf');
   var pdfFile = carpeta.createFile(pdfBlob);
 
-  // Antes se llamaba pdfFile.setSharing(ANYONE_WITH_LINK, VIEW) para que el
-  // PDF fuera público. La cuenta institucional (tecnm.mx, Workspace for
-  // Education) bloquea "cualquier persona con el enlace" a nivel de dominio,
-  // así que esa llamada tronaba con "Access denied: DriveApp". Se quita: el
-  // PDF hereda el acceso normal de la carpeta (que ya administra el dueño),
-  // no necesita ser público para que el sistema lo enlace en la Nota.
-
-  // El Google Doc intermedio ya no hace falta; solo queremos el PDF.
   DriveApp.getFileById(copia.getId()).setTrashed(true);
 
-  return {
-    ok: true,
-    url: pdfFile.getUrl(),
-    fileId: pdfFile.getId()
-  };
+  return { ok: true, url: pdfFile.getUrl(), fileId: pdfFile.getId() };
 }
 
 /**
  * SOLO PARA PROBAR PERMISOS: selecciónala en el desplegable de funciones
- * (junto al botón Ejecutar) y dale Ejecutar. Va a pedir autorización de
- * Drive la primera vez. Bórrala cuando ya funcione, no la necesita el
- * backend.
+ * (junto al botón Ejecutar) y dale Ejecutar. Bórrala cuando ya funcione.
  */
 function testDrive() {
   var carpeta = DriveApp.getFolderById(CARPETA_NOTAS_ID);
   Logger.log('Carpeta encontrada: ' + carpeta.getName());
   var plantilla = DriveApp.getFileById(PLANTILLA_NOTA_ID);
   Logger.log('Plantilla encontrada: ' + plantilla.getName());
+}
+
+/** Prueba de la fecha de registro SIN crear ningún archivo. */
+function testFechaRegistro() {
+  Logger.log(fechaRegistroPorDefecto_());
+}
+
+function testDoPostSimulado() {
+  var fakeEvent = {
+    postData: {
+      contents: JSON.stringify({
+        action: 'generarNota',
+        notj: '0077',
+        sala: 'Sala 4',
+        np: '6',
+        hora: 'en un horario de 15:00 a 17:00 horas',
+        fecha: 'el próximo 18 de septiembre de 2026',
+        fechareg: 'a 23 de octubre del 2026',
+        asunto: 'Lo anterior, con la finalidad de reunión de área',
+        solicitud: 'Asimismo, solicitamos el préstamo de 1 micrófono.'
+      })
+    }
+  };
+  var resultado = doPost(fakeEvent);
+  Logger.log(resultado.getContent());
 }
