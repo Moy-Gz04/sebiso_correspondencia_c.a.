@@ -41,6 +41,12 @@ const PROD = process.env.NODE_ENV === 'production';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const sql = neon(process.env.DATABASE_URL);
+/* Las fotos pendientes (Registro Automático) pesan mucho más que el resto de
+   los datos. Si existe DATABASE_URL_FOTOS, esa tabla (oficios_pendientes_ia)
+   vive en OTRA base de Neon, para repartir la transferencia de datos y no
+   gastar la cuota de la base principal. Sin la variable, todo sigue en la
+   misma base como antes. */
+const sqlFotos = process.env.DATABASE_URL_FOTOS ? neon(process.env.DATABASE_URL_FOTOS) : sql;
 
 /* La app corre detrás del proxy de Render (u otro similar): sin esto,
    express-rate-limit y cualquier lógica basada en IP ven siempre la IP
@@ -584,13 +590,13 @@ Reglas estrictas:
 async function procesarRegistroPendienteIA(id, base64, mimeType) {
   try {
     const datos = await extraerDatosOficioDeImagen(base64, mimeType);
-    await sql`
+    await sqlFotos`
       UPDATE oficios_pendientes_ia
       SET estado = 'listo', datos_json = ${JSON.stringify(datos)}::jsonb
       WHERE id = ${id}`;
     console.log(`✅  Registro pendiente IA #${id} listo.`);
   } catch (err) {
-    await sql`
+    await sqlFotos`
       UPDATE oficios_pendientes_ia
       SET estado = 'error', error_mensaje = ${err.message}
       WHERE id = ${id}`;
@@ -1083,7 +1089,7 @@ app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin,
     if (!archivoImagen) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
     const archivoThumb = req.files?.imagen_thumb?.[0];
 
-    const [nuevo] = await sql`
+    const [nuevo] = await sqlFotos`
       INSERT INTO oficios_pendientes_ia (imagen, imagen_mime, imagen_thumb, creado_por)
       VALUES (${archivoImagen.buffer}, ${archivoImagen.mimetype}, ${archivoThumb?.buffer ?? null}, ${req.user.username})
       RETURNING id, estado, creado_en`;
@@ -1112,7 +1118,7 @@ app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin,
    Solo los últimos 3 días y los que no se hayan usado ya. ══ */
 app.get('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
-    const rows = await sql`
+    const rows = await sqlFotos`
       SELECT id, estado, datos_json, error_mensaje, creado_por, creado_en,
              (imagen_thumb IS NOT NULL) AS tiene_miniatura
       FROM oficios_pendientes_ia
@@ -1122,7 +1128,7 @@ app.get('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, async (req, re
     // memoria; antes viajaban desde Neon en cada consulta de la lista.
     const faltan = rows.filter(r => r.tiene_miniatura && !CACHE_MINIATURAS.has(r.id)).map(r => r.id);
     if (faltan.length) {
-      const nuevas = await sql`SELECT id, imagen_thumb FROM oficios_pendientes_ia WHERE id = ANY(${faltan})`;
+      const nuevas = await sqlFotos`SELECT id, imagen_thumb FROM oficios_pendientes_ia WHERE id = ANY(${faltan})`;
       for (const n of nuevas) guardarEnCacheLimitada(CACHE_MINIATURAS, 200, n.id, n.imagen_thumb);
     }
     const conMiniatura = rows.map(({ tiene_miniatura, ...resto }) => {
@@ -1144,7 +1150,7 @@ app.get('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, async (req, re
    de un solo propósito, corta vida, que el <img> puede usar directo. */
 app.get('/api/oficios/pendientes/:id/imagen-token', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
-    const [row] = await sql`SELECT id FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
+    const [row] = await sqlFotos`SELECT id FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
     if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
 
     // ?tipo=mini (miniatura ligera, para la lista) o "full" (foto
@@ -1185,7 +1191,7 @@ app.get('/api/pendientes-imagen/:token', async (req, res) => {
     if (payload.tipo === 'mini') {
       let thumb = CACHE_MINIATURAS.get(pid);
       if (thumb === undefined) {
-        const [t] = await sql`SELECT imagen_thumb FROM oficios_pendientes_ia WHERE id = ${pid}`;
+        const [t] = await sqlFotos`SELECT imagen_thumb FROM oficios_pendientes_ia WHERE id = ${pid}`;
         if (!t) return res.status(404).end();
         thumb = t.imagen_thumb;
         if (thumb) guardarEnCacheLimitada(CACHE_MINIATURAS, 200, pid, thumb);
@@ -1199,7 +1205,7 @@ app.get('/api/pendientes-imagen/:token', async (req, res) => {
 
     let foto = CACHE_FOTOS.get(pid);
     if (!foto) {
-      const [row] = await sql`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${pid}`;
+      const [row] = await sqlFotos`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${pid}`;
       if (!row) return res.status(404).end();
       foto = { imagen: row.imagen, imagen_mime: row.imagen_mime };
       guardarEnCacheLimitada(CACHE_FOTOS, CACHE_FOTOS_MAX, pid, foto);
@@ -1217,10 +1223,10 @@ app.get('/api/pendientes-imagen/:token', async (req, res) => {
    falló por una caída pasajera. ══ */
 app.post('/api/oficios/pendientes/:id/reintentar', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
-    const [row] = await sql`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
+    const [row] = await sqlFotos`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
     if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
 
-    await sql`UPDATE oficios_pendientes_ia SET estado = 'procesando', error_mensaje = NULL WHERE id = ${req.params.id}`;
+    await sqlFotos`UPDATE oficios_pendientes_ia SET estado = 'procesando', error_mensaje = NULL WHERE id = ${req.params.id}`;
 
     encolarRegistroPendienteIA(req.params.id, row.imagen.toString('base64'), row.imagen_mime);
 
@@ -1235,7 +1241,7 @@ app.post('/api/oficios/pendientes/:id/reintentar', verifyToken, onlyCoordOrAdmin
    justo después de usarlo para guardar un registro (ver captura-auto.js). ══ */
 app.delete('/api/oficios/pendientes/:id', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
-    const rows = await sql`DELETE FROM oficios_pendientes_ia WHERE id = ${req.params.id} RETURNING id`;
+    const rows = await sqlFotos`DELETE FROM oficios_pendientes_ia WHERE id = ${req.params.id} RETURNING id`;
     if (!rows[0]) return res.status(404).json({ mensaje: 'No encontrado.' });
     CACHE_MINIATURAS.delete(rows[0].id);
     CACHE_FOTOS.delete(rows[0].id);
