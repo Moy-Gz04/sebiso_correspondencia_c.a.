@@ -56,6 +56,23 @@ app.set('trust proxy', 1);
    etc.) se mantienen activas. */
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
+/* ── Servicio antiguo: acceso cerrado ──
+   Correspondencia se mudó a otro servicio de Render (mismo repo). En el
+   host viejo se bloquea la API (las sesiones dejan de valer) y toda página
+   muestra el aviso que manda al portal. El resto de hosts no se afecta.
+   /api/ping se deja abierto para los health checks. */
+const HOSTS_CERRADOS = ['sebiso-correspondencia-c-a.onrender.com'];
+app.use((req, res, next) => {
+  if (!HOSTS_CERRADOS.includes(req.hostname)) return next();
+  if (req.path === '/api/ping') return next();
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  if (req.path.startsWith('/api/')) {
+    return res.status(410).json({ mensaje: 'Correspondencia ahora se abre desde el portal: https://sebiso-coordinacion-administrativa.netlify.app/' });
+  }
+  return res.status(410).sendFile(path.join(__dirname, 'public', 'migrado.html'));
+});
+
 /* ── CORS restringido ──
    Antes: origin: '*' permitía que cualquier sitio hiciera peticiones
    autenticadas contra la API si robaba un token. Ahora solo se acepta
