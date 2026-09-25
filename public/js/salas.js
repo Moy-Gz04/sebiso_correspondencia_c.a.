@@ -561,6 +561,7 @@ async function apartarSala() {
     if (editando) cancelarEdicionApartado(); else {
       DIAS_SELECCIONADOS = [];
       pintarDiasLista();
+      limpiarPendienteUsado(); // la foto de la que salieron los datos ya cumplió su propósito
       inputPersonas.value = '';
       inputDescripcion.value = '';
       inputOficio.value = '';
@@ -772,6 +773,203 @@ async function eliminarHistorial(id) {
 /* ════════════════════════════════════════════════════
    Inicio
    ════════════════════════════════════════════════════ */
+
+/* ════════════════════════════════════════════════════
+   FOTOS PENDIENTES (IA) — la solicitud de sala se fotografía con el celular
+   (/captura-movil?tipo=sala), la IA lee la foto y aquí se elige para que
+   rellene el formulario "Apartar Sala". Mismo funcionamiento que Registro
+   Automático de oficios; las fotos son de tipo 'sala' y no se mezclan con
+   las de oficios.
+   ════════════════════════════════════════════════════ */
+let PENDIENTES_IA = [];
+let PENDIENTE_SELECCIONADO_ID = null;
+let TIMER_POLL_PENDIENTES = null;
+
+async function cargarPendientesIA() {
+  try {
+    const res = await fetch(`${API}/oficios/pendientes?tipo=sala`, {
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+    });
+    if (res.status === 401) { cerrarSesion(); return; }
+    if (!res.ok) return;
+    PENDIENTES_IA = await res.json();
+    pintarPendientesIA();
+
+    // Solo se consulta cada 6 s mientras alguna foto sigue "procesando"
+    const hayProcesando = PENDIENTES_IA.some(p => p.estado === 'procesando');
+    if (hayProcesando && !TIMER_POLL_PENDIENTES) {
+      TIMER_POLL_PENDIENTES = setInterval(cargarPendientesIA, 6000);
+    } else if (!hayProcesando && TIMER_POLL_PENDIENTES) {
+      clearInterval(TIMER_POLL_PENDIENTES);
+      TIMER_POLL_PENDIENTES = null;
+    }
+  } catch { /* red caída: se reintenta al recargar */ }
+}
+
+function tiempoRelativo(fechaISOStr) {
+  const seg = Math.round((Date.now() - new Date(fechaISOStr).getTime()) / 1000);
+  if (seg < 60) return 'hace un momento';
+  const min = Math.round(seg / 60);
+  if (min < 60) return `hace ${min} min`;
+  return `hace ${Math.round(min / 60)} h`;
+}
+
+/* Un <img src> no puede mandar el header Authorization: la foto completa se
+   pide con un token de un solo propósito (mismo mecanismo que Registro Automático). */
+const URLS_IMAGEN_PENDIENTE = {};
+async function obtenerUrlImagenPendiente(id, tipo = 'full') {
+  const clave = `${id}:${tipo}`;
+  if (URLS_IMAGEN_PENDIENTE[clave]) return URLS_IMAGEN_PENDIENTE[clave];
+  try {
+    const res = await fetch(`${API}/oficios/pendientes/${id}/imagen-token?tipo=${tipo}`, {
+      headers: { 'Authorization': `Bearer ${TOKEN}` },
+    });
+    if (!res.ok) return '';
+    const data = await res.json();
+    URLS_IMAGEN_PENDIENTE[clave] = data.url;
+    return data.url;
+  } catch { return ''; }
+}
+
+let HOVER_PREVIEW_ID = null;
+async function mostrarPreviewImagenCompleta(id) {
+  HOVER_PREVIEW_ID = id;
+  const url = await obtenerUrlImagenPendiente(id, 'full');
+  if (!url || HOVER_PREVIEW_ID !== id) return; // el cursor ya se movió a otra foto
+  const cont = document.getElementById('preview-imagen-flotante');
+  const img  = document.getElementById('preview-imagen-flotante-img');
+  if (!cont || !img) return;
+  img.src = url;
+  cont.classList.add('visible');
+}
+function ocultarPreviewImagen() {
+  HOVER_PREVIEW_ID = null;
+  document.getElementById('preview-imagen-flotante')?.classList.remove('visible');
+}
+
+function pintarPendientesIA() {
+  const cont = document.getElementById('pendientes-ia-lista');
+  if (!cont) return;
+  ocultarPreviewImagen(); // si la lista se repinta con el cursor encima, la vista previa no debe quedarse pegada
+
+  if (!PENDIENTES_IA.length) {
+    cont.innerHTML = '<p class="pendientes-ia-vacio">Todavía no hay fotos pendientes. Fotografía la solicitud desde tu celular con "Abrir captura desde celular".</p>';
+    return;
+  }
+
+  cont.innerHTML = PENDIENTES_IA.map((p) => {
+    const seleccionada = p.id === PENDIENTE_SELECCIONADO_ID ? 'seleccionada' : '';
+    const clicable = p.estado === 'listo' ? `onclick="seleccionarPendiente(${p.id})"` : '';
+    let overlay = '', badge = '';
+    if (p.estado === 'procesando') {
+      overlay = '<div class="tpi-overlay spin"><i class="ti ti-loader-2"></i></div>';
+      badge = '<span class="tpi-badge b-procesando">Procesando…</span>';
+    } else if (p.estado === 'error') {
+      badge = '<span class="tpi-badge b-error">Error — reintentar</span>';
+    } else {
+      badge = `<span class="tpi-badge b-listo">Listo · ${tiempoRelativo(p.creado_en)}</span>`;
+    }
+    const btnReintentar = p.estado === 'error'
+      ? `<button type="button" class="tpi-reintentar" title="Reintentar" onclick="event.stopPropagation(); reintentarPendiente(${p.id})"><i class="ti ti-refresh"></i></button>`
+      : '';
+    return `
+      <div class="tarjeta-pendiente-ia estado-${p.estado} ${seleccionada}" ${clicable}>
+        <button type="button" class="tpi-descartar" title="Descartar" onclick="event.stopPropagation(); descartarPendiente(${p.id})"><i class="ti ti-x"></i></button>
+        ${btnReintentar}
+        <img class="tpi-thumb" src="${p.miniatura || ''}" loading="lazy" alt="Foto de la solicitud"
+             onmouseenter="mostrarPreviewImagenCompleta(${p.id})" onmouseleave="ocultarPreviewImagen()"/>
+        ${overlay}
+        ${badge}
+      </div>`;
+  }).join('');
+}
+
+const normalizarTexto = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+/* La IA devuelve la sala tal como la escribe el documento ("sala de juntas
+   (A o B)"). Solo se preselecciona si coincide con UNA sala del catálogo; si es
+   ambigua o no existe, se deja como está para que la persona elija. */
+function salaDelCatalogo(textoSala) {
+  const t = normalizarTexto(textoSala);
+  if (!t) return null;
+  let coincidencias = SALAS.filter(s => t.includes(normalizarTexto(s.nombre)));
+  // "Sala de Juntas A" contiene "sala de juntas" y "sala de juntas a": se queda la más específica
+  coincidencias = coincidencias.filter(a => !coincidencias.some(b => b !== a && normalizarTexto(b.nombre).includes(normalizarTexto(a.nombre))));
+  return coincidencias.length === 1 ? coincidencias[0] : null;
+}
+
+/* Rellena el formulario con lo que la IA leyó. Lo que la IA no pudo leer se
+   deja tal cual (no borra lo que la persona ya hubiera escrito). */
+function seleccionarPendiente(id) {
+  const p = PENDIENTES_IA.find(x => x.id === id);
+  if (!p || p.estado !== 'listo' || !p.datos_json) return;
+  if (EDITANDO_ID !== null) {
+    sbisAlert({ titulo: 'Estás editando un apartado', mensaje: 'Termina o cancela la edición antes de usar una foto.', tipo: 'info' });
+    return;
+  }
+  const d = p.datos_json;
+  const poner = (idCampo, valor) => { if (valor !== '' && valor != null) document.getElementById(idCampo).value = valor; };
+
+  const sala = salaDelCatalogo(d.sala);
+  if (sala) document.getElementById('select-sala').value = sala.id;
+
+  if (Array.isArray(d.fechas) && d.fechas.length) {
+    DIAS_SELECCIONADOS = [...new Set(d.fechas)].sort();
+    pintarDiasLista();
+    document.getElementById('input-fecha-apartado').value = '';
+    document.getElementById('input-fecha-fin-apartado').value = '';
+  }
+  poner('input-hora-inicio-apartado', d.hora_inicio);
+  poner('input-hora-fin-apartado', d.hora_fin);
+  poner('input-personas-apartado', d.personas);
+  poner('input-descripcion-apartado', d.descripcion);
+  poner('input-oficio-apartado', d.no_oficio);
+  poner('input-prestamo-apartado', d.prestamo);
+  document.getElementById('error-apartar-sala').textContent = '';
+
+  PENDIENTE_SELECCIONADO_ID = id;
+  document.getElementById('aviso-pendiente-usado').style.display = 'flex';
+  pintarPendientesIA();
+  document.getElementById('titulo-panel-apartar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function reintentarPendiente(id) {
+  try {
+    await fetch(`${API}/oficios/pendientes/${id}/reintentar`, { method: 'POST', headers: { 'Authorization': `Bearer ${TOKEN}` } });
+    await cargarPendientesIA();
+  } catch { /* se puede reintentar de nuevo */ }
+}
+
+async function descartarPendiente(id) {
+  const ok = await sbisConfirm({
+    titulo: '¿Descartar esta foto?',
+    mensaje: 'Ya no aparecerá en la lista de pendientes.',
+    btnOk: 'Descartar',
+    tipo: 'danger',
+  });
+  if (!ok) return;
+  try {
+    await fetch(`${API}/oficios/pendientes/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${TOKEN}` } });
+    if (PENDIENTE_SELECCIONADO_ID === id) {
+      PENDIENTE_SELECCIONADO_ID = null;
+      document.getElementById('aviso-pendiente-usado').style.display = 'none';
+    }
+    await cargarPendientesIA();
+  } catch { /* se puede reintentar descartar */ }
+}
+
+/* Después de apartar la sala con éxito la foto ya cumplió su propósito: se quita de la lista. */
+async function limpiarPendienteUsado() {
+  const id = PENDIENTE_SELECCIONADO_ID;
+  if (!id) return;
+  try {
+    await fetch(`${API}/oficios/pendientes/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${TOKEN}` } });
+  } catch { /* no crítico: la foto solo se queda visible un rato más */ }
+  PENDIENTE_SELECCIONADO_ID = null;
+  document.getElementById('aviso-pendiente-usado').style.display = 'none';
+  cargarPendientesIA();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   if (!verificarAcceso()) return;
 
@@ -784,6 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   cargarSalas();
   cargarApartados();
+  cargarPendientesIA();
   cargarHistorial();
   cargarProximoFolioNota();
 });

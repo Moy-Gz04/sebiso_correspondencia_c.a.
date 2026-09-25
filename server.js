@@ -48,6 +48,14 @@ const sql = neon(process.env.DATABASE_URL);
    misma base como antes. */
 const sqlFotos = process.env.DATABASE_URL_FOTOS ? neon(process.env.DATABASE_URL_FOTOS) : sql;
 
+/* Las fotos pendientes sirven para dos pantallas: Registro Automático de
+   oficios ('oficio') y Apartado de Salas ('sala'). Cada foto lleva su tipo
+   para que cada pantalla vea solo las suyas y la IA lea lo que corresponde.
+   Migración mínima e idempotente: las filas existentes quedan como 'oficio'. */
+const ESQUEMA_FOTOS_LISTO = sqlFotos`
+  ALTER TABLE oficios_pendientes_ia ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'oficio'`
+  .catch(err => console.error('⚠️  No se pudo asegurar la columna tipo de oficios_pendientes_ia:', err.message));
+
 /* La app corre detrás del proxy de Render (u otro similar): sin esto,
    express-rate-limit y cualquier lógica basada en IP ven siempre la IP
    interna del proxy, no la del cliente real. */
@@ -569,8 +577,61 @@ const CAMPOS_EXTRAIBLES = [
   'remitente', 'dependencia', 'descripcion',
 ];
 
-async function extraerDatosOficioDeImagen(base64, mimeType) {
-  const prompt = `Eres un asistente que ayuda a digitalizar correspondencia oficial de gobierno en México.
+/* ── Solicitudes de SALA (Apartado de Salas → fotos pendientes tipo 'sala') ──
+   La persona fotografía el oficio/tarjeta donde piden una sala y la IA
+   propone lo que va en el formulario de "Apartar Sala". Igual que en
+   Registro Automático: solo propone, la persona revisa antes de apartar. */
+function construirPromptSala() {
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  return `Eres un asistente que ayuda a una oficina de gobierno en México a apartar salas de juntas.
+
+Te voy a dar la foto de un oficio o tarjeta informativa en el que alguien SOLICITA el uso de una sala. Léelo con cuidado (puede estar inclinado, con sombras o con sellos y notas a mano encima) y extrae SOLO estos datos, en este formato JSON exacto:
+
+{
+  "fechas": ["YYYY-MM-DD", "..."],
+  "hora_inicio": "HH:MM en 24 horas, o cadena vacía",
+  "hora_fin": "HH:MM en 24 horas, o cadena vacía",
+  "personas": número entero de personas que ocuparán la sala, o null,
+  "descripcion": "frase corta para completar 'Lo anterior, con la finalidad de ___', o cadena vacía",
+  "sala": "la sala que piden, tal como aparece (ej. 'sala de juntas (A o B)'), o cadena vacía",
+  "no_oficio": "número/folio del documento SOLO si el propio documento trae uno visible (ej. 'SEBISO/SSID/953/2026'), o cadena vacía",
+  "prestamo": "equipo o material que piden prestado (ej. '1 micrófono y un proyector'), o cadena vacía"
+}
+
+Contexto: hoy es ${hoy} (formato YYYY-MM-DD).
+
+Reglas estrictas:
+- "fechas" lleva CADA día en que se usará la sala, uno por elemento. Si piden "los días 29 y 30 de septiembre y 1 de octubre" son tres fechas. Si dice "del presente año" o "del año en curso", usa el año de hoy. Si solo viene el día y el mes, usa el año de hoy, o el siguiente si esa fecha ya pasó hace mucho. Si NO se pide ningún día concreto, deja la lista vacía []. NO uses la fecha del oficio ni la de un sello de recibido como día de uso.
+- Las horas SIEMPRE en 24 horas y formato HH:MM ("9:00 a 13:00 horas" → "09:00" y "13:00"; "de 11 a 2 de la tarde" → "11:00" y "14:00"). Si no hay horario, cadenas vacías.
+- "descripcion": redáctala para que continúe la frase 'Lo anterior, con la finalidad de ' y EMPIEZA CON UN VERBO EN INFINITIVO escrito con minúscula inicial (pero CONSERVA las mayúsculas de nombres propios, programas, dependencias y siglas: "Xantolo 2025", "Secretaría de Contraloría"), sin punto final (ej. "llevar a cabo la capacitación dirigida a los Servidores del Pueblo de nuevo ingreso"). Resume el motivo/evento; NO repitas fechas, horas ni el número de personas.
+- "personas": solo si el documento dice cuántas; si no, null. Nunca lo inventes.
+- Ignora anotaciones a mano y sellos; no las uses como datos.
+- Si un dato no aparece o no se alcanza a leer, déjalo vacío ("" o [] o null). NUNCA inventes ni adivines.
+- Devuelve ÚNICAMENTE el objeto JSON, sin explicaciones ni texto adicional.`;
+}
+
+/* Deja solo los campos de sala, con el tipo correcto y valores válidos. */
+function normalizarExtraccionSala(p) {
+  const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const hora = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v.trim()) ? v.trim() : '');
+  const fechas = [...new Set((Array.isArray(p.fechas) ? p.fechas : [])
+    .map(f => String(f).trim().slice(0, 10))
+    .filter(f => /^\d{4}-\d{2}-\d{2}$/.test(f) && !Number.isNaN(Date.parse(f))))].sort().slice(0, MAX_DIAS_APARTADO);
+  const n = Number.parseInt(p.personas, 10);
+  return {
+    fechas,
+    hora_inicio: hora(p.hora_inicio),
+    hora_fin: hora(p.hora_fin),
+    personas: Number.isInteger(n) && n > 0 && n < 1000 ? n : null,
+    descripcion: texto(p.descripcion, 2000),
+    sala: texto(p.sala, 150),
+    no_oficio: texto(p.no_oficio, 60),
+    prestamo: texto(p.prestamo, 500),
+  };
+}
+
+async function extraerDatosOficioDeImagen(base64, mimeType, tipo = 'oficio') {
+  const promptOficio = `Eres un asistente que ayuda a digitalizar correspondencia oficial de gobierno en México.
 
 Te voy a dar la foto de un oficio (documento físico, puede estar inclinado, con sombras, escrito a mano o a máquina). Léelo con cuidado y extrae SOLO estos datos, en este formato JSON exacto:
 
@@ -588,6 +649,7 @@ Reglas estrictas:
 - Las fechas SIEMPRE en formato YYYY-MM-DD. Si el año no es visible pero el resto sí, no adivines el año.
 - NUNCA extraigas ni inventes un campo de "instrucción" o nota manuscrita añadida al margen — eso no se pide aquí y no debe aparecer en ningún campo.
 - Devuelve ÚNICAMENTE el objeto JSON, sin explicaciones ni texto adicional.`;
+  const prompt = tipo === 'sala' ? construirPromptSala() : promptOficio;
 
   // Varios modelos en rotación, no solo dos: cada uno tiene su propia
   // cuota/disponibilidad en Google, así que cuando uno está caído (503
@@ -651,6 +713,7 @@ Reglas estrictas:
         return null;
       }
       const parseado = JSON.parse(texto);
+      if (tipo === 'sala') return normalizarExtraccionSala(parseado);
       // Solo nos quedamos con los campos que conocemos, y como string.
       const limpio = {};
       for (const campo of CAMPOS_EXTRAIBLES) {
@@ -684,9 +747,9 @@ Reglas estrictas:
 
 /* Procesa un registro pendiente: llama a Gemini Vision y actualiza su
    estado. */
-async function procesarRegistroPendienteIA(id, base64, mimeType) {
+async function procesarRegistroPendienteIA(id, base64, mimeType, tipo = 'oficio') {
   try {
-    const datos = await extraerDatosOficioDeImagen(base64, mimeType);
+    const datos = await extraerDatosOficioDeImagen(base64, mimeType, tipo);
     await sqlFotos`
       UPDATE oficios_pendientes_ia
       SET estado = 'listo', datos_json = ${JSON.stringify(datos)}::jsonb
@@ -711,8 +774,8 @@ async function procesarRegistroPendienteIA(id, base64, mimeType) {
 const COLA_PENDIENTES_IA = [];
 let procesandoColaIA = false;
 
-function encolarRegistroPendienteIA(id, base64, mimeType) {
-  COLA_PENDIENTES_IA.push({ id, base64, mimeType });
+function encolarRegistroPendienteIA(id, base64, mimeType, tipo = 'oficio') {
+  COLA_PENDIENTES_IA.push({ id, base64, mimeType, tipo });
   if (!procesandoColaIA) procesarColaIA();
 }
 
@@ -720,7 +783,7 @@ async function procesarColaIA() {
   procesandoColaIA = true;
   let item;
   while ((item = COLA_PENDIENTES_IA.shift())) {
-    await procesarRegistroPendienteIA(item.id, item.base64, item.mimeType);
+    await procesarRegistroPendienteIA(item.id, item.base64, item.mimeType, item.tipo);
   }
   procesandoColaIA = false;
 }
@@ -1190,17 +1253,19 @@ app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin,
     const archivoImagen = req.files?.imagen?.[0];
     if (!archivoImagen) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
     const archivoThumb = req.files?.imagen_thumb?.[0];
+    const tipo = req.body?.tipo === 'sala' ? 'sala' : 'oficio';
+    await ESQUEMA_FOTOS_LISTO;
 
     const [nuevo] = await sqlFotos`
-      INSERT INTO oficios_pendientes_ia (imagen, imagen_mime, imagen_thumb, creado_por)
-      VALUES (${archivoImagen.buffer}, ${archivoImagen.mimetype}, ${archivoThumb?.buffer ?? null}, ${req.user.username})
+      INSERT INTO oficios_pendientes_ia (imagen, imagen_mime, imagen_thumb, creado_por, tipo)
+      VALUES (${archivoImagen.buffer}, ${archivoImagen.mimetype}, ${archivoThumb?.buffer ?? null}, ${req.user.username}, ${tipo})
       RETURNING id, estado, creado_en`;
 
     // Se encola (no se procesa directo) para que, si llegan varias fotos
     // casi juntas, no se disparen todas a la vez contra Gemini — quien
     // tomó la foto no espera de todos modos, la cola corre en segundo
     // plano.
-    encolarRegistroPendienteIA(nuevo.id, archivoImagen.buffer.toString('base64'), archivoImagen.mimetype);
+    encolarRegistroPendienteIA(nuevo.id, archivoImagen.buffer.toString('base64'), archivoImagen.mimetype, tipo);
 
     res.status(201).json({ id: nuevo.id, estado: nuevo.estado, creado_en: nuevo.creado_en });
   } catch (err) {
@@ -1220,11 +1285,13 @@ app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin,
    Solo los últimos 3 días y los que no se hayan usado ya. ══ */
 app.get('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
+    const tipo = req.query?.tipo === 'sala' ? 'sala' : 'oficio';
+    await ESQUEMA_FOTOS_LISTO;
     const rows = await sqlFotos`
       SELECT id, estado, datos_json, error_mensaje, creado_por, creado_en,
              (imagen_thumb IS NOT NULL) AS tiene_miniatura
       FROM oficios_pendientes_ia
-      WHERE usado = FALSE AND creado_en > NOW() - INTERVAL '3 days'
+      WHERE usado = FALSE AND tipo = ${tipo} AND creado_en > NOW() - INTERVAL '3 days'
       ORDER BY creado_en DESC`;
     // Las miniaturas se leen de la base una sola vez y luego se sirven de
     // memoria; antes viajaban desde Neon en cada consulta de la lista.
@@ -1325,12 +1392,12 @@ app.get('/api/pendientes-imagen/:token', async (req, res) => {
    falló por una caída pasajera. ══ */
 app.post('/api/oficios/pendientes/:id/reintentar', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
-    const [row] = await sqlFotos`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
+    const [row] = await sqlFotos`SELECT imagen, imagen_mime, tipo FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
     if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
 
     await sqlFotos`UPDATE oficios_pendientes_ia SET estado = 'procesando', error_mensaje = NULL WHERE id = ${req.params.id}`;
 
-    encolarRegistroPendienteIA(req.params.id, row.imagen.toString('base64'), row.imagen_mime);
+    encolarRegistroPendienteIA(req.params.id, row.imagen.toString('base64'), row.imagen_mime, row.tipo || 'oficio');
 
     res.json({ ok: true, estado: 'procesando' });
   } catch (err) {

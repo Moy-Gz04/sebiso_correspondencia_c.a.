@@ -9,6 +9,11 @@
    ═══════════════════════════════════════════════════ */
 const API = window.location.origin + '/api';
 
+/* La misma página sirve para dos pantallas de la PC: Registro Automático de
+   oficios (por defecto) y Apartado de Salas (/captura-movil?tipo=sala). El tipo
+   decide qué lee la IA de la foto y en qué lista aparece. */
+const TIPO = new URLSearchParams(window.location.search).get('tipo') === 'sala' ? 'sala' : 'oficio';
+
 let TOKEN   = localStorage.getItem('sbis_token');
 let USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');
 
@@ -108,6 +113,7 @@ async function enviarFoto() {
       archivoParaSubir = new File([foto], 'foto.jpg', { type: 'image/jpeg' });
     } catch { /* se sube el original */ }
     fd.append('imagen', archivoParaSubir, archivoParaSubir.name || 'foto.jpg');
+    fd.append('tipo', TIPO);
 
     // Miniatura (~240px) para la lista de pendientes — opcional, si
     // falla simplemente no se manda y el servidor cae de vuelta a
@@ -154,7 +160,7 @@ const ETIQUETA_ESTADO = { procesando: 'Procesando…', listo: 'Listo para usar',
 async function cargarRecientes() {
   const cont = document.getElementById('cm-recientes-lista');
   try {
-    const res = await fetch(`${API}/oficios/pendientes`, {
+    const res = await fetch(`${API}/oficios/pendientes?tipo=${TIPO}`, {
       headers: { 'Authorization': `Bearer ${TOKEN}` },
     });
     if (res.status === 401) { cerrarSesion(); return; }
@@ -191,6 +197,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!verificarAcceso()) return;
 
   document.getElementById('cm-usuario').textContent = `Captura desde celular — ${USUARIO?.username || ''}`;
+  if (TIPO === 'sala') {
+    document.title = 'Captura para Salas — Secretaría de Bienestar e Inclusión Social';
+    const eyebrow = document.querySelector('.cm-header-eyebrow');
+    if (eyebrow) eyebrow.textContent = 'Apartado de Salas';
+    const zona = document.querySelector('#cm-captura-zona strong');
+    if (zona) zona.textContent = 'Tomar foto de la solicitud';
+    const exito = document.querySelector('#cm-exito span');
+    if (exito) exito.textContent = 'Foto enviada. Se está procesando — ya puedes tomar otra, o ir a la PC y seleccionarla en "Salas".';
+  }
 
   document.getElementById('input-foto').addEventListener('change', (e) => {
     const archivo = e.target.files?.[0];
