@@ -487,17 +487,23 @@ async function enviarForm(e) {
       if (el) fd.append(c, el.value);
     });
 
-    // Si el registro viene de una foto de Registro Automático, se
-    // adjunta ya mismo como documento de Turno (doc3) para que el área
-    // a la que se turne no tenga que volver a digitalizarlo. Si por
-    // algo falló el procesamiento (o tardó y aún no terminaba), no se
-    // adjunta nada y el registro se guarda igual — el área receptora
-    // puede subirlo ella misma, como pasa siempre en un registro manual.
+    // Si el registro viene de una foto de Registro Automático, el escaneo
+    // se adjunta como documento de Turno (doc3) para que el área a la que
+    // se turne no tenga que volver a digitalizarlo. GUARDAR YA NO ESPERA:
+    //  - si el escaneo ya está listo, viaja con el registro;
+    //  - si todavía se está generando, el registro se guarda igual (con el
+    //    Turno marcado "Generando PDF…") y el archivo se manda después, solo,
+    //    en cuanto termine (ver subidaDoc3 más abajo).
+    // Si el escaneo falló, no se adjunta nada: el área receptora puede subirlo
+    // ella misma, como pasa siempre en un registro manual.
+    let doc3EnProceso = null;
     if (PENDIENTE_SELECCIONADO_ID && DOC3_AUTO_PROMISE) {
-      try {
-        const doc3Blob = await DOC3_AUTO_PROMISE;
-        if (doc3Blob) fd.append('doc3', doc3Blob, 'oficio-escaneado.jpg');
-      } catch { /* se guarda sin doc3; el área receptora lo sube si hace falta */ }
+      if (DOC3_AUTO_LISTO) {
+        if (DOC3_AUTO_BLOB) fd.append('doc3', DOC3_AUTO_BLOB, 'oficio-escaneado.jpg');
+      } else {
+        fd.append('doc3_pendiente', '1');
+        doc3EnProceso = DOC3_AUTO_PROMISE;
+      }
     }
 
     const res = await fetch(`${API}/oficios`, {
@@ -515,20 +521,44 @@ async function enviarForm(e) {
        borrador local para que la próxima captura empiece en blanco. */
     borrarBorrador();
 
-    /* Si el registro se armó a partir de una foto pendiente, esa foto
-       ya cumplió su propósito: se descarta de la lista. */
-    await limpiarPendienteUsado();
+    /* Escaneo que aún se generaba al guardar: se manda en cuanto termine,
+       sin bloquear nada. (Sin archivo = el navegador no pudo generarlo y el
+       servidor quita el marcador "Generando PDF…".) */
+    const subidaDoc3 = doc3EnProceso
+      ? doc3EnProceso.then(b => b || null, () => null).then(async (blob) => {
+          const f = new FormData();
+          if (blob) f.append('doc3', blob, 'oficio-escaneado.jpg');
+          try {
+            await fetch(`${API}/oficios/${data.id}/doc3-diferido`, {
+              method: 'POST', body: f, headers: { 'Authorization': `Bearer ${TOKEN}` }
+            });
+          } catch { /* sin red: el marcador vence solo y el área puede subir el suyo */ }
+        })
+      : null;
 
-    /* Modal de confirmación de éxito → al cerrar va a historial */
+    /* Si el registro se armó a partir de una foto pendiente, esa foto
+       ya cumplió su propósito: se descarta de la lista (sin hacer esperar
+       el mensaje del número de oficio). */
+    const limpieza = limpiarPendienteUsado();
+
+    /* Modal de confirmación de éxito → al cerrar va a historial. Se muestra
+       AL INSTANTE con el número de control; el PDF de Turno se anexa solo. */
     const yaFueTurnado = !!data.turnado_a;
+    const pdfEnCamino  = data.doc3?.tipo === 'pendiente';
     await sbisAlert({
       titulo:  `Oficio N° ${data.n_control} registrado`,
-      mensaje: yaFueTurnado
+      mensaje: (yaFueTurnado
         ? `El oficio quedó turnado directamente a ${data.turnado_a}.`
-        : 'El oficio quedó en estatus "Por Turnar". Recuerda asignarlo a un área desde el Historial.',
+        : 'El oficio quedó en estatus "Por Turnar". Recuerda asignarlo a un área desde el Historial.')
+        + (pdfEnCamino ? ' El PDF de Turno se está generando y se anexará solo al registro en cuanto esté listo.' : ''),
       tipo:    'success',
       btnOk:   'Ver Historial',
-      onClose: () => { window.location.href = '/historial'; }
+      // Antes de salir de la página se espera a que el escaneo pendiente haya SALIDO hacia
+      // el servidor (es rápido); a partir de ahí el servidor lo sube a Drive por su cuenta.
+      onClose: async () => {
+        await Promise.allSettled([subidaDoc3, limpieza]);
+        window.location.href = '/historial';
+      }
     });
 
   } catch (err) {
@@ -704,6 +734,10 @@ let TIMER_POLL_PENDIENTES = null;
    Nuevo Registro (manual) nunca se llena y el área receptora sigue
    subiendo su propio documento de Turno como siempre. */
 let DOC3_AUTO_PROMISE = null;
+// Se anota cuándo termina el escaneo para saber, al guardar, si ya está listo
+// (se adjunta al guardar) o todavía no (se manda después, sin hacer esperar).
+let DOC3_AUTO_LISTO = false;
+let DOC3_AUTO_BLOB  = null;
 
 /* Trae la lista de pendientes y repinta el panel. Se llama al cargar
    la página y luego cada 6s (mientras la página siga abierta) para
@@ -878,6 +912,13 @@ function seleccionarPendiente(id) {
   // Se dispara ya (no hasta Guardar) para que esté lista, o casi, para
   // cuando la persona termine de revisar el formulario.
   DOC3_AUTO_PROMISE = generarDocumentoEscaneado(id);
+  DOC3_AUTO_LISTO = false;
+  DOC3_AUTO_BLOB  = null;
+  const esteEscaneo = DOC3_AUTO_PROMISE;
+  esteEscaneo.then(
+    (blob) => { if (DOC3_AUTO_PROMISE === esteEscaneo) { DOC3_AUTO_BLOB = blob || null; DOC3_AUTO_LISTO = true; } },
+    ()     => { if (DOC3_AUTO_PROMISE === esteEscaneo) { DOC3_AUTO_BLOB = null;        DOC3_AUTO_LISTO = true; } }
+  );
 
   document.getElementById('titulo-panel-apartar')?.scrollIntoView?.({ behavior: 'smooth' });
   document.querySelector('.card-captura-unica')?.scrollIntoView({ behavior: 'smooth', block: 'start' });

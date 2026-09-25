@@ -459,6 +459,8 @@ async function cargarOficios(estatus = 'todos') {
     if (!res.ok) throw new Error();
     DATOS = await res.json();
     aplicarFiltrosLocales();
+    ULTIMA_URL_OFICIOS = url;
+    vigilarDocsPendientes();
   } catch {
     lista.innerHTML = `<div class="cargando-msg error">
       <i class="ti ti-alert-circle"></i> No se pudo conectar con el servidor.
@@ -825,6 +827,41 @@ async function eliminar(id) {
 }
 
 /* ── Ver documento de forma segura ── */
+let ULTIMA_URL_OFICIOS = null;
+/* ── Documentos que se están subiendo a Drive en segundo plano ──
+   Al registrar un oficio el PDF puede tardar unos segundos en subirse. Mientras
+   haya alguno "Generando PDF…" se revisa la lista en silencio cada 7 s y, en
+   cuanto alguno termina, se vuelve a pintar (se detiene solo al no quedar
+   ninguno, o tras ~7 min). */
+let TIMER_DOCS = null;
+let INTENTOS_DOCS = 0;
+const SLOTS_DOC = ['doc1', 'doc2', 'doc3', 'doc4'];
+const firmaDocsPendientes = (lista) => (lista || [])
+  .filter(r => SLOTS_DOC.some(s => r[s]?.tipo === 'pendiente'))
+  .map(r => r.id).join(',');
+
+function vigilarDocsPendientes() {
+  clearTimeout(TIMER_DOCS);
+  if (!firmaDocsPendientes(DATOS)) { INTENTOS_DOCS = 0; return; }
+  if (INTENTOS_DOCS >= 60) return;
+  TIMER_DOCS = setTimeout(async () => {
+    if (!document.hidden) {
+      INTENTOS_DOCS++;
+      try {
+        const res = await apiFetch(ULTIMA_URL_OFICIOS);
+        if (res.ok) {
+          const nuevos = await res.json();
+          if (firmaDocsPendientes(nuevos) !== firmaDocsPendientes(DATOS)) {
+            DATOS = nuevos;
+            aplicarFiltrosLocales();
+          }
+        }
+      } catch { /* sin red: se reintenta en el siguiente ciclo */ }
+    }
+    vigilarDocsPendientes();
+  }, 7000);
+}
+
 async function verDocSeguro(oficioId, slot) {
   const nuevaVentana = window.open('', '_blank');
   try {

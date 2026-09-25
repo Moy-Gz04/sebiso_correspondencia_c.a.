@@ -300,6 +300,66 @@ async function subirArchivoADrive(file) {
   return data.url;
 }
 
+/* ══ DOCUMENTOS EN SEGUNDO PLANO ══
+   Subir un archivo a Drive (Apps Script) tarda varios segundos, y antes el
+   registro NO se guardaba hasta que terminaban todas las subidas: por eso
+   "Guardar" se sentía lento. Ahora el registro se inserta al instante con un
+   marcador en la columna del documento (ruta_docN = 'pendiente:<ms>'), se
+   responde con el N. de control y la subida sigue en segundo plano. Al
+   terminar, el marcador se reemplaza por el enlace real (o por 'error:<ms>'
+   si Drive falló incluso tras reintentar). Un marcador 'pendiente' que lleva
+   más de PENDIENTE_VIGENCIA_MS se muestra como error (p. ej. si el servidor
+   se reinició a media subida y la tarea se perdió). */
+const RE_PENDIENTE = /^pendiente:(\d+)$/;
+const RE_ERROR = /^error:\d+$/;
+const PENDIENTE_VIGENCIA_MS = 15 * 60 * 1000;
+const marcaPendiente = () => `pendiente:${Date.now()}`;
+// ¿La columna tiene (o está por tener) un documento? 'error' cuenta como sin documento.
+const tieneDoc = (ruta) => !!ruta && !RE_ERROR.test(ruta);
+
+const COLA_SUBIDAS_DOCS = [];
+let subiendoDocs = false;
+
+function encolarSubidaDoc(tarea) {
+  COLA_SUBIDAS_DOCS.push(tarea);
+  if (!subiendoDocs) procesarColaSubidas();
+}
+
+async function procesarColaSubidas() {
+  subiendoDocs = true;
+  let tarea;
+  while ((tarea = COLA_SUBIDAS_DOCS.shift())) {
+    try { await procesarSubidaDoc(tarea); }
+    catch (err) { console.error('⚠️  Subida en segundo plano falló de forma inesperada:', err); }
+  }
+  subiendoDocs = false;
+}
+
+async function procesarSubidaDoc({ id, slot, file, marca, ronda = 1 }) {
+  let url = null;
+  // Hasta 3 rondas (cada una ya reintenta 3 veces dentro de llamarAppsScript).
+  try { url = await subirArchivoADrive(file); }
+  catch (err) { console.error(`⚠️  Subida de ${slot} (oficio ${id}), ronda ${ronda}/3: ${err.message}`); }
+  if (!url && ronda < 3) {
+    // Se reprograma SIN ocupar la cola: los demás documentos siguen saliendo mientras tanto.
+    setTimeout(() => encolarSubidaDoc({ id, slot, file, marca, ronda: ronda + 1 }), ronda * 20000);
+    return;
+  }
+  const valor = url || `error:${Date.now()}`;
+  // Solo si la columna sigue con NUESTRO marcador: si mientras tanto alguien subió otro
+  // documento a mano (p. ej. el área), ese es el que manda y esta subida se descarta.
+  let filas;
+  if (slot === 'doc1')      filas = await sql`UPDATE oficios SET ruta_doc1 = ${valor} WHERE id = ${id} AND ruta_doc1 = ${marca} RETURNING id`;
+  else if (slot === 'doc2') filas = await sql`UPDATE oficios SET ruta_doc2 = ${valor} WHERE id = ${id} AND ruta_doc2 = ${marca} RETURNING id`;
+  else                      filas = await sql`UPDATE oficios SET ruta_doc3 = ${valor} WHERE id = ${id} AND ruta_doc3 = ${marca} RETURNING id`;
+  // El cambio ocurrió fuera de una petición: se invalida la caché de la lista de oficios.
+  GENERACION_OFICIOS++;
+  CACHE_OFICIOS.clear();
+  if (!filas.length) console.log(`ℹ️  ${slot} del oficio ${id} fue reemplazado mientras se subía; se descarta esta subida.`);
+  else if (url) console.log(`📎  ${slot} del oficio ${id} listo en Drive.`);
+  else console.error(`❌  ${slot} del oficio ${id} no se pudo subir a Drive (marcado como error).`);
+}
+
 /* ══ NOTA DE APARTADO DE SALA ══
    Al apartar una sala se genera un PDF (plantilla de Google Docs llenada
    vía Apps Script, ver APPS_SCRIPT_NOTA_URL) con folio <<NOTJ>> propio,
@@ -955,9 +1015,20 @@ async function siguienteNControl(area) {
    que en la tarjeta quede claro quién subió cada documento. */
 function sanitizarDoc(ruta, subidoPor) {
   if (!ruta) return null;
-  const base = /^https?:\/\//i.test(ruta)
-    ? { tipo: 'externo', nombre: 'Ver documento' }
-    : { tipo: 'local', nombre: String(ruta).replace(/^\d+_/, '') };
+  let base;
+  const pend = RE_PENDIENTE.exec(ruta);
+  if (pend) {
+    // Subiéndose a Drive en segundo plano (o, si lleva demasiado, la tarea se perdió)
+    base = (Date.now() - Number(pend[1]) > PENDIENTE_VIGENCIA_MS)
+      ? { tipo: 'error', nombre: 'No se pudo generar el PDF' }
+      : { tipo: 'pendiente', nombre: 'Generando PDF…' };
+  } else if (RE_ERROR.test(ruta)) {
+    base = { tipo: 'error', nombre: 'No se pudo generar el PDF' };
+  } else {
+    base = /^https?:\/\//i.test(ruta)
+      ? { tipo: 'externo', nombre: 'Ver documento' }
+      : { tipo: 'local', nombre: String(ruta).replace(/^\d+_/, '') };
+  }
   return subidoPor ? { ...base, subido_por: subidoPor } : base;
 }
 
@@ -1002,6 +1073,8 @@ app.get('/api/oficios/:id/doc-token/:slot', verifyToken, async (req, res) => {
 
     const ruta = oficio[`ruta_${slot}`];
     if (!ruta) return res.status(404).json({ mensaje: 'Este oficio no tiene ese documento.' });
+    if (RE_PENDIENTE.test(ruta)) return res.status(409).json({ mensaje: 'El PDF todavía se está generando. Se anexa solo en cuanto esté listo; vuelve a intentarlo en unos segundos.' });
+    if (RE_ERROR.test(ruta)) return res.status(409).json({ mensaje: 'No se pudo generar el PDF de este documento. Vuelve a subirlo.' });
 
     const token = jwt.sign(
       { propósito: 'doc', oficioId: oficio.id, slot },
@@ -1034,7 +1107,7 @@ app.get('/api/docs/:token', async (req, res) => {
     if (!oficio) return res.status(404).send('No encontrado.');
 
     const ruta = oficio[`ruta_${payload.slot}`];
-    if (!ruta) return res.status(404).send('Documento no disponible.');
+    if (!ruta || RE_PENDIENTE.test(ruta) || RE_ERROR.test(ruta)) return res.status(404).send('Documento no disponible.');
 
     if (/^https?:\/\//i.test(ruta)) return res.redirect(302, ruta);
     return res.redirect(302, `/uploads/${ruta}`);
@@ -1458,16 +1531,22 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
 
     const estatusInicial = turnado_a ? 'turnado' : 'por_turnar';
 
-    const files     = req.files || {};
-    const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
-    const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
-    // "doc3" (documento de Turno) solo llega aquí desde Registro
-    // Automático: la propia foto del oficio, ya procesada a aspecto de
-    // escaneo en el navegador (ver captura-auto.js), para que el área a
-    // la que se turne ya no tenga que volver a digitalizarlo. En un
-    // registro manual (Nuevo Registro) nunca se manda este campo, así
-    // que ruta_doc3 queda null igual que antes.
-    const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
+    const files = req.files || {};
+    // El registro se guarda YA, con un marcador 'pendiente' en cada documento
+    // recibido; los archivos se suben a Drive después, en segundo plano.
+    const marca = marcaPendiente();
+    const hayDoc1 = !!files.doc1?.[0];
+    const hayDoc2 = !!files.doc2?.[0];
+    const hayDoc3 = !!files.doc3?.[0];
+    // "doc3" (documento de Turno) solo llega desde Registro Automático: la
+    // propia foto del oficio, ya procesada a aspecto de escaneo en el
+    // navegador (ver captura-auto.js). Si el navegador aún no termina de
+    // generarlo al guardar, avisa con doc3_pendiente=1 y lo manda después
+    // (POST /api/oficios/:id/doc3-diferido); el marcador ya lo deja visible.
+    const doc3EnCamino = !hayDoc3 && req.body.doc3_pendiente === '1';
+    const ruta_doc1 = hayDoc1 ? marca : null;
+    const ruta_doc2 = hayDoc2 ? marca : null;
+    const ruta_doc3 = (hayDoc3 || doc3EnCamino) ? marca : null;
 
     const turnadoPor      = turnado_a ? req.user.username : null;
     const doc3SubidoPor   = ruta_doc3 ? req.user.username : null;
@@ -1505,8 +1584,39 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
 
     console.log(`✅  Oficio creado por ${areaOrigen}: N. Control ${n_control} → ${estatusInicial}${turnado_a ? ' → ' + turnado_a : ''}`);
     res.status(201).json(sanitizarOficio(nuevo));
+
+    // Ya se respondió: ahora se suben los documentos a Drive en segundo plano.
+    if (hayDoc1) encolarSubidaDoc({ id: nuevo.id, slot: 'doc1', file: files.doc1[0], marca });
+    if (hayDoc2) encolarSubidaDoc({ id: nuevo.id, slot: 'doc2', file: files.doc2[0], marca });
+    if (hayDoc3) encolarSubidaDoc({ id: nuevo.id, slot: 'doc3', file: files.doc3[0], marca });
   } catch (err) {
     manejarError(res, err, 'Error al guardar.');
+  }
+});
+
+/* ══ POST /api/oficios/:id/doc3-diferido ══
+   Segunda parte del Registro Automático cuando el escaneo (doc3) aún se
+   estaba generando en el navegador al guardar: el registro ya existe con
+   ruta_doc3 = 'pendiente:...' y aquí llega el archivo (o, si el navegador no
+   pudo generarlo, la petición sin archivo, que quita el marcador). ══ */
+app.post('/api/oficios/:id/doc3-diferido', verifyToken, onlyCoordOrAdmin,
+  upload.fields([{ name: 'doc3', maxCount: 1 }]),
+  async (req, res) => {
+  try {
+    const [o] = await sql`SELECT id, ruta_doc3 FROM oficios WHERE id = ${req.params.id}`;
+    if (!o) return res.status(404).json({ mensaje: 'Oficio no encontrado.' });
+    if (!RE_PENDIENTE.test(o.ruta_doc3 || '')) {
+      return res.status(409).json({ mensaje: 'Este oficio ya no espera ese documento.' });
+    }
+    const file = req.files?.doc3?.[0];
+    if (!file) {
+      await sql`UPDATE oficios SET ruta_doc3 = NULL, doc3_subido_por = NULL WHERE id = ${o.id} AND ruta_doc3 = ${o.ruta_doc3}`;
+      return res.json({ ok: true, sin_documento: true });
+    }
+    encolarSubidaDoc({ id: o.id, slot: 'doc3', file, marca: o.ruta_doc3 });
+    res.status(202).json({ ok: true });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo adjuntar el documento.');
   }
 });
 
@@ -1592,7 +1702,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         if (oficio.usuario_asignado_id !== id)
           return res.status(403).json({ mensaje: 'Solo puedes marcar como atendido un oficio que tengas asignado.' });
 
-        if (!oficio.ruta_doc3 && !files.doc3?.[0])
+        if (!tieneDoc(oficio.ruta_doc3) && !files.doc3?.[0])
           return res.status(400).json({ mensaje: 'Falta el documento de Turno.' });
 
         const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
@@ -1661,7 +1771,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       const { obs_area, estatus: estatusBody } = req.body;
       const nuevoEstatus = estatusBody === 'atendido' ? 'atendido' : null;
 
-      if (nuevoEstatus === 'atendido' && !oficio.ruta_doc3 && !files.doc3?.[0])
+      if (nuevoEstatus === 'atendido' && !tieneDoc(oficio.ruta_doc3) && !files.doc3?.[0])
         return res.status(400).json({ mensaje: 'Falta el documento de Turno.' });
 
       const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
