@@ -211,6 +211,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const archivo = e.target.files?.[0];
     if (archivo) mostrarPreview(archivo);
   });
+  // Escáner en vivo: recorta y endereza la hoja antes de subirla. La foto resultante entra por el mismo flujo de siempre.
+  const btnEscanear = document.getElementById('btn-escanear');
+  if (btnEscanear && window.EscanerDoc && EscanerDoc.soportado()) {
+    btnEscanear.style.display = 'flex';
+    btnEscanear.addEventListener('click', () => EscanerDoc.abrir({ onListo: (archivo) => mostrarPreview(archivo) }));
+  }
   document.getElementById('btn-cambiar-foto').addEventListener('click', mostrarZonaCaptura);
   document.getElementById('btn-enviar-foto').addEventListener('click', enviarFoto);
 

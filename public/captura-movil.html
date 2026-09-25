@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Captura desde Celular — Secretaría de Bienestar e Inclusión Social</title>
   <link rel="stylesheet" href="css/styles.css"/>
+  <link rel="stylesheet" href="css/escaner.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
   <style>
@@ -106,6 +107,10 @@
     </div>
 
     <div class="cm-card">
+      <!-- Escáner en vivo (detecta y recorta la hoja, estilo CamScanner). Se muestra solo si el navegador da acceso a la cámara. -->
+      <button type="button" class="btn-cm btn-cm-primario btn-escanear" id="btn-escanear" style="display:none;">
+        <i class="ti ti-scan"></i> Escanear documento
+      </button>
       <div class="cm-captura-zona" id="cm-captura-zona" onclick="document.getElementById('input-foto').click()">
         <i class="ti ti-camera-plus"></i>
         <strong>Tomar foto del oficio</strong>
@@ -136,6 +141,7 @@
 
   </main>
 
+  <script src="js/escaner.js"></script>
   <script src="js/captura-movil.js"></script>
 </body>
 </html>

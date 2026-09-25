@@ -1,0 +1,66 @@
+/* Escáner de documentos (js/escaner.js) — pantalla completa, pensado para el celular */
+html.esc-abierto, html.esc-abierto body { overflow: hidden; }
+
+.esc {
+  position: fixed; inset: 0; z-index: 9000; background: #000; color: #fff;
+  font-family: 'Montserrat', sans-serif; display: flex; flex-direction: column;
+}
+.esc[hidden] { display: none; }
+.esc-vista { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
+.esc-vista[hidden] { display: none; }
+
+.esc-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px; background: rgba(0,0,0,.6);
+}
+.esc-estado { flex: 1; text-align: center; font-size: 13px; font-weight: 600; text-wrap: balance; }
+
+.esc-icono, .esc-texto {
+  border: none; color: #fff; background: rgba(255,255,255,.16); border-radius: 999px; cursor: pointer;
+  font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.esc-icono { width: 42px; height: 42px; font-size: 20px; flex-shrink: 0; }
+.esc-texto { padding: 9px 13px; font-size: 12.5px; font-weight: 700; }
+.esc-icono.activo { background: #ffc83c; color: #222; }
+
+.esc-stage {
+  position: relative; flex: 1; min-height: 0; background: #000;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.esc-stage video { width: 100%; height: 100%; object-fit: contain; display: block; }
+.esc-stage #esc-overlay { position: absolute; left: 0; top: 0; pointer-events: none; }
+#esc-ed-canvas { display: block; border-radius: 4px; }
+
+.esc-bottom {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 18px calc(16px + env(safe-area-inset-bottom, 0px)); background: rgba(0,0,0,.6);
+}
+.esc-auto { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; min-width: 64px; }
+.esc-auto input { width: 20px; height: 20px; accent-color: #2ecc71; }
+.esc-relleno { min-width: 64px; }
+
+.esc-disparo {
+  width: 74px; height: 74px; border-radius: 50%; border: 4px solid #fff; background: transparent;
+  padding: 5px; cursor: pointer; flex-shrink: 0;
+}
+.esc-disparo span { display: block; width: 100%; height: 100%; border-radius: 50%; background: #fff; transition: transform .12s; }
+.esc-disparo:active span { transform: scale(.86); }
+
+.esc-bottom-ed { flex-wrap: wrap; justify-content: center; }
+.esc-filtros { display: flex; background: rgba(255,255,255,.14); border-radius: 999px; padding: 3px; }
+.esc-filtros button {
+  border: none; background: transparent; color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 8px 12px; border-radius: 999px; cursor: pointer;
+}
+.esc-filtros button.activo { background: #fff; color: #3d1420; }
+.esc-listo {
+  border: none; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 800; color: #fff;
+  padding: 12px 22px; border-radius: 999px; display: inline-flex; align-items: center; gap: 8px;
+  background: linear-gradient(135deg, #2e9e57 0%, #1a6e35 100%);
+}
+.esc-listo:disabled { opacity: .7; }
+.esc-gira { animation: escgira 1s linear infinite; display: inline-block; }
+@keyframes escgira { to { transform: rotate(360deg); } }
+
+/* Botón de la página que abre el escáner */
+.btn-escanear { padding: 16px; font-size: 15px; margin-bottom: 12px; width: 100%; }
