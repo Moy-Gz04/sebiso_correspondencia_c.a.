@@ -352,6 +352,15 @@
     .ticket-title { font-weight: 700; font-size: 1.05rem; margin-bottom: 8px; padding-right: 15px; }
     .ticket-info { font-size: 0.85rem; margin: 4px 0; display: flex; align-items: flex-start; gap: 6px; }
     .ticket-info i { margin-top: 1px; }
+    /* Folio de tarjeta en el historial: etiqueta, no enlace crudo */
+    .hist-tarjeta {
+      display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+      padding: 4px 9px; border-radius: 7px; font-size: 12px; font-weight: 600;
+      background: #F3E9EC; color: var(--guinda, #5F2132); border: 1px solid #E4CFD5;
+      text-decoration: none;
+    }
+    a.hist-tarjeta:hover { background: var(--guinda, #5F2132); color: #fff; border-color: var(--guinda, #5F2132); }
+    a.hist-tarjeta:focus-visible { outline: 2px solid var(--guinda, #5F2132); outline-offset: 2px; }
     .ticket-nota-badge {
       display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 0;
       padding: 3px 9px; font-size: 0.74rem; font-weight: 700; border-radius: 999px;
@@ -542,7 +551,7 @@
             </div>
             <input type="text" id="input-folio-nota" class="tfn-input" inputmode="numeric" placeholder="0077" oninput="revisarFolioNotaDuplicado()"/>
             <p class="tfn-aviso" id="aviso-folio-nota-duplicado" style="display:none;">
-              <i class="ti ti-alert-triangle"></i> Ya existe una Nota con este número — se puede repetir, pero verifica que sea intencional.
+              <i class="ti ti-alert-triangle"></i> Ya existe una Tarjeta con este número — se puede repetir, pero verifica que sea intencional.
             </p>
           </div>
           <h2 id="titulo-panel-apartar"><i class="ti ti-calendar-plus"></i> Apartar Sala</h2>
@@ -618,7 +627,7 @@
         <table class="tabla-historial">
           <thead>
             <tr>
-              <th>Sala</th><th>Fecha</th><th>Hora</th><th>Personas</th><th>Descripción</th><th>No. Oficio</th><th>Nota</th>
+              <th>Sala</th><th>Fecha</th><th>Hora</th><th>Personas</th><th>Descripción</th><th>No. Oficio</th><th>Tarjeta</th>
               <th>Registrado por</th><th>Motivo</th><th>Eliminado por</th><th>Cuándo</th><th></th>
             </tr>
           </thead>
@@ -674,7 +683,7 @@
         <div class="detalle-fila" id="detalle-oficio-fila"><i class="ti ti-file-text"></i><div><strong>No. de Oficio</strong><span id="detalle-oficio"></span></div></div>
         <div class="detalle-fila" id="detalle-prestamo-fila"><i class="ti ti-microphone"></i><div><strong>Préstamo</strong><span id="detalle-prestamo"></span></div></div>
         <div id="detalle-nota-fila">
-          <strong style="display:block; font-size:0.72rem; text-transform:uppercase; letter-spacing:.3px; opacity:.75; margin-bottom:5px;">Nota</strong>
+          <strong style="display:block; font-size:0.72rem; text-transform:uppercase; letter-spacing:.3px; opacity:.75; margin-bottom:5px;">Tarjeta</strong>
           <div class="nota-card" id="detalle-nota-card"></div>
         </div>
         <span class="detalle-tag" id="detalle-estatus"></span>
@@ -692,7 +701,7 @@
     <div class="cargando-card">
       <i class="ti ti-loader-2 spin"></i>
       <h3 id="cargando-titulo">Apartando sala…</h3>
-      <p id="cargando-sub">Generando la Nota (PDF). Esto puede tardar unos segundos.</p>
+      <p id="cargando-sub">Generando la Tarjeta (PDF). Esto puede tardar unos segundos.</p>
     </div>
   </div>
 

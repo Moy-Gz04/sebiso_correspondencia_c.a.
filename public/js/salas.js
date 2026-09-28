@@ -377,7 +377,7 @@ function pintarTendedero() {
         <div class="ticket-info"><i class="ti ti-align-left"></i> ${ap.descripcion || 'Sin descripción'}</div>
         ${ap.no_oficio ? `<div class="ticket-info"><i class="ti ti-file-text"></i> ${ap.no_oficio}</div>` : ''}
         ${dias > 1 ? `<span class="ticket-dias-badge"><i class="ti ti-calendar-event"></i> ${dias} días</span>` : ''}
-        ${ap.folio_nota ? `<span class="ticket-nota-badge"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</span>` : ''}
+        ${ap.folio_nota ? `<span class="ticket-nota-badge"><i class="ti ti-file-description"></i> Tarjeta ${ap.folio_nota}</span>` : ''}
         <span class="ticket-tag">${estatus}</span>
       </div>`;
   }).join('');
@@ -400,15 +400,15 @@ function pintarTarjetaNota(ap) {
   if (!ap.folio_nota) return '';
   if (!ap.nota_pdf_url) {
     return `
-      <div class="nota-card-head"><span class="folio"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</span></div>
-      <div class="nota-card-sinpdf"><i class="ti ti-alert-circle"></i> El PDF de esta Nota no se generó (Drive no respondió). Puedes volver a intentarlo: se conserva el mismo número de Nota.</div>
+      <div class="nota-card-head"><span class="folio"><i class="ti ti-file-description"></i> Tarjeta ${ap.folio_nota}</span></div>
+      <div class="nota-card-sinpdf"><i class="ti ti-alert-circle"></i> El PDF de esta Tarjeta no se generó (Drive no respondió). Puedes volver a intentarlo: se conserva el mismo número de Tarjeta.</div>
       <button type="button" class="btn-reintentar-pdf" id="btn-reintentar-pdf" onclick="regenerarNotaPDF(${ap.id})"><i class="ti ti-refresh"></i> Reintentar generar PDF</button>
       <p class="reintentar-pdf-msg" id="reintentar-pdf-msg" aria-live="polite"></p>`;
   }
   const fileId = idDriveDesdeUrl(ap.nota_pdf_url);
   return `
     <div class="nota-card-head">
-      <span class="folio"><i class="ti ti-file-description"></i> Nota ${ap.folio_nota}</span>
+      <span class="folio"><i class="ti ti-file-description"></i> Tarjeta ${ap.folio_nota}</span>
       <a class="nota-card-abrir" href="${ap.nota_pdf_url}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i> Abrir en Drive</a>
     </div>
     ${fileId ? `<iframe class="nota-card-preview" src="https://drive.google.com/file/d/${fileId}/preview" allow="autoplay" loading="lazy"></iframe>` : ''}`;
@@ -540,7 +540,7 @@ async function apartarSala() {
   btn.disabled = true;
   mostrarCargando(
     editando ? 'Guardando cambios…' : 'Apartando sala…',
-    editando ? 'Un momento, por favor.' : 'Generando la Nota (PDF). Esto puede tardar unos segundos.'
+    editando ? 'Un momento, por favor.' : 'Generando la Tarjeta (PDF). Esto puede tardar unos segundos.'
   );
   try {
     const cuerpo = { sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota };
@@ -577,8 +577,8 @@ async function apartarSala() {
     // trae nota_pdf_url si todo salió bien.
     const notaMsg = !editando
       ? (data.nota_pdf_url
-          ? ` Nota ${data.folio_nota} generada.`
-          : (data.folio_nota ? ` Nota ${data.folio_nota} asignada, pero el PDF no se generó${data.nota_error ? ' — ' + data.nota_error : ''} Abre la tarjeta y pulsa «Reintentar generar PDF».` : ''))
+          ? ` Tarjeta ${data.folio_nota} generada.`
+          : (data.folio_nota ? ` Tarjeta ${data.folio_nota} asignada, pero el PDF no se generó${data.nota_error ? ' — ' + data.nota_error : ''} Abre la tarjeta y pulsa «Reintentar generar PDF».` : ''))
       : '';
     await sbisAlert({
       titulo: editando ? 'Apartado actualizado' : 'Sala apartada',
@@ -734,7 +734,7 @@ async function cargarHistorial() {
           <td>${h.personas ?? '—'}</td>
           <td>${h.descripcion || '—'}</td>
           <td>${h.no_oficio || '—'}</td>
-          <td>${h.folio_nota ? (h.nota_pdf_url ? `<a href="${h.nota_pdf_url}" target="_blank" rel="noopener">Nota ${h.folio_nota}</a>` : `Nota ${h.folio_nota}`) : '—'}</td>
+          <td>${h.folio_nota ? (h.nota_pdf_url ? `<a class="hist-tarjeta" href="${h.nota_pdf_url}" target="_blank" rel="noopener" title="Abrir PDF de la tarjeta"><i class="ti ti-file-description"></i> Tarjeta ${h.folio_nota}</a>` : `<span class="hist-tarjeta"><i class="ti ti-file-description"></i> Tarjeta ${h.folio_nota}</span>`) : '—'}</td>
           <td>${h.creado_por || '—'}</td>
           <td><span class="badge-motivo ${h.motivo_eliminacion}">${{ vencido: 'Vencido', cancelado: 'Cancelado', sala_eliminada: 'Sala eliminada' }[h.motivo_eliminacion] || h.motivo_eliminacion}</span></td>
           <td>${h.eliminado_por || '—'}</td>
