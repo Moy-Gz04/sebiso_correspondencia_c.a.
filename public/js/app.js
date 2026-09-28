@@ -519,9 +519,10 @@ function construirTarjeta(r, i) {
          <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
 
-  const docsAreaHTML = (doc3HTML || doc4HTML)
+  const extrasHTML = DocsExtra.tarjetas(r, 'doc-area');
+  const docsAreaHTML = (doc3HTML || doc4HTML || extrasHTML)
     ? `<p class="t-docs-titulo" style="margin-top:14px">Documentos del Área</p>
-       <div class="docs-area-grid">${doc3HTML}${doc4HTML}</div>`
+       <div class="docs-area-grid">${doc3HTML}${doc4HTML}${extrasHTML}</div>`
     : '';
 
   /* Nota de rechazo enviada al área (visible también para admin como referencia) */

@@ -117,3 +117,6 @@ CREATE TABLE IF NOT EXISTS salas_historial (
   eliminado_por       VARCHAR(150),
   eliminado_en        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- Documentos extra de contestación (además de Turno doc3 y Seguimiento doc4):
+-- [{ id, ruta, nombre, subido_por, fecha }]. Ver calcularDocsExtra en server.js.
+ALTER TABLE oficios ADD COLUMN IF NOT EXISTS docs_extra JSONB NOT NULL DEFAULT '[]'::jsonb;

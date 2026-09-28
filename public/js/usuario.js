@@ -363,9 +363,10 @@ function construirTarjeta(r, i) {
   const doc3HTML = tarjetaDoc(r, 'doc3', 'Turno');
   const doc4HTML = tarjetaDoc(r, 'doc4', 'Seguimiento');
 
-  const docsRespuestaHTML = (doc3HTML || doc4HTML)
+  const extrasHTML = DocsExtra.tarjetas(r, 'doc-admin');
+  const docsRespuestaHTML = (doc3HTML || doc4HTML || extrasHTML)
     ? `<p class="t-docs-titulo" style="margin-top:14px">Tus Documentos de Respuesta</p>
-       <div class="docs-admin-grid">${doc3HTML}${doc4HTML}</div>`
+       <div class="docs-admin-grid">${doc3HTML}${doc4HTML}${extrasHTML}</div>`
     : '';
 
   const notaRechazoHTML = (r.estatus === 'rechazado' && r.nota_rechazo)
@@ -711,6 +712,7 @@ function abrirAtender(id) {
   pintarAsuntoAtender(r);
   renderSlotDoc(id, r, 'doc3', true);
   renderSlotDoc(id, r, 'doc4', false);
+  DocsExtra.iniciar(r);
 
   const infoInstruccion = document.getElementById('atender-instruccion');
   if (infoInstruccion) {
@@ -763,6 +765,7 @@ async function guardarAtencion() {
     fd.append('obs_area', document.getElementById('atender-obs').value || '');
     if (doc3File) fd.append('doc3', doc3File);
     if (doc4File) fd.append('doc4', doc4File);
+    DocsExtra.anexar(fd);
 
     const res = await apiFetch(`${API}/oficios/${atendiendoId}`, { method: 'PUT', body: fd });
     if (!res.ok) {

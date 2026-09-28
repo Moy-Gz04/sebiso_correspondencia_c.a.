@@ -14,7 +14,7 @@ import { neon }          from '@neondatabase/serverless';
 import dotenv            from 'dotenv';
 import bcrypt             from 'bcryptjs';
 import jwt                from 'jsonwebtoken';
-import { randomUUID }     from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 
 dotenv.config();
 
@@ -1034,14 +1034,54 @@ function sanitizarDoc(ruta, subidoPor) {
 
 function sanitizarOficio(o) {
   if (!o) return o;
-  const { ruta_doc1, ruta_doc2, ruta_doc3, ruta_doc4, doc3_subido_por, doc4_subido_por, ...resto } = o;
+  const { ruta_doc1, ruta_doc2, ruta_doc3, ruta_doc4, doc3_subido_por, doc4_subido_por, docs_extra, ...resto } = o;
   return {
     ...resto,
     doc1: sanitizarDoc(ruta_doc1),
     doc2: sanitizarDoc(ruta_doc2),
     doc3: sanitizarDoc(ruta_doc3, doc3_subido_por),
     doc4: sanitizarDoc(ruta_doc4, doc4_subido_por),
+    // Contestaciones adicionales: mismas reglas (sin URL), con su nombre de archivo real
+    docs_extra: (Array.isArray(docs_extra) ? docs_extra : []).map(d => {
+      const base = sanitizarDoc(d.ruta, d.subido_por);
+      return base && { ...base, id: d.id, nombre: base.tipo === 'externo' ? (d.nombre || base.nombre) : base.nombre };
+    }).filter(Boolean),
   };
+}
+
+/* ══ DOCUMENTOS EXTRA DE CONTESTACIÓN ══
+   Además del Turno (doc3) y el Seguimiento (doc4), quien atiende puede
+   subir los documentos de contestación que necesite. Se guardan en
+   oficios.docs_extra (JSONB): [{ id, ruta, nombre, subido_por, fecha }].
+   Para abrirlos se usa el mismo doc-token, con slot "extra-<id>". */
+const RE_SLOT_EXTRA = /^extra-([0-9a-f]{8})$/;
+const slotValido = (slot) => ['doc1', 'doc2', 'doc3', 'doc4'].includes(slot) || RE_SLOT_EXTRA.test(slot);
+function rutaDeSlot(oficio, slot) {
+  const m = RE_SLOT_EXTRA.exec(slot);
+  if (!m) return oficio[`ruta_${slot}`];
+  const d = (Array.isArray(oficio.docs_extra) ? oficio.docs_extra : []).find(x => x.id === m[1]);
+  return d?.ruta || null;
+}
+
+/* Lista final de docs extra: quita los que el usuario eliminó
+   (docs_extra_quitar = JSON con ids) y agrega los archivos nuevos
+   (campo multipart "docs_extra", varios). Devuelve null si no cambió. */
+async function calcularDocsExtra(oficio, files, body, username) {
+  let quitar = [];
+  try { quitar = JSON.parse(body.docs_extra_quitar || '[]'); } catch { quitar = []; }
+  const nuevos = files.docs_extra || [];
+  if (!nuevos.length && !quitar.length) return null;
+  const actuales = (Array.isArray(oficio.docs_extra) ? oficio.docs_extra : []).filter(d => !quitar.includes(d.id));
+  for (const f of nuevos) {
+    actuales.push({
+      id: randomBytes(4).toString('hex'),
+      ruta: await subirArchivoADrive(f),
+      nombre: String(f.originalname || 'documento').slice(0, 200),
+      subido_por: username,
+      fecha: new Date().toISOString(),
+    });
+  }
+  return JSON.stringify(actuales);
 }
 
 /* Misma regla de acceso que ya usa GET /api/oficios/:id, extraída
@@ -1063,7 +1103,7 @@ function puedeVerOficio(user, oficio) {
 app.get('/api/oficios/:id/doc-token/:slot', verifyToken, async (req, res) => {
   try {
     const { id, slot } = req.params;
-    if (!['doc1', 'doc2', 'doc3', 'doc4'].includes(slot))
+    if (!slotValido(slot))
       return res.status(400).json({ mensaje: 'Documento no válido.' });
 
     const [oficio] = await sql`SELECT * FROM oficios WHERE id = ${id}`;
@@ -1071,7 +1111,7 @@ app.get('/api/oficios/:id/doc-token/:slot', verifyToken, async (req, res) => {
     if (!puedeVerOficio(req.user, oficio))
       return res.status(403).json({ mensaje: 'Sin acceso.' });
 
-    const ruta = oficio[`ruta_${slot}`];
+    const ruta = rutaDeSlot(oficio, slot);
     if (!ruta) return res.status(404).json({ mensaje: 'Este oficio no tiene ese documento.' });
     if (RE_PENDIENTE.test(ruta)) return res.status(409).json({ mensaje: 'El PDF todavía se está generando. Se anexa solo en cuanto esté listo; vuelve a intentarlo en unos segundos.' });
     if (RE_ERROR.test(ruta)) return res.status(409).json({ mensaje: 'No se pudo generar el PDF de este documento. Vuelve a subirlo.' });
@@ -1106,7 +1146,7 @@ app.get('/api/docs/:token', async (req, res) => {
     const [oficio] = await sql`SELECT * FROM oficios WHERE id = ${payload.oficioId}`;
     if (!oficio) return res.status(404).send('No encontrado.');
 
-    const ruta = oficio[`ruta_${payload.slot}`];
+    const ruta = rutaDeSlot(oficio, payload.slot);
     if (!ruta || RE_PENDIENTE.test(ruta) || RE_ERROR.test(ruta)) return res.status(404).send('Documento no disponible.');
 
     if (/^https?:\/\//i.test(ruta)) return res.redirect(302, ruta);
@@ -1625,7 +1665,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
   { name: 'doc1', maxCount: 1 },
   { name: 'doc2', maxCount: 1 },
   { name: 'doc3', maxCount: 1 },
-  { name: 'doc4', maxCount: 1 }
+  { name: 'doc4', maxCount: 1 },
+  { name: 'docs_extra', maxCount: 10 }
 ]), async (req, res) => {
   try {
     const [oficio] = await sql`SELECT * FROM oficios WHERE id = ${req.params.id}`;
@@ -1707,11 +1748,13 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
 
         const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
         const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;
+        const docsExtra = await calcularDocsExtra(oficio, files, req.body, req.user.username);
 
         const [updated] = await sql`
           UPDATE oficios SET
             obs_area        = COALESCE(${obs_area ?? null}, obs_area),
             estatus         = 'atendido',
+            docs_extra      = COALESCE(${docsExtra}::jsonb, docs_extra),
             ruta_doc3       = COALESCE(${ruta_doc3}, ruta_doc3),
             ruta_doc4       = COALESCE(${ruta_doc4}, ruta_doc4),
             doc3_subido_por = COALESCE(${ruta_doc3 ? req.user.username : null}, doc3_subido_por),
@@ -1776,11 +1819,13 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
 
       const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
       const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;
+      const docsExtra = await calcularDocsExtra(oficio, files, req.body, req.user.username);
 
       const [updated] = await sql`
         UPDATE oficios SET
           obs_area        = COALESCE(${obs_area    ?? null}, obs_area),
           estatus         = COALESCE(${nuevoEstatus}, estatus),
+          docs_extra      = COALESCE(${docsExtra}::jsonb, docs_extra),
           ruta_doc3       = COALESCE(${ruta_doc3},   ruta_doc3),
           ruta_doc4       = COALESCE(${ruta_doc4},   ruta_doc4),
           doc3_subido_por = COALESCE(${ruta_doc3 ? req.user.username : null}, doc3_subido_por),
