@@ -33,6 +33,14 @@ function verificarAcceso() {
   return true;
 }
 
+/* Regresar: a la página anterior si vino de esta misma app; si se abrió
+   directo (QR, pestaña nueva), a la pantalla de su módulo. */
+function regresar() {
+  const vieneDeAqui = document.referrer && new URL(document.referrer).origin === location.origin;
+  if (vieneDeAqui && history.length > 1) { history.back(); return; }
+  location.href = TIPO === 'sala' ? '/salas' : '/captura-auto';
+}
+
 function cerrarSesion() {
   localStorage.removeItem('sbis_token');
   localStorage.removeItem('sbis_usuario');
