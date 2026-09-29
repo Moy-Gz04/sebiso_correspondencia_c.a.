@@ -252,63 +252,67 @@ function sbisAlert({ titulo = 'Aviso', mensaje = '', btnOk = 'Aceptar', tipo = '
 /* ════════════════════════════════════════════════════
    CARGA Y RENDER
    ════════════════════════════════════════════════════ */
-/* Numerito azul (parpadeante mientras haya al menos uno) del chip "Por
-   Atender": cuenta los oficios en estatus 'sub_turnado' dentro de
-   DATOS_TODOS (la lista completa, no el subconjunto que se esté
-   mostrando ahora) — para usuario_area toda su bandeja ya es personal
-   (ver GET /api/oficios), no hace falta filtrar por asignado como en
-   area.js. Leer de DATOS_TODOS en vez de DATOS es lo que hace que el
-   numerito no desaparezca al cambiar de pestaña. */
+/* ── Bandeja del usuario por partes (ver js/paginacion.js) ──
+   El servidor manda 15 oficios del filtro activo (GET /api/oficios/bandeja,
+   solo los asignados a este usuario) y los siguientes al bajar. Los
+   numeritos «Por Atender» (sub_turnado) y «Por Corregir» (rechazado)
+   vienen en `conteos`, calculados sobre TODA su bandeja, así que no
+   cambian al moverse de pestaña. DATOS = lo ya cargado en pantalla. */
+let PAGINADOR = null;
+let CONTEOS = { sub_turnado: 0, rechazado: 0 };
+let TIMER_BUSQUEDA = null;
+
 function actualizarBadgePorAtender() {
   const badge = document.getElementById('badge-por-atender');
   if (!badge) return;
-  const total = DATOS_TODOS.filter(r => r.estatus === 'sub_turnado').length;
+  const total = CONTEOS.sub_turnado || 0;
   badge.textContent = total;
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
 }
 
-/* Numerito rojo (parpadeante) del chip "Por Corregir" — mismo criterio
-   que actualizarBadgePorAtender, leyendo siempre de DATOS_TODOS para
-   que no dependa de qué pestaña esté abierta. */
 function actualizarBadgeRechazados() {
   const badge = document.getElementById('badge-rechazados');
   if (!badge) return;
-  const total = DATOS_TODOS.filter(r => r.estatus === 'rechazado').length;
+  const total = CONTEOS.rechazado || 0;
   badge.textContent = total;
   badge.style.display = total > 0 ? 'inline-flex' : 'none';
 }
 
-/* Siempre trae TODOS los oficios (sin filtrar por estatus en el
-   servidor) y los guarda en DATOS_TODOS; los chips filtran esa lista
-   en el navegador (aplicarFiltroActual), sin volver a pedirle nada al
-   servidor. Mismo motivo que en area.js: así el badge de "Por Atender"
-   no depende de qué filtro esté activo. */
-let DATOS_TODOS = [];
-
-async function cargarOficios() {
-  const lista = document.getElementById('lista');
-  lista.innerHTML = `<div class="cargando-msg">
-    <i class="ti ti-loader-2 spin"></i> Cargando registros...
-  </div>`;
-
-  try {
-    const res = await apiFetch(`${API}/oficios`);
-    if (!res.ok) throw new Error();
-    DATOS_TODOS = await res.json();
-    actualizarBadgePorAtender();
-    actualizarBadgeRechazados();
-    aplicarFiltroActual();
-    vigilarDocsPendientes();
-  } catch {
-    lista.innerHTML = `<div class="cargando-msg error">
-      <i class="ti ti-alert-circle"></i> No se pudo conectar con el servidor.
-    </div>`;
-  }
+function paginador() {
+  if (PAGINADOR) return PAGINADOR;
+  PAGINADOR = crearPaginador({
+    contenedor: 'lista',
+    pedir: (url) => apiFetch(url),
+    url: (desde, limite) => {
+      const params = new URLSearchParams({ desde, limite, filtro: filtroActual });
+      const q = (document.getElementById('buscador')?.value || '').trim();
+      if (q) params.set('q', q);
+      return `${API}/oficios/bandeja?${params}`;
+    },
+    pintar: (r, i) => construirTarjeta(r, i),
+    vacio: () => '<div class="cargando-msg">No hay registros con ese filtro.</div>',
+    alRecibir: (data) => {
+      DATOS = PAGINADOR.items;
+      if (data.conteos) CONTEOS = data.conteos;
+      actualizarBadgePorAtender();
+      actualizarBadgeRechazados();
+      document.getElementById('tot').textContent = data.total;
+      document.getElementById('pie-txt').textContent = data.total
+        ? `Mostrando 1–${PAGINADOR.items.length} de ${data.total} registros` : 'Sin registros';
+    },
+  });
+  return PAGINADOR;
 }
 
+async function cargarOficios() {
+  await paginador().reiniciar();
+  DATOS = PAGINADOR.items;
+  vigilarDocsPendientes();
+}
+
+/* Cambió el chip de filtro: se vuelve a pedir desde el inicio */
 function aplicarFiltroActual() {
-  DATOS = filtroActual === 'todos' ? DATOS_TODOS : DATOS_TODOS.filter(r => r.estatus === filtroActual);
-  renderLista(DATOS);
+  cargarOficios();
 }
 
 /* Documentos de respuesta (Turno / Seguimiento): etiqueta fija según
@@ -498,16 +502,6 @@ function construirTarjeta(r, i) {
   </div>`;
 }
 
-function renderLista(lista) {
-  const el = document.getElementById('lista');
-  el.innerHTML = lista.length
-    ? lista.map((r, i) => construirTarjeta(r, i)).join('')
-    : '<div class="cargando-msg">No hay registros con ese filtro.</div>';
-  document.getElementById('tot').textContent = lista.length;
-  document.getElementById('pie-txt').textContent =
-    `Mostrando 1–${lista.length} de ${lista.length} registros`;
-}
-
 function toggleTarjeta(i) {
   const t = document.getElementById(`tarjeta-${i}`);
   const a = t.classList.toggle('abierta');
@@ -530,21 +524,16 @@ function filtrar(btn, estatus) {
 function buscar(texto) {
   const btnL = document.getElementById('btn-limpiar-busqueda');
   if (btnL) btnL.style.display = texto.trim() ? 'flex' : 'none';
-  const q = texto.trim().toLowerCase();
-  if (!q) { renderLista(DATOS); return; }
-  renderLista(DATOS.filter(r =>
-    (r.n_control || '').toLowerCase().includes(q) ||
-    (r.n_referencia || '').toLowerCase().includes(q) ||
-    (r.remitente || '').toLowerCase().includes(q) ||
-    (r.descripcion || '').toLowerCase().includes(q)
-  ));
+  // La búsqueda la hace el servidor; se espera a que se deje de escribir un momento
+  clearTimeout(TIMER_BUSQUEDA);
+  TIMER_BUSQUEDA = setTimeout(cargarOficios, 300);
 }
 
 function limpiarBusqueda() {
   document.getElementById('buscador').value = '';
   const btnL = document.getElementById('btn-limpiar-busqueda');
   if (btnL) btnL.style.display = 'none';
-  renderLista(DATOS);
+  cargarOficios();
 }
 
 /* ── Ver documento de forma segura ──
@@ -565,21 +554,13 @@ const firmaDocsPendientes = (lista) => (lista || [])
 
 function vigilarDocsPendientes() {
   clearTimeout(TIMER_DOCS);
-  if (!firmaDocsPendientes(DATOS_TODOS)) { INTENTOS_DOCS = 0; return; }
+  if (!firmaDocsPendientes(DATOS)) { INTENTOS_DOCS = 0; return; }
   if (INTENTOS_DOCS >= 60) return;
   TIMER_DOCS = setTimeout(async () => {
     if (!document.hidden) {
       INTENTOS_DOCS++;
-      try {
-        const res = await apiFetch(`${API}/oficios`);
-        if (res.ok) {
-          const nuevos = await res.json();
-          if (firmaDocsPendientes(nuevos) !== firmaDocsPendientes(DATOS_TODOS)) {
-            DATOS_TODOS = nuevos;
-            aplicarFiltroActual();
-          }
-        }
-      } catch { /* sin red: se reintenta en el siguiente ciclo */ }
+      // Refresca solo lo que ya se ve, sin perder la posición
+      await paginador().refrescar();
     }
     vigilarDocsPendientes();
   }, 7000);

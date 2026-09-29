@@ -1306,6 +1306,72 @@ app.get('/api/oficios/historial', verifyToken, async (req, res) => {
   }
 });
 
+/* Parámetros comunes de las listas por partes: `desde` y `limite` (15 por
+   defecto, máx. 50) y el texto de búsqueda como patrón ILIKE ya escapado. */
+function leerPaginado(query) {
+  const limite = Math.min(50, Math.max(1, parseInt(query.limite, 10) || 15));
+  const desde  = Math.max(0, parseInt(query.desde, 10) || 0);
+  const q      = String(query.q || '').trim().slice(0, 100);
+  const patron = q ? `%${q.replace(/[\\%_]/g, m => '\\' + m)}%` : null;
+  return { limite, desde, patron };
+}
+const respuestaPaginada = (filas, desde, extra = {}) => {
+  const total = filas.length ? Number(filas[0].total_filtrado) : 0;
+  const items = filas.map(({ total_filtrado, ...r }) => r);
+  return { items, total, siguiente: desde + items.length < total ? desde + items.length : null, ...extra };
+};
+
+/* ══ GET /api/oficios/bandeja — Bandeja de oficios por partes ══
+   Área (rol 'area'): lo turnado a su área. Usuario (rol 'usuario_area'):
+   lo asignado a él. `filtro` = 'todos' | un estatus | 'asignados_mi'
+   (asignados a mí y pendientes: sub_turnado o rechazado). Además de la
+   parte pedida, manda `conteos` sobre TODA la bandeja (no solo lo visible)
+   para los numeritos de los chips. */
+app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
+  try {
+    const { rol, area, id } = req.user;
+    if (rol !== 'area' && rol !== 'usuario_area') return res.status(403).json({ mensaje: 'Sin acceso a la bandeja.' });
+    const { limite, desde, patron } = leerPaginado(req.query);
+    const filtro  = String(req.query.filtro || 'todos');
+    const estatus = !['todos', 'asignados_mi'].includes(filtro) ? filtro : null;
+    const soloMios = filtro === 'asignados_mi';
+    const deArea  = rol === 'area' ? area : null;   // bandeja del área
+    const deUser  = rol === 'usuario_area' ? id : null; // bandeja del usuario
+
+    const [filas, [conteos]] = await Promise.all([
+      sql`
+        SELECT *,
+          CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+            THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+            ELSE NULL END AS dias_transcurridos,
+          COUNT(*) OVER() AS total_filtrado
+        FROM oficios
+        WHERE (${deArea}::text IS NULL OR turnado_a = ${deArea})
+          AND (${deUser}::int  IS NULL OR usuario_asignado_id = ${deUser})
+          AND (${estatus}::text IS NULL OR estatus = ${estatus})
+          AND (NOT ${soloMios} OR (usuario_asignado_id = ${id} AND estatus IN ('sub_turnado','rechazado')))
+          AND (${patron}::text IS NULL OR
+               n_control ILIKE ${patron} OR n_referencia ILIKE ${patron} OR
+               remitente ILIKE ${patron} OR descripcion ILIKE ${patron})
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${limite} OFFSET ${desde}`,
+      sql`
+        SELECT
+          COUNT(*) FILTER (WHERE estatus = 'rechazado')::int   AS rechazado,
+          COUNT(*) FILTER (WHERE estatus = 'sub_turnado')::int AS sub_turnado,
+          COUNT(*) FILTER (WHERE usuario_asignado_id = ${id} AND estatus IN ('sub_turnado','rechazado'))::int AS asignados_mi
+        FROM oficios
+        WHERE (${deArea}::text IS NULL OR turnado_a = ${deArea})
+          AND (${deUser}::int  IS NULL OR usuario_asignado_id = ${deUser})`,
+    ]);
+    const r = respuestaPaginada(filas, desde, { conteos });
+    r.items = r.items.map(sanitizarOficio);
+    res.json(r);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo cargar la bandeja.');
+  }
+});
+
 app.get('/api/oficios', verifyToken, async (req, res) => {
   try {
     const { estatus, origen } = req.query;
@@ -1970,8 +2036,70 @@ async function siguienteNoOficioAutomatico() {
    numérica inicial (regexp_replace corta desde el primer carácter que
    no es dígito) y se compara como entero; "id DESC" solo se usa como
    criterio de empate para casos idénticos (p. ej. reasignaciones). */
+/* ══ Registros (No. de Oficio / Circular / Tarjeta Informativa) por partes ══
+   Lo usan esas tres páginas y el Minutario. Busca en todos los campos que
+   se ven en la tabla (número, fecha, destinatario, asunto, área, solicitante,
+   hora, sellos y nota) y filtra por rango de la fecha del registro. Devuelve
+   también `totalGeneral` (todos los registros, sin filtro) para el contador. */
+async function registrosPorPartes(tabla, query) {
+  const { limite, desde, patron } = leerPaginado(query);
+  const fDesde = /^\d{4}-\d{2}-\d{2}$/.test(query.f_desde || '') ? query.f_desde : null;
+  const fHasta = /^\d{4}-\d{2}-\d{2}$/.test(query.f_hasta || '') ? query.f_hasta : null;
+  // Una consulta explícita por tabla (el nombre de tabla no puede ir como parámetro)
+  const CONSULTAS = {
+    no_oficio: () => Promise.all([
+      sql`
+        SELECT *, COUNT(*) OVER() AS total_filtrado FROM no_oficio
+        WHERE (${fDesde}::date IS NULL OR fecha >= ${fDesde}::date)
+          AND (${fHasta}::date IS NULL OR fecha <= ${fHasta}::date)
+          AND (${patron}::text IS NULL OR
+               no_oficio ILIKE ${patron} OR to_char(fecha, 'DD/MM/YYYY') ILIKE ${patron} OR
+               a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
+               area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
+               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
+               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron})
+        ORDER BY CAST(NULLIF(regexp_replace(no_oficio, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
+        LIMIT ${limite} OFFSET ${desde}`,
+      sql`SELECT COUNT(*)::int AS n FROM no_oficio`,
+    ]),
+    circular: () => Promise.all([
+      sql`
+        SELECT *, COUNT(*) OVER() AS total_filtrado FROM circular
+        WHERE (${fDesde}::date IS NULL OR fecha >= ${fDesde}::date)
+          AND (${fHasta}::date IS NULL OR fecha <= ${fHasta}::date)
+          AND (${patron}::text IS NULL OR
+               no_circular ILIKE ${patron} OR to_char(fecha, 'DD/MM/YYYY') ILIKE ${patron} OR
+               a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
+               area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
+               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
+               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron})
+        ORDER BY CAST(NULLIF(regexp_replace(no_circular, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
+        LIMIT ${limite} OFFSET ${desde}`,
+      sql`SELECT COUNT(*)::int AS n FROM circular`,
+    ]),
+    tarjeta_informativa: () => Promise.all([
+      sql`
+        SELECT *, COUNT(*) OVER() AS total_filtrado FROM tarjeta_informativa
+        WHERE (${fDesde}::date IS NULL OR fecha >= ${fDesde}::date)
+          AND (${fHasta}::date IS NULL OR fecha <= ${fHasta}::date)
+          AND (${patron}::text IS NULL OR
+               no_tarjeta ILIKE ${patron} OR to_char(fecha, 'DD/MM/YYYY') ILIKE ${patron} OR
+               a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
+               area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
+               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
+               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron})
+        ORDER BY CAST(NULLIF(regexp_replace(no_tarjeta, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
+        LIMIT ${limite} OFFSET ${desde}`,
+      sql`SELECT COUNT(*)::int AS n FROM tarjeta_informativa`,
+    ]),
+  };
+  const [filas, [{ n }]] = await CONSULTAS[tabla]();
+  return respuestaPaginada(filas, desde, { totalGeneral: n });
+}
+
 app.get('/api/no-oficio', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
+    if (req.query.limite) return res.json(await registrosPorPartes('no_oficio', req.query));
     const rows = await sql`
       SELECT * FROM no_oficio
       ORDER BY CAST(NULLIF(regexp_replace(no_oficio, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;
@@ -2151,6 +2279,7 @@ async function siguienteCircularAutomatico() {
 
 app.get('/api/circular', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
+    if (req.query.limite) return res.json(await registrosPorPartes('circular', req.query));
     const rows = await sql`
       SELECT * FROM circular
       ORDER BY CAST(NULLIF(regexp_replace(no_circular, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;
@@ -2356,6 +2485,7 @@ async function redactarAsuntoTarjetaSala({ sala, personas, descripcion, noOficio
 
 app.get('/api/tarjeta-informativa', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
+    if (req.query.limite) return res.json(await registrosPorPartes('tarjeta_informativa', req.query));
     const rows = await sql`
       SELECT * FROM tarjeta_informativa
       ORDER BY CAST(NULLIF(regexp_replace(no_tarjeta, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;

@@ -177,47 +177,19 @@ function fechaISO(f) {
 }
 
 async function cargarTabla() {
-  try {
-    const res = await fetch(`${API}/circular`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
-    if (res.status === 401) { cerrarSesion(); return; }
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.mensaje || 'Error al cargar los registros.');
-    REGISTROS = data;
-    pintarTabla();
-  } catch (err) {
-    await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
-  }
+  await pintarTabla();
 }
 
 /* Aplica búsqueda de texto libre (sobre todos los campos visibles) y
    el rango de fechas seleccionado. */
-function registrosFiltrados() {
-  const q = FILTRO_TEXTO.trim().toLowerCase();
-
-  return REGISTROS.filter(r => {
-    if (FILTRO_DESDE && (!r.fecha || fechaISO(r.fecha) < FILTRO_DESDE)) return false;
-    if (FILTRO_HASTA && (!r.fecha || fechaISO(r.fecha) > FILTRO_HASTA)) return false;
-
-    if (!q) return true;
-
-    const campos = [
-      r.no_circular,
-      formatearFecha(r.fecha),
-      r.a_quien_se_dirige,
-      r.asunto,
-      r.area_solicitante,
-      r.solicitante,
-      formatearHora(r.hora),
-    ];
-    return campos.some(c => String(c || '').toLowerCase().includes(q));
-  });
-}
+/* (La búsqueda y el rango de fechas los aplica el servidor: ver paginador) */
 
 function onFiltroChange() {
   FILTRO_TEXTO = document.getElementById('buscador').value;
   FILTRO_DESDE = document.getElementById('filtro-desde').value;
   FILTRO_HASTA = document.getElementById('filtro-hasta').value;
-  pintarTabla();
+  clearTimeout(TIMER_BUSQUEDA);
+  TIMER_BUSQUEDA = setTimeout(pintarTabla, 300);
 }
 
 function limpiarFiltros() {
@@ -230,25 +202,15 @@ function limpiarFiltros() {
   pintarTabla();
 }
 
-function pintarTabla() {
-  const tbody     = document.getElementById('tabla-body');
-  const filtrados = registrosFiltrados();
-  const hayFiltro = !!(FILTRO_TEXTO.trim() || FILTRO_DESDE || FILTRO_HASTA);
+/* ── Tabla por partes (ver js/paginacion.js) ──
+   Ya no se descargan todos los registros: el servidor manda 15 con la
+   búsqueda y el rango de fechas aplicados (GET /api/circular?limite=…) y los
+   siguientes llegan al bajar. REGISTROS = lo ya cargado en pantalla. */
+let PAGINADOR = null;
+let TIMER_BUSQUEDA = null;
 
-  document.getElementById('tot').textContent = REGISTROS.length;
-  document.getElementById('tot-filtrado').textContent = filtrados.length;
-  document.getElementById('tot-filtrado-wrap').style.display = hayFiltro ? 'inline' : 'none';
-
-  if (!REGISTROS.length) {
-    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="8">Sin registros todavía.</td></tr>`;
-    return;
-  }
-  if (!filtrados.length) {
-    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="8">Ningún registro coincide con la búsqueda o el rango de fechas.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtrados.map(r => `
+function filaRegistro(r) {
+  return `
     <tr>
       <td class="td-numero">${r.no_circular}</td>
       <td>${formatearFecha(r.fecha)}</td>
@@ -267,7 +229,40 @@ function pintarTabla() {
           </button>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+}
+
+function paginador() {
+  if (PAGINADOR) return PAGINADOR;
+  PAGINADOR = crearPaginador({
+    contenedor: 'tabla-body',
+    columnas: 8,
+    pedir: (url) => fetch(url, { headers: { 'Authorization': `Bearer ${TOKEN}` } }),
+    url: (desde, limite) => {
+      const params = new URLSearchParams({ desde, limite });
+      if (FILTRO_TEXTO.trim()) params.set('q', FILTRO_TEXTO.trim());
+      if (FILTRO_DESDE) params.set('f_desde', FILTRO_DESDE);
+      if (FILTRO_HASTA) params.set('f_hasta', FILTRO_HASTA);
+      return `${API}/circular?${params}`;
+    },
+    pintar: (r) => filaRegistro(r),
+    vacio: () => (PAGINADOR?.totalGeneral === 0
+      ? `<tr class="fila-vacia"><td colspan="8">Sin registros todavía.</td></tr>`
+      : `<tr class="fila-vacia"><td colspan="8">Ningún registro coincide con la búsqueda o el rango de fechas.</td></tr>`),
+    alRecibir: (data) => {
+      REGISTROS = PAGINADOR.items;
+      PAGINADOR.totalGeneral = data.totalGeneral;
+      const hayFiltro = !!(FILTRO_TEXTO.trim() || FILTRO_DESDE || FILTRO_HASTA);
+      document.getElementById('tot').textContent = data.totalGeneral;
+      document.getElementById('tot-filtrado').textContent = data.total;
+      document.getElementById('tot-filtrado-wrap').style.display = hayFiltro ? 'inline' : 'none';
+    },
+  });
+  return PAGINADOR;
+}
+
+function pintarTabla() {
+  return paginador().reiniciar();
 }
 
 async function cargarLibres() {

@@ -174,34 +174,23 @@ function escaparAtributo(s) {
     .replace(/>/g, '&gt;');
 }
 
-/* Caché por tipo de módulo, así cambiar de pestaña no vuelve a pedir
-   al servidor los datos que ya se cargaron en esta visita. */
-const CACHE_REGISTROS = {};
 
 function actualizarBadge(tipo, cantidad) {
   const el = document.getElementById(`tab-badge-${tipo}`);
   if (el) el.textContent = cantidad;
 }
 
-async function cargarModulo(tipo, { forzar = false } = {}) {
-  if (CACHE_REGISTROS[tipo] && !forzar) return CACHE_REGISTROS[tipo];
+async function cargarModulo(tipo) {
   const cfg = MODULOS[tipo];
-  const res = await fetch(`${API}/${cfg.api}`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
-  if (res.status === 401) { cerrarSesion(); return []; }
+  const res = await fetch(`${API}/${cfg.api}?limite=1`, { headers: { 'Authorization': `Bearer ${TOKEN}` } });
+  if (res.status === 401) { cerrarSesion(); return; }
   const data = await res.json();
   if (!res.ok) throw new Error(data.mensaje || 'Error al cargar los registros.');
-  CACHE_REGISTROS[tipo] = data;
-  actualizarBadge(tipo, data.length);
-  return data;
+  actualizarBadge(tipo, data.totalGeneral);
 }
 
 async function cargarTabla() {
-  try {
-    REGISTROS = await cargarModulo(TIPO_ACTIVO);
-    pintarTabla();
-  } catch (err) {
-    await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
-  }
+  await pintarTabla();
 }
 
 /* Cambia el tipo de registro visible en el submenú (No. de Oficio /
@@ -215,8 +204,7 @@ async function cambiarTipo(tipo) {
   });
   document.getElementById('th-numero').textContent = MODULOS[tipo].columna;
 
-  limpiarFiltros();
-  await cargarTabla();
+  limpiarFiltros(); // también vuelve a pedir la tabla del tipo nuevo
 }
 
 /* Precarga en segundo plano los otros dos módulos solo para mostrar
@@ -232,36 +220,14 @@ function precargarBadges() {
 /* Aplica búsqueda de texto libre (sobre todos los campos visibles,
    incluidos Fecha de Sello/Fecha de Firma/Nota) y el rango de fechas
    seleccionado (sobre la fecha del oficio). */
-function registrosFiltrados() {
-  const q = FILTRO_TEXTO.trim().toLowerCase();
-
-  return REGISTROS.filter(r => {
-    if (FILTRO_DESDE && (!r.fecha || fechaISO(r.fecha) < FILTRO_DESDE)) return false;
-    if (FILTRO_HASTA && (!r.fecha || fechaISO(r.fecha) > FILTRO_HASTA)) return false;
-
-    if (!q) return true;
-
-    const campos = [
-      r[moduloActivo().campoNumero],
-      formatearFecha(r.fecha),
-      r.a_quien_se_dirige,
-      r.asunto,
-      r.area_solicitante,
-      r.solicitante,
-      formatearHora(r.hora),
-      formatearFecha(r.fecha_sello),
-      formatearFecha(r.fecha_firma),
-      r.nota,
-    ];
-    return campos.some(c => String(c || '').toLowerCase().includes(q));
-  });
-}
+/* (La búsqueda y el rango de fechas los aplica el servidor: ver paginador) */
 
 function onFiltroChange() {
   FILTRO_TEXTO = document.getElementById('buscador').value;
   FILTRO_DESDE = document.getElementById('filtro-desde').value;
   FILTRO_HASTA = document.getElementById('filtro-hasta').value;
-  pintarTabla();
+  clearTimeout(TIMER_BUSQUEDA);
+  TIMER_BUSQUEDA = setTimeout(pintarTabla, 300);
 }
 
 function limpiarFiltros() {
@@ -274,27 +240,16 @@ function limpiarFiltros() {
   pintarTabla();
 }
 
-function pintarTabla() {
-  const tbody     = document.getElementById('tabla-body');
-  const filtrados = registrosFiltrados();
-  const hayFiltro = !!(FILTRO_TEXTO.trim() || FILTRO_DESDE || FILTRO_HASTA);
-  const cfg       = moduloActivo();
+/* ── Tabla por partes (ver js/paginacion.js) ──
+   El servidor manda 15 registros del tipo activo con la búsqueda y el
+   rango de fechas aplicados (GET /api/<tipo>?limite=…); los siguientes
+   llegan al bajar. REGISTROS = lo ya cargado en pantalla. */
+let PAGINADOR = null;
+let TIMER_BUSQUEDA = null;
 
-  document.getElementById('tot').textContent = REGISTROS.length;
-  document.getElementById('tot-filtrado').textContent = filtrados.length;
-  document.getElementById('tot-filtrado-wrap').style.display = hayFiltro ? 'inline' : 'none';
-  actualizarBadge(TIPO_ACTIVO, REGISTROS.length);
-
-  if (!REGISTROS.length) {
-    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="10">${cfg.vacioMsg}</td></tr>`;
-    return;
-  }
-  if (!filtrados.length) {
-    tbody.innerHTML = `<tr class="fila-vacia"><td colspan="10">Ningún registro coincide con la búsqueda o el rango de fechas.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtrados.map(r => `
+function filaRegistro(r) {
+  const cfg = moduloActivo();
+  return `
     <tr data-id="${r.id}">
       <td class="td-numero">${r[cfg.campoNumero]}</td>
       <td>${formatearFecha(r.fecha)}</td>
@@ -316,7 +271,41 @@ function pintarTabla() {
                   onchange="guardarSello(${r.id}, 'nota', this)"
                   oninput="autoCrecerNota(this)">${escaparAtributo(r.nota)}</textarea>
       </td>
-    </tr>`).join('');
+    </tr>`;
+}
+
+function paginador() {
+  if (PAGINADOR) return PAGINADOR;
+  PAGINADOR = crearPaginador({
+    contenedor: 'tabla-body',
+    columnas: 10,
+    pedir: (url) => fetch(url, { headers: { 'Authorization': `Bearer ${TOKEN}` } }),
+    url: (desde, limite) => {
+      const params = new URLSearchParams({ desde, limite });
+      if (FILTRO_TEXTO.trim()) params.set('q', FILTRO_TEXTO.trim());
+      if (FILTRO_DESDE) params.set('f_desde', FILTRO_DESDE);
+      if (FILTRO_HASTA) params.set('f_hasta', FILTRO_HASTA);
+      return `${API}/${moduloActivo().api}?${params}`;
+    },
+    pintar: (r) => filaRegistro(r),
+    vacio: () => (PAGINADOR?.totalGeneral === 0
+      ? `<tr class="fila-vacia"><td colspan="10">${moduloActivo().vacioMsg}</td></tr>`
+      : `<tr class="fila-vacia"><td colspan="10">Ningún registro coincide con la búsqueda o el rango de fechas.</td></tr>`),
+    alRecibir: (data) => {
+      REGISTROS = PAGINADOR.items;
+      PAGINADOR.totalGeneral = data.totalGeneral;
+      const hayFiltro = !!(FILTRO_TEXTO.trim() || FILTRO_DESDE || FILTRO_HASTA);
+      document.getElementById('tot').textContent = data.totalGeneral;
+      document.getElementById('tot-filtrado').textContent = data.total;
+      document.getElementById('tot-filtrado-wrap').style.display = hayFiltro ? 'inline' : 'none';
+      actualizarBadge(TIPO_ACTIVO, data.totalGeneral);
+    },
+  });
+  return PAGINADOR;
+}
+
+function pintarTabla() {
+  return paginador().reiniciar();
 }
 
 /* Ajusta la altura del textarea de Nota a su contenido mientras se
@@ -353,7 +342,6 @@ async function guardarSello(id, campo, input) {
     // (así no se pierde el foco si el usuario sigue capturando).
     const idx = REGISTROS.findIndex(r => r.id === id);
     if (idx !== -1) REGISTROS[idx] = data;
-    if (CACHE_REGISTROS[TIPO_ACTIVO] && idx !== -1) CACHE_REGISTROS[TIPO_ACTIVO][idx] = data;
 
     if (campo === 'fecha_firma') {
       input.classList.toggle('sello-lleno', !!input.value);
