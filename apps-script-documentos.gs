@@ -164,19 +164,33 @@ function carpetaDeArea_(area) {
   }
 }
 
-/* Carpeta que agrupa las de cada área: junto a la carpeta GENERAL. */
+/* Carpeta que agrupa las de cada área: DENTRO de la carpeta GENERAL, para
+   que herede sus permisos (quien tiene compartida la GENERAL ve también las
+   carpetas por área, sin volver a compartir nada ni mandar correos). */
 function carpetaRaizAreas_() {
   const props = PropertiesService.getScriptProperties();
+  const general = DriveApp.getFolderById(FOLDER_ID_DOCUMENTOS);
   const guardada = abrirCarpeta_(props.getProperty('carpeta_raiz_areas'));
   if (guardada) return guardada;
 
-  const general = DriveApp.getFolderById(FOLDER_ID_DOCUMENTOS);
-  const padres  = general.getParents();
-  const padre   = padres.hasNext() ? padres.next() : DriveApp.getRootFolder();
-  const existentes = padre.getFoldersByName(NOMBRE_RAIZ_AREAS);
-  const raiz = existentes.hasNext() ? existentes.next() : padre.createFolder(NOMBRE_RAIZ_AREAS);
+  const existentes = general.getFoldersByName(NOMBRE_RAIZ_AREAS);
+  const raiz = existentes.hasNext() ? existentes.next() : general.createFolder(NOMBRE_RAIZ_AREAS);
   props.setProperty('carpeta_raiz_areas', raiz.getId());
   return raiz;
+}
+
+/* ── Mover la carpeta de áreas DENTRO de la GENERAL (se ejecuta una vez) ──
+   Mover no comparte ni notifica a nadie: la carpeta y todo lo que tiene
+   pasan a heredar los permisos de la GENERAL. Los enlaces de los archivos
+   no cambian, así que el sistema los sigue abriendo igual. */
+function moverAreasDentroDeGeneral() {
+  const general = DriveApp.getFolderById(FOLDER_ID_DOCUMENTOS);
+  const raiz = carpetaRaizAreas_();
+  const padres = raiz.getParents();
+  const yaDentro = padres.hasNext() && padres.next().getId() === FOLDER_ID_DOCUMENTOS;
+  if (yaDentro) { Logger.log('La carpeta de áreas ya está dentro de la general. Nada que hacer.'); return; }
+  raiz.moveTo(general);
+  Logger.log('Listo: "' + raiz.getName() + '" ahora está dentro de "' + general.getName() + '" y hereda sus permisos.');
 }
 
 /* Abre una carpeta por id; null si no hay id, no existe o está en la papelera. */
@@ -318,49 +332,6 @@ function probarEnvio() {
   const fake = { postData: { contents: JSON.stringify(payload) } };
   const out = doPost(fake);
   Logger.log(out.getContent());
-}
-
-/* ══ Mismos permisos que la carpeta GENERAL ══
-   Los archivos heredan los permisos de su carpeta. La carpeta
-   "CORRESPONDENCIA · Archivos por Área" la creó este script y no estaba
-   compartida con nadie, así que quien tiene acceso a la carpeta GENERAL no
-   veía lo nuevo. Esta función le da a la carpeta de áreas (y con ello a
-   todas las subcarpetas y archivos) exactamente los mismos correos que tiene
-   la GENERAL: editores como editores y lectores como lectores. Solo agrega;
-   nunca quita a nadie.
-   Ejecutar una vez a mano (Ejecutar → sincronizarPermisosAreas) y luego
-   activarSincronizacionAutomatica para que se repita cada hora sola. */
-function sincronizarPermisosAreas() {
-  const general = DriveApp.getFolderById(FOLDER_ID_DOCUMENTOS);
-  const raiz    = carpetaRaizAreas_();
-  const dueno   = Session.getEffectiveUser().getEmail();
-  const editoresRaiz = raiz.getEditors().map(u => u.getEmail());
-  const lectoresRaiz = raiz.getViewers().map(u => u.getEmail());
-  let agregados = 0;
-
-  general.getEditors().forEach(u => {
-    const email = u.getEmail();
-    if (!email || email === dueno || editoresRaiz.indexOf(email) !== -1) return;
-    try { raiz.addEditor(email); agregados++; Logger.log('Editor agregado: ' + email); }
-    catch (e) { Logger.log('No se pudo agregar a ' + email + ': ' + e.message); }
-  });
-  general.getViewers().forEach(u => {
-    const email = u.getEmail();
-    if (!email || email === dueno || lectoresRaiz.indexOf(email) !== -1 || editoresRaiz.indexOf(email) !== -1) return;
-    try { raiz.addViewer(email); agregados++; Logger.log('Lector agregado: ' + email); }
-    catch (e) { Logger.log('No se pudo agregar a ' + email + ': ' + e.message); }
-  });
-  Logger.log('Listo. Correos nuevos en la carpeta de áreas: ' + agregados);
-  return agregados;
-}
-
-/* Programa sincronizarPermisosAreas cada hora (se ejecuta una sola vez). */
-function activarSincronizacionAutomatica() {
-  ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'sincronizarPermisosAreas')
-    .forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('sincronizarPermisosAreas').timeBased().everyHours(1).create();
-  Logger.log('Sincronización automática activada: cada hora.');
 }
 
 /* ── Prueba de carpetas por área (Ejecutar → probarCarpetasArea) ──
