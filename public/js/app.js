@@ -414,59 +414,87 @@ function filtrarPorArea(valor) {
   aplicarFiltrosLocales();
 }
 
-/* ── Búsqueda de texto + filtro de área, combinados ──
-   Incluye N. Control, N. Referencia, área turnada, remitente,
-   dependencia y también el Asunto (descripción). */
-function aplicarFiltrosLocales() {
-  let lista = DATOS;
+/* ── Historial por partes ──
+   Ya no se descargan todos los oficios de golpe: el servidor manda 15
+   (GET /api/oficios/historial) y los siguientes 15 llegan solos al bajar
+   hasta el final de la lista (o con «Cargar más»). La búsqueda de texto y
+   el filtro de área se resuelven en el servidor. */
+const POR_PAGINA   = 15;
+let HIST_TOTAL     = 0;     // total de oficios que cumplen el filtro actual
+let HIST_SIGUIENTE = 0;     // desde dónde pedir la siguiente parte (null = ya no hay)
+let HIST_PETICION  = 0;     // descarta respuestas viejas si el filtro cambió
+let HIST_CARGANDO  = false;
+let TIMER_BUSQUEDA = null;
 
-  if (filtroArea !== 'todas') {
-    lista = lista.filter(r => r.turnado_a === filtroArea);
-  }
-
-  const buscador = document.getElementById('buscador');
-  const q = (buscador?.value || '').trim().toLowerCase();
-  if (q) {
-    lista = lista.filter(r =>
-      (r.n_control   || '').toLowerCase().includes(q) ||
-      (r.n_referencia|| '').toLowerCase().includes(q) ||
-      (r.turnado_a   || '').toLowerCase().includes(q) ||
-      (r.remitente   || '').toLowerCase().includes(q) ||
-      (r.dependencia || '').toLowerCase().includes(q) ||
-      (r.descripcion || '').toLowerCase().includes(q)
-    );
-  }
-
-  renderLista(lista);
+function urlHistorial(desde, limite = POR_PAGINA) {
+  const params = new URLSearchParams({ desde, limite });
+  if (filtroActual !== 'todos') params.set('estatus', filtroActual);
+  if (filtroArea !== 'todas') params.set('area', filtroArea);
+  const q = (document.getElementById('buscador')?.value || '').trim();
+  if (q) params.set('q', q);
+  return `${API}/oficios/historial?${params}`;
 }
 
-/* ── Cargar oficios ── */
+/* Búsqueda de texto + filtro de área: vuelven a pedir desde el principio.
+   (La búsqueda espera a que se deje de escribir un momento.) */
+function aplicarFiltrosLocales() {
+  clearTimeout(TIMER_BUSQUEDA);
+  TIMER_BUSQUEDA = setTimeout(() => cargarOficios(filtroActual), 300);
+}
+
+/* ── Cargar oficios (primera parte, con el filtro actual) ── */
 async function cargarOficios(estatus = 'todos') {
+  filtroActual = estatus;
   const lista = document.getElementById('lista');
   lista.innerHTML = `<div class="cargando-msg">
     <i class="ti ti-loader-2 spin"></i> Cargando registros...
   </div>`;
+  DATOS = [];
+  HIST_SIGUIENTE = 0;
+  const peticion = ++HIST_PETICION;
+  HIST_CARGANDO = false;
+  await cargarMasOficios(peticion);
+}
 
+/* Pide la siguiente parte y la agrega al final de la lista */
+async function cargarMasOficios(peticion = HIST_PETICION) {
+  if (HIST_CARGANDO || HIST_SIGUIENTE === null) return;
+  HIST_CARGANDO = true;
+  const boton = document.getElementById('btn-cargar-mas');
+  if (boton) { boton.disabled = true; boton.innerHTML = '<i class="ti ti-loader-2 spin"></i> Cargando…'; }
   try {
-    const params = new URLSearchParams();
-    if (estatus !== 'todos') params.set('estatus', estatus);
-    // En Historial, un "área" ve SU PROPIO historial (lo que ella creó),
-    // no lo que otras áreas le turnaron a ella (eso vive en area.html).
-    if (USUARIO?.rol === 'area') params.set('origen', 'mio');
-    const qs  = params.toString();
-    const url = `${API}/oficios${qs ? '?' + qs : ''}`;
+    const url = urlHistorial(HIST_SIGUIENTE);
     const res = await apiFetch(url);
     if (!res.ok) throw new Error();
-    DATOS = await res.json();
-    aplicarFiltrosLocales();
+    const data = await res.json();
+    if (peticion !== HIST_PETICION) return; // el filtro cambió mientras llegaba
+    const inicio = DATOS.length;
+    DATOS = DATOS.concat(data.items);
+    HIST_TOTAL = data.total;
+    HIST_SIGUIENTE = data.siguiente;
     ULTIMA_URL_OFICIOS = url;
+    renderLista(DATOS, inicio);
     vigilarDocsPendientes();
   } catch {
-    lista.innerHTML = `<div class="cargando-msg error">
-      <i class="ti ti-alert-circle"></i> No se pudo conectar con el servidor.
-    </div>`;
+    if (peticion !== HIST_PETICION) return;
+    if (!DATOS.length) {
+      document.getElementById('lista').innerHTML = `<div class="cargando-msg error">
+        <i class="ti ti-alert-circle"></i> No se pudo conectar con el servidor.
+      </div>`;
+    } else if (boton) {
+      boton.disabled = false; boton.innerHTML = 'No se pudo cargar. Intentar de nuevo';
+    }
+  } finally {
+    if (peticion === HIST_PETICION) HIST_CARGANDO = false;
   }
 }
+
+/* Al acercarse al final de la lista se pide la siguiente parte sola */
+const OBSERVADOR_FINAL = 'IntersectionObserver' in window
+  ? new IntersectionObserver(entradas => {
+      if (entradas.some(e => e.isIntersecting)) cargarMasOficios();
+    }, { rootMargin: '400px 0px' })
+  : null;
 
 /* ── Render ── */
 function construirTarjeta(r, i) {
@@ -721,14 +749,31 @@ function construirTarjeta(r, i) {
   </div>`;
 }
 
-function renderLista(lista) {
+/* Pinta la lista. Con `desde` > 0 solo agrega las tarjetas nuevas al final
+   (las que ya estaban no se vuelven a dibujar). */
+function renderLista(lista, desde = 0) {
   const el = document.getElementById('lista');
-  el.innerHTML = lista.length
-    ? lista.map((r, i) => construirTarjeta(r, i)).join('')
-    : '<div class="cargando-msg">No hay registros con ese filtro.</div>';
-  document.getElementById('tot').textContent = lista.length;
-  document.getElementById('pie-txt').textContent =
-    `Mostrando 1–${lista.length} de ${lista.length} registros`;
+  document.getElementById('fin-lista')?.remove();
+  if (!lista.length) {
+    el.innerHTML = '<div class="cargando-msg">No hay registros con ese filtro.</div>';
+  } else if (desde > 0) {
+    el.insertAdjacentHTML('beforeend', lista.slice(desde).map((r, k) => construirTarjeta(r, desde + k)).join(''));
+  } else {
+    el.innerHTML = lista.map((r, i) => construirTarjeta(r, i)).join('');
+  }
+  if (lista.length && HIST_SIGUIENTE !== null) {
+    el.insertAdjacentHTML('beforeend', `
+      <div id="fin-lista" class="cargar-mas-wrap">
+        <button type="button" id="btn-cargar-mas" class="btn-cargar-mas" onclick="cargarMasOficios()">
+          <i class="ti ti-chevrons-down"></i> Cargar ${Math.min(POR_PAGINA, HIST_TOTAL - lista.length)} más
+        </button>
+      </div>`);
+    OBSERVADOR_FINAL?.observe(document.getElementById('fin-lista'));
+  }
+  document.getElementById('tot').textContent = HIST_TOTAL;
+  document.getElementById('pie-txt').textContent = lista.length
+    ? `Mostrando 1–${lista.length} de ${HIST_TOTAL} registros`
+    : 'Sin registros';
   actualizarBarraSeleccion(); // conserva la selección al cambiar de filtro/búsqueda
 }
 
@@ -849,12 +894,14 @@ function vigilarDocsPendientes() {
     if (!document.hidden) {
       INTENTOS_DOCS++;
       try {
-        const res = await apiFetch(ULTIMA_URL_OFICIOS);
+        // Se vuelve a pedir lo ya mostrado (hasta 50) y se actualizan esas tarjetas
+        const res = await apiFetch(urlHistorial(0, Math.min(50, Math.max(DATOS.length, POR_PAGINA))));
         if (res.ok) {
-          const nuevos = await res.json();
-          if (firmaDocsPendientes(nuevos) !== firmaDocsPendientes(DATOS)) {
-            DATOS = nuevos;
-            aplicarFiltrosLocales();
+          const { items } = await res.json();
+          if (firmaDocsPendientes(items) !== firmaDocsPendientes(DATOS)) {
+            const porId = new Map(items.map(o => [o.id, o]));
+            DATOS = DATOS.map(o => porId.get(o.id) || o);
+            renderLista(DATOS);
           }
         }
       } catch { /* sin red: se reintenta en el siguiente ciclo */ }

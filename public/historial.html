@@ -436,6 +436,16 @@
       #barra-seleccion button { flex: 1; justify-content: center; }
     }
   </style>
+  <style>
+    /* Historial por partes: se cargan 15 y el resto conforme se baja */
+    .cargar-mas-wrap { display: flex; justify-content: center; padding: 18px 0 8px; }
+    .btn-cargar-mas { display: inline-flex; align-items: center; gap: 7px; padding: 10px 22px; border-radius: 999px;
+      border: 1.5px solid var(--guinda, #5F2132); background: #fff; color: var(--guinda, #5F2132);
+      font: 700 13px 'Montserrat', sans-serif; cursor: pointer; transition: background .15s, color .15s; }
+    .btn-cargar-mas:hover:not(:disabled) { background: var(--guinda, #5F2132); color: #fff; }
+    .btn-cargar-mas:disabled { opacity: .7; cursor: default; }
+    .btn-cargar-mas:focus-visible { outline: 2px solid var(--guinda, #5F2132); outline-offset: 2px; }
+  </style>
 </head>
 <body>
 

@@ -1261,6 +1261,51 @@ app.get('/api/usuarios/area/:area', verifyToken, async (req, res) => {
 });
 
 /* ══ GET /api/oficios ══ */
+/* ══ GET /api/oficios/historial — Historial por partes ══
+   En vez de mandar los ~1,400 oficios de golpe, entrega de a `limite`
+   (15 por defecto) a partir de `desde`, con el filtro de estatus, de área
+   turnada y la búsqueda de texto hechos en la base de datos. Responde
+   { items, total, siguiente } — `siguiente` es null cuando ya no hay más.
+   Mismas reglas de acceso que el Historial de siempre: admin ve todo;
+   Coordinación ve lo que ella registró. */
+app.get('/api/oficios/historial', verifyToken, async (req, res) => {
+  try {
+    const { rol, area } = req.user;
+    if (rol !== 'admin' && !(rol === 'area' && area === AREA_CON_GESTION_COMPLETA))
+      return res.status(403).json({ mensaje: 'Sin acceso al Historial.' });
+
+    const limite  = Math.min(50, Math.max(1, parseInt(req.query.limite, 10) || 15));
+    const desde   = Math.max(0, parseInt(req.query.desde, 10) || 0);
+    const estatus = req.query.estatus && req.query.estatus !== 'todos' ? String(req.query.estatus) : null;
+    const areaF   = req.query.area && req.query.area !== 'todas' ? String(req.query.area) : null;
+    const q       = String(req.query.q || '').trim().slice(0, 100);
+    const patron  = q ? `%${q.replace(/[\\%_]/g, m => '\\' + m)}%` : null;
+    const origen  = rol === 'admin' ? null : area;
+
+    const filas = await sql`
+      SELECT *,
+        CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
+          THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
+          ELSE NULL END AS dias_transcurridos,
+        COUNT(*) OVER() AS total_filtrado
+      FROM oficios
+      WHERE (${origen}::text  IS NULL OR area_origen = ${origen})
+        AND (${estatus}::text IS NULL OR estatus = ${estatus})
+        AND (${areaF}::text   IS NULL OR turnado_a = ${areaF})
+        AND (${patron}::text  IS NULL OR
+             n_control ILIKE ${patron} OR n_referencia ILIKE ${patron} OR turnado_a ILIKE ${patron} OR
+             remitente ILIKE ${patron} OR dependencia ILIKE ${patron} OR descripcion ILIKE ${patron})
+      ORDER BY created_at DESC, id DESC
+      LIMIT ${limite} OFFSET ${desde}`;
+
+    const total = filas.length ? Number(filas[0].total_filtrado) : 0;
+    const items = filas.map(({ total_filtrado, ...r }) => sanitizarOficio(r));
+    res.json({ items, total, siguiente: desde + items.length < total ? desde + items.length : null });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo cargar el historial.');
+  }
+});
+
 app.get('/api/oficios', verifyToken, async (req, res) => {
   try {
     const { estatus, origen } = req.query;
