@@ -52,6 +52,10 @@ function doPost(e) {
       return subirDocumento(data);
     }
 
+    if (data.action === 'obtenerDocumento') {
+      return obtenerDocumento(data);
+    }
+
     return generarPdf(data);
 
   } catch (err) {
@@ -84,6 +88,52 @@ function subirDocumento(data) {
   } catch (err) {
     return respuesta({ ok: false, error: 'No se pudo subir el archivo: ' + err.message });
   }
+}
+
+/* ── Entrega un documento al servidor de Correspondencia ──
+   La cuenta de la institución no permite "cualquiera con el enlace", así
+   que los archivos quedan privados y los usuarios no los podían abrir en
+   Drive. Ahora el servidor pide el archivo aquí (este script sí tiene
+   acceso) y se lo muestra al usuario él mismo, después de revisar que
+   ese usuario tenga permiso sobre el oficio. Solo entrega archivos que
+   estén dentro de la carpeta GENERAL o de las carpetas por área. */
+function obtenerDocumento(data) {
+  try {
+    if (!data.fileId) return respuesta({ ok: false, error: 'Falta fileId.' });
+    const file = DriveApp.getFileById(data.fileId);
+    if (!estaEnCarpetasPermitidas_(file)) {
+      return respuesta({ ok: false, error: 'Ese archivo no pertenece a Correspondencia.' });
+    }
+    if (file.getSize() > 35 * 1024 * 1024) {
+      return respuesta({ ok: false, error: 'El archivo es demasiado grande para mostrarse (más de 35 MB).' });
+    }
+    const blob = file.getBlob();
+    return respuesta({
+      ok: true,
+      nombre: file.getName(),
+      mimeType: blob.getContentType() || 'application/octet-stream',
+      contenidoBase64: Utilities.base64Encode(blob.getBytes()),
+    });
+  } catch (err) {
+    return respuesta({ ok: false, error: 'No se pudo leer el archivo: ' + err.message });
+  }
+}
+
+/* ¿El archivo está en la carpeta GENERAL o dentro de la carpeta de áreas? */
+function estaEnCarpetasPermitidas_(file) {
+  const permitidas = [FOLDER_ID_DOCUMENTOS, FOLDER_ID];
+  const raiz = PropertiesService.getScriptProperties().getProperty('carpeta_raiz_areas');
+  if (raiz) permitidas.push(raiz);
+  const padres = file.getParents();
+  while (padres.hasNext()) {
+    const p = padres.next();
+    if (permitidas.indexOf(p.getId()) !== -1) return true;
+    const abuelos = p.getParents();
+    while (abuelos.hasNext()) {
+      if (permitidas.indexOf(abuelos.next().getId()) !== -1) return true;
+    }
+  }
+  return false;
 }
 
 /* ── Carpeta de un área (se crea si no existe) ──

@@ -269,7 +269,7 @@ async function llamarAppsScript(payload, { intentos = 3, timeoutMs = 60000 } = {
       if (!(resp.headers.get('content-type') || '').includes('json')) {
         const texto = await resp.text();
         motivo = `Drive respondió una página de error (HTTP ${resp.status}).`;
-        console.error(`⚠️  Apps Script ${intento}/${intentos}: respuesta que no es JSON (HTTP ${resp.status}):`, texto.slice(0, 200).replace(/s+/g, ' '));
+        console.error(`⚠️  Apps Script ${intento}/${intentos}: respuesta que no es JSON (HTTP ${resp.status}):`, texto.slice(0, 200).replace(/\s+/g, ' '));
         continue;
       }
       const data = await resp.json();
@@ -1157,12 +1157,38 @@ app.get('/api/docs/:token', async (req, res) => {
     const ruta = rutaDeSlot(oficio, payload.slot);
     if (!ruta || RE_PENDIENTE.test(ruta) || RE_ERROR.test(ruta)) return res.status(404).send('Documento no disponible.');
 
-    if (/^https?:\/\//i.test(ruta)) return res.redirect(302, ruta);
+    if (/^https?:\/\//i.test(ruta)) {
+      // Los archivos en Drive son privados (la cuenta institucional no deja
+      // compartirlos con "cualquiera con el enlace"), así que mandar al usuario
+      // al enlace le pedía acceso. Ahora el servidor le pide el archivo al Apps
+      // Script (que sí es dueño) y lo entrega él mismo. Si no se puede, se cae
+      // al comportamiento de antes: redirigir a Drive.
+      const fileId = idArchivoDrive(ruta);
+      if (fileId) {
+        try {
+          const doc = await llamarAppsScript({ action: 'obtenerDocumento', fileId }, { intentos: 2, timeoutMs: 45000 });
+          const nombre = String(doc.nombre || 'documento').replace(/["\r\n]/g, '');
+          res.set('Content-Type', doc.mimeType || 'application/octet-stream');
+          res.set('Content-Disposition', `inline; filename="${nombre.replace(/[^\x20-\x7E]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`);
+          res.set('Cache-Control', 'private, no-store');
+          return res.send(Buffer.from(doc.contenidoBase64, 'base64'));
+        } catch (errDrive) {
+          console.warn(`⚠️  No se pudo entregar el documento desde Drive (${errDrive.message}); se redirige al enlace.`);
+        }
+      }
+      return res.redirect(302, ruta);
+    }
     return res.redirect(302, `/uploads/${ruta}`);
   } catch (err) {
     manejarError(res, err, 'No se pudo abrir el documento.');
   }
 });
+
+/* "https://drive.google.com/file/d/<ID>/view…" o "…?id=<ID>" -> <ID> */
+function idArchivoDrive(url) {
+  const m = /\/d\/([A-Za-z0-9_-]{20,})/.exec(url) || /[?&]id=([A-Za-z0-9_-]{20,})/.exec(url);
+  return m ? m[1] : null;
+}
 
 /* Log completo en servidor siempre; al cliente, en producción, solo un
    mensaje genérico (evita filtrar detalles internos de la base de
