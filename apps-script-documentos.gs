@@ -304,9 +304,13 @@ function probarEnvio() {
    No crea, no mueve y no comparte nada: solo confirma que el script puede
    abrir cada carpeta y muestra su nombre. */
 function probarCarpetasArea() {
-  Object.keys(CARPETAS_AREA).forEach(a => {
-    const f = abrirCarpeta_(CARPETAS_AREA[a]);
-    Logger.log((f ? '✓ ' : '✗ NO SE PUDO ABRIR — ') + a + (f ? ' → "' + f.getName() + '"' : ''));
+  Object.keys(CARPETAS_AREA).forEach(function (a) {
+    var f = abrirCarpeta_(CARPETAS_AREA[a]);
+    if (f) {
+      Logger.log('OK - ' + a + ' - carpeta: ' + f.getName());
+    } else {
+      Logger.log('NO SE PUDO ABRIR - ' + a);
+    }
   });
-  Logger.log('Áreas sin carpeta propia (guardan en la GENERAL): Transparencia');
+  Logger.log('Transparencia no tiene carpeta propia: guarda en la GENERAL');
 }
