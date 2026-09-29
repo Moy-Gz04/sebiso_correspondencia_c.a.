@@ -448,15 +448,28 @@
     }
     .ticket.color-guinda::before { background: #F6EEDD; opacity: .13; }
     .ticket.color-crema::before  { background: var(--guinda, #5F2132); opacity: .09; }
-    /* Mini contador para poder quitar la tarjeta */
-    .ticket-cuenta { display: flex; align-items: center; gap: 5px; margin-top: 10px; padding-top: 8px;
-      border-top: 1px dashed currentColor; font-size: 0.74rem; opacity: .85; font-variant-numeric: tabular-nums; }
+    /* Contador para poder quitar la tarjeta: franja arriba que se va llenando */
+    .ticket-cuenta {
+      position: relative; overflow: hidden; margin: -18px -15px 14px; padding: 8px 12px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-size: 0.8rem; font-weight: 600; font-variant-numeric: tabular-nums;
+      background: rgba(0,0,0,.28); color: #F6EEDD;
+    }
+    .ticket-cuenta::before {
+      content: ""; position: absolute; inset: 0 auto 0 0; width: calc(var(--p, 0) * 100%);
+      background: rgba(255,255,255,.14); border-radius: 0 8px 8px 0; z-index: 0; transition: width .6s ease;
+    }
+    .ticket-cuenta > * { position: relative; z-index: 1; }
     .ticket-cuenta b { font-weight: 800; white-space: nowrap; }
-    .ticket-cuenta.cuenta-lista { opacity: 1; font-weight: 700; }
-    .ticket.color-guinda .ticket-cuenta { border-top-color: rgba(246,238,221,.35); }
-    .ticket.color-guinda .ticket-cuenta.cuenta-lista { color: #E8D9BC; }
-    .ticket.color-crema .ticket-cuenta { border-top-color: #D9C6A5; }
-    .ticket.color-crema .ticket-cuenta.cuenta-lista { color: #1a6e35; }
+    .ticket.color-crema .ticket-cuenta { background: var(--guinda, #5F2132); color: #F6EEDD; }
+    .ticket.color-crema .ticket-cuenta::before { background: rgba(255,255,255,.16); }
+    .ticket .ticket-cuenta.cuenta-lista { background: #1a6e35; color: #fff; }
+    .ticket .ticket-cuenta.cuenta-lista::before { width: 100%; background: transparent; }
+    /* Los botones editar/quitar bajan a la altura del título (debajo de la franja) */
+    .ticket .ticket-close { top: 46px; }
+    .ticket .ticket-edit  { top: 46px; }
+    /* Oficios largos (SEBISO/SSDSyH/DGIPD/713/2026) no se salen de la tarjeta */
+    .ticket-info { overflow-wrap: anywhere; min-width: 0; }
 
     /* ── Historial ── */
     .historial-wrap { background: #fff; border: 1px solid #e6dde1; border-radius: 12px; overflow: hidden; }

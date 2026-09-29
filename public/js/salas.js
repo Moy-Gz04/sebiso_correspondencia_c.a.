@@ -393,6 +393,8 @@ function pintarTendedero() {
     const dias = ap.fechas.length;
     return `
       <div class="ticket ${COLORES_TICKET[i % COLORES_TICKET.length]}" data-id="${ap.id}" data-vencido="${vencido}" onclick="verDetalleTicket(${ap.id})">
+        <div class="ticket-cuenta${vencido ? ' cuenta-lista' : ''}" data-fin="${momentoFinApartado(ap).getTime()}"
+             data-ini="${new Date(ap.creado_en || Date.now()).getTime()}" style="--p:${avanceCuenta(new Date(ap.creado_en || Date.now()).getTime(), momentoFinApartado(ap).getTime())}">${textoCuentaRegresiva(momentoFinApartado(ap))}</div>
         <button class="ticket-close" title="Quitar tarjeta" onclick="event.stopPropagation(); descartarApartado(${ap.id})">✕</button>
         <button class="ticket-edit" title="Editar apartado" onclick="event.stopPropagation(); editarApartado(${ap.id})"><i class="ti ti-pencil"></i></button>
         <div class="ticket-title">${ap.sala_nombre}</div>
@@ -403,7 +405,6 @@ function pintarTendedero() {
         ${dias > 1 ? `<span class="ticket-dias-badge"><i class="ti ti-calendar-event"></i> ${dias} días</span>` : ''}
         ${ap.folio_nota ? `<span class="ticket-nota-badge"><i class="ti ti-file-description"></i> Tarjeta ${ap.folio_nota}</span>` : ''}
         <span class="ticket-tag">${estatus}</span>
-        <div class="ticket-cuenta${vencido ? ' cuenta-lista' : ''}" data-fin="${momentoFinApartado(ap).getTime()}">${textoCuentaRegresiva(momentoFinApartado(ap))}</div>
       </div>`;
   }).join('');
   iniciarCuentaRegresiva();
@@ -422,6 +423,11 @@ function textoCuentaRegresiva(fin) {
   return `<i class="ti ti-hourglass"></i><span>Eliminar en <b>${t}</b></span>`;
 }
 
+function avanceCuenta(ini, fin) {
+  if (!(fin > ini)) return 1;
+  return Math.min(1, Math.max(0, (Date.now() - ini) / (fin - ini))).toFixed(3);
+}
+
 let TIMER_CUENTA = null;
 function iniciarCuentaRegresiva() {
   clearInterval(TIMER_CUENTA);
@@ -432,6 +438,7 @@ function iniciarCuentaRegresiva() {
       const lista = fin <= Date.now();
       if (lista && !el.classList.contains('cuenta-lista')) cambio = true;
       el.innerHTML = textoCuentaRegresiva(fin);
+      el.style.setProperty('--p', avanceCuenta(Number(el.dataset.ini), fin));
     });
     if (cambio) pintarTendedero();
   }, 30000);
