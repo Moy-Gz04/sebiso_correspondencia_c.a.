@@ -1164,6 +1164,8 @@ app.get('/api/docs/:token', async (req, res) => {
       // Script (que sí es dueño) y lo entrega él mismo. Si no se puede, se cae
       // al comportamiento de antes: redirigir a Drive.
       const fileId = idArchivoDrive(ruta);
+      // 1) Rápido: descarga directa de Drive con la llave temporal del Apps Script
+      if (fileId && await enviarDesdeDrive(res, fileId)) return;
       if (fileId) {
         try {
           const doc = await llamarAppsScript({ action: 'obtenerDocumento', fileId }, { intentos: 2, timeoutMs: 45000 });
@@ -1183,6 +1185,69 @@ app.get('/api/docs/:token', async (req, res) => {
     manejarError(res, err, 'No se pudo abrir el documento.');
   }
 });
+
+/* ══ Descarga directa de Drive ══
+   El Apps Script (dueño de los archivos) presta una llave temporal de Drive
+   (tokenDrive, protegida con APPS_SCRIPT_SECRETO) y el servidor descarga el
+   archivo con la API de Drive: 1–2 s y sin el límite de tamaño de pasar el
+   archivo por el script. La llave se guarda en memoria ~50 min y nunca se
+   envía al navegador. Solo se entregan archivos de las carpetas de
+   Correspondencia (GENERAL, las de cada área y la de listados). */
+const CARPETAS_CORRESPONDENCIA = new Set([
+  '1S6ameXMlEgzxtBkKHDmZipAaX51MqtLJ', // GENERAL
+  '1_YlxxuwdBQHa4SkZp8lnzETcNg9rMJpP', // PDFs de listados
+  '10qz6yJC_ENBWtuRLPV4htQaE_E_7QHCV', // Archivo
+  '1LDvalB_L0RpJhRMFW9EyqwjVEh4czIBL', // Coordinación Administrativa
+  '1OhyjGE8gFX8g-n3ClpPKcqq6OWR1cYSB', // Informática
+  '1cUHqb6mYED--GXqLtQHEaC6QcfUnGbgb', // R. Financieros
+  '1ZPtjkjxO_2Ju9d9eCSk8HbKq83_fvbT8', // R. Humanos
+  '1BCv5KqPr36OEYYd9KVvHRYckjLhvcr6W', // R. Materiales
+  '1qa-U1iiJHcCf-uERjh6ACqS773XjVw3z', // Seguimiento de Auditorías
+]);
+let LLAVE_DRIVE = { token: null, vence: 0 };
+
+async function llaveDrive(forzar = false) {
+  if (!forzar && LLAVE_DRIVE.token && LLAVE_DRIVE.vence > Date.now()) return LLAVE_DRIVE.token;
+  if (!process.env.APPS_SCRIPT_SECRETO) return null;
+  const data = await llamarAppsScript({ action: 'tokenDrive', secreto: process.env.APPS_SCRIPT_SECRETO }, { intentos: 2, timeoutMs: 20000 });
+  LLAVE_DRIVE = { token: data.token, vence: Date.now() + Math.min(Number(data.expiraEnSeg) || 3000, 3000) * 1000 };
+  return LLAVE_DRIVE.token;
+}
+
+async function enviarDesdeDrive(res, fileId, reintento = false) {
+  try {
+    const token = await llaveDrive(reintento);
+    if (!token) return false;
+    const auth = { Authorization: `Bearer ${token}` };
+    const base = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`;
+    const meta = await fetch(`${base}?fields=name,mimeType,parents,size&supportsAllDrives=true`, { headers: auth });
+    if (meta.status === 401 && !reintento) return enviarDesdeDrive(res, fileId, true); // llave vencida
+    if (!meta.ok) { console.warn(`⚠️  Drive (metadatos ${fileId}): HTTP ${meta.status}`); return false; }
+    const info = await meta.json();
+    if (!(info.parents || []).some(p => CARPETAS_CORRESPONDENCIA.has(p))) {
+      // Puede estar en una subcarpeta (p. ej. las creadas por la versión anterior del script): se permite un nivel más
+      let permitido = false;
+      for (const p of info.parents || []) {
+        const r = await fetch(`https://www.googleapis.com/drive/v3/files/${p}?fields=parents&supportsAllDrives=true`, { headers: auth });
+        if (r.ok && ((await r.json()).parents || []).some(x => CARPETAS_CORRESPONDENCIA.has(x))) { permitido = true; break; }
+      }
+      if (!permitido) { console.warn(`⚠️  Drive: ${fileId} no está en carpetas de Correspondencia`); return false; }
+    }
+    const arch = await fetch(`${base}?alt=media&supportsAllDrives=true`, { headers: auth });
+    if (!arch.ok) { console.warn(`⚠️  Drive (descarga ${fileId}): HTTP ${arch.status}`); return false; }
+    const nombre = String(info.name || 'documento').replace(/["\r\n]/g, '');
+    res.set('Content-Type', info.mimeType || arch.headers.get('content-type') || 'application/octet-stream');
+    res.set('Content-Disposition', `inline; filename="${nombre.replace(/[^\x20-\x7E]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`);
+    res.set('Cache-Control', 'private, max-age=600');
+    if (arch.headers.get('content-length')) res.set('Content-Length', arch.headers.get('content-length'));
+    const { Readable } = await import('stream');
+    Readable.fromWeb(arch.body).pipe(res);
+    return true;
+  } catch (err) {
+    console.warn('⚠️  Descarga directa de Drive falló:', err.message);
+    return false;
+  }
+}
 
 /* "https://drive.google.com/file/d/<ID>/view…" o "…?id=<ID>" -> <ID> */
 function idArchivoDrive(url) {

@@ -70,6 +70,10 @@ function doPost(e) {
       return obtenerDocumento(data);
     }
 
+    if (data.action === 'tokenDrive') {
+      return tokenDrive(data);
+    }
+
     return generarPdf(data);
 
   } catch (err) {
@@ -131,6 +135,21 @@ function obtenerDocumento(data) {
   } catch (err) {
     return respuesta({ ok: false, error: 'No se pudo leer el archivo: ' + err.message });
   }
+}
+
+/* ── Llave temporal para que el servidor descargue de Drive directo ──
+   Pasar el archivo por aquí (obtenerDocumento) tardaba 4–27 s y a veces
+   fallaba. Ahora el servidor pide una llave temporal (dura < 1 hora) y
+   descarga el archivo de Drive él mismo, en 1–2 s. Solo se entrega con la
+   contraseña SECRETO_SERVIDOR (Configuración del proyecto → Propiedades de
+   la secuencia de comandos), que únicamente conoce el servidor. */
+function tokenDrive(data) {
+  const secreto = PropertiesService.getScriptProperties().getProperty('SECRETO_SERVIDOR');
+  if (!secreto || data.secreto !== secreto) {
+    return respuesta({ ok: false, error: 'No autorizado.' });
+  }
+  DriveApp.getRootFolder(); // asegura que la llave incluya el permiso de Drive
+  return respuesta({ ok: true, token: ScriptApp.getOAuthToken(), expiraEnSeg: 3000 });
 }
 
 /* ¿El archivo está en la carpeta GENERAL o dentro de la carpeta de áreas? */
