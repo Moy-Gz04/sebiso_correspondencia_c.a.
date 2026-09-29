@@ -320,6 +320,49 @@ function probarEnvio() {
   Logger.log(out.getContent());
 }
 
+/* ══ Mismos permisos que la carpeta GENERAL ══
+   Los archivos heredan los permisos de su carpeta. La carpeta
+   "CORRESPONDENCIA · Archivos por Área" la creó este script y no estaba
+   compartida con nadie, así que quien tiene acceso a la carpeta GENERAL no
+   veía lo nuevo. Esta función le da a la carpeta de áreas (y con ello a
+   todas las subcarpetas y archivos) exactamente los mismos correos que tiene
+   la GENERAL: editores como editores y lectores como lectores. Solo agrega;
+   nunca quita a nadie.
+   Ejecutar una vez a mano (Ejecutar → sincronizarPermisosAreas) y luego
+   activarSincronizacionAutomatica para que se repita cada hora sola. */
+function sincronizarPermisosAreas() {
+  const general = DriveApp.getFolderById(FOLDER_ID_DOCUMENTOS);
+  const raiz    = carpetaRaizAreas_();
+  const dueno   = Session.getEffectiveUser().getEmail();
+  const editoresRaiz = raiz.getEditors().map(u => u.getEmail());
+  const lectoresRaiz = raiz.getViewers().map(u => u.getEmail());
+  let agregados = 0;
+
+  general.getEditors().forEach(u => {
+    const email = u.getEmail();
+    if (!email || email === dueno || editoresRaiz.indexOf(email) !== -1) return;
+    try { raiz.addEditor(email); agregados++; Logger.log('Editor agregado: ' + email); }
+    catch (e) { Logger.log('No se pudo agregar a ' + email + ': ' + e.message); }
+  });
+  general.getViewers().forEach(u => {
+    const email = u.getEmail();
+    if (!email || email === dueno || lectoresRaiz.indexOf(email) !== -1 || editoresRaiz.indexOf(email) !== -1) return;
+    try { raiz.addViewer(email); agregados++; Logger.log('Lector agregado: ' + email); }
+    catch (e) { Logger.log('No se pudo agregar a ' + email + ': ' + e.message); }
+  });
+  Logger.log('Listo. Correos nuevos en la carpeta de áreas: ' + agregados);
+  return agregados;
+}
+
+/* Programa sincronizarPermisosAreas cada hora (se ejecuta una sola vez). */
+function activarSincronizacionAutomatica() {
+  ScriptApp.getProjectTriggers()
+    .filter(t => t.getHandlerFunction() === 'sincronizarPermisosAreas')
+    .forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('sincronizarPermisosAreas').timeBased().everyHours(1).create();
+  Logger.log('Sincronización automática activada: cada hora.');
+}
+
 /* ── Prueba de carpetas por área (Ejecutar → probarCarpetasArea) ──
    Crea (si no existen) la carpeta raíz y las 8 carpetas de área, SIN subir
    ningún archivo. Sirve también para dar los permisos la primera vez. */
