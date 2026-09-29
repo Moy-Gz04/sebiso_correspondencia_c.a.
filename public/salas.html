@@ -290,6 +290,30 @@
     .ticket.color-3, .detalle-modal.color-3 { background-color: #bbf7d0; color: #14532d; }
     .ticket.color-4, .detalle-modal.color-4 { background-color: #fbcfe8; color: #831843; }
 
+    /* Guinda y crema, una y una (paleta de Correspondencia) */
+    .ticket.color-guinda, .detalle-modal.color-guinda { background-color: var(--tarjeta-guinda, #691B31); color: #F6EEDD; }
+    .ticket.color-crema,  .detalle-modal.color-crema  { background-color: #F6EEDD; color: #3D1420; border: 1px solid #E8D9BC; }
+    .ticket.color-guinda .ticket-info i { color: #C7AE81; }
+    .ticket.color-crema  .ticket-info i { color: var(--guinda, #5F2132); }
+    .ticket.color-guinda .ticket-close, .ticket.color-guinda .ticket-edit { background: rgba(255,255,255,.14); }
+    .ticket.color-guinda .ticket-close:hover, .ticket.color-guinda .ticket-edit:hover { background: rgba(255,255,255,.28); }
+    .ticket.color-guinda .ticket-dias-badge, .ticket.color-guinda .ticket-nota-badge {
+      background: rgba(255,255,255,.12); border-color: rgba(246,238,221,.35); color: #F6EEDD; }
+    .ticket.color-crema .ticket-dias-badge, .ticket.color-crema .ticket-nota-badge {
+      background: #fff; border-color: #E8D9BC; color: var(--guinda, #5F2132); }
+    .ticket.color-guinda .ticket-tag { background: #C7AE81; color: #3D1420; }
+    .ticket.color-crema  .ticket-tag { background: var(--guinda, #5F2132); color: #F6EEDD; }
+    /* Vista ampliada en guinda: cajas translúcidas oscuras para que el texto crema se lea */
+    .detalle-modal.color-guinda .detalle-close { background: rgba(255,255,255,.14); }
+    .detalle-modal.color-guinda .detalle-close:hover { background: rgba(255,255,255,.28); }
+    .detalle-modal.color-guinda .detalle-fila i { color: #C7AE81; }
+    .detalle-modal.color-guinda .detalle-tag { background: #C7AE81; color: #3D1420; }
+    .detalle-modal.color-guinda .nota-card { background: rgba(255,255,255,.08); border-color: rgba(246,238,221,.25); }
+    .detalle-modal.color-guinda .nota-card-abrir { background: rgba(255,255,255,.16); }
+    .detalle-modal.color-guinda .nota-card-preview { background: #fff; }
+    .detalle-modal.color-crema .detalle-tag { background: var(--guinda, #5F2132); color: #F6EEDD; }
+    .detalle-modal.color-crema .nota-card, .detalle-modal.color-crema .nota-card-abrir { background: #fff; }
+
     .ticket-close {
       position: absolute; top: 8px; right: 10px;
       background: rgba(0, 0, 0, 0.08); border: none; border-radius: 50%;

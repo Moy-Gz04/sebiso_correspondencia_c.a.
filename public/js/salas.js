@@ -374,7 +374,7 @@ async function cargarApartados() {
   }
 }
 
-const COLORES_TICKET = ['color-1', 'color-2', 'color-3', 'color-4'];
+const COLORES_TICKET = ['color-guinda', 'color-crema']; // una y una
 
 function pintarTendedero() {
   const cont = document.getElementById('tendedero');
