@@ -289,16 +289,24 @@ async function llamarAppsScript(payload, { intentos = 3, timeoutMs = 60000 } = {
   throw falla(motivo);
 }
 
-async function subirArchivoADrive(file) {
+/* `carpeta` = área dueña del documento: el Apps Script lo guarda en
+   📁 CORRESPONDENCIA · Archivos por Área / 📁 <área> (la crea si no existe).
+   Sin área, va a la carpeta GENERAL de siempre. */
+async function subirArchivoADrive(file, carpeta = null) {
   if (!file) return null;
   const data = await llamarAppsScript({
     action:          'subirDocumento',
     nombre:          file.originalname,
     mimeType:        file.mimetype,
     contenidoBase64: file.buffer.toString('base64'),
+    carpeta:         carpeta ? String(carpeta).trim() : undefined,
   });
   return data.url;
 }
+
+/* Área a la que pertenecen los documentos de un oficio: la que lo atiende
+   (turnado_a) o, si aún no se turna, la que lo registró. */
+const areaDeOficio = (o, respaldo = null) => o?.turnado_a || o?.area_origen || respaldo || null;
 
 /* ══ DOCUMENTOS EN SEGUNDO PLANO ══
    Subir un archivo a Drive (Apps Script) tarda varios segundos, y antes el
@@ -335,14 +343,14 @@ async function procesarColaSubidas() {
   subiendoDocs = false;
 }
 
-async function procesarSubidaDoc({ id, slot, file, marca, ronda = 1 }) {
+async function procesarSubidaDoc({ id, slot, file, marca, carpeta = null, ronda = 1 }) {
   let url = null;
   // Hasta 3 rondas (cada una ya reintenta 3 veces dentro de llamarAppsScript).
-  try { url = await subirArchivoADrive(file); }
+  try { url = await subirArchivoADrive(file, carpeta); }
   catch (err) { console.error(`⚠️  Subida de ${slot} (oficio ${id}), ronda ${ronda}/3: ${err.message}`); }
   if (!url && ronda < 3) {
     // Se reprograma SIN ocupar la cola: los demás documentos siguen saliendo mientras tanto.
-    setTimeout(() => encolarSubidaDoc({ id, slot, file, marca, ronda: ronda + 1 }), ronda * 20000);
+    setTimeout(() => encolarSubidaDoc({ id, slot, file, marca, carpeta, ronda: ronda + 1 }), ronda * 20000);
     return;
   }
   const valor = url || `error:${Date.now()}`;
@@ -1066,7 +1074,7 @@ function rutaDeSlot(oficio, slot) {
 /* Lista final de docs extra: quita los que el usuario eliminó
    (docs_extra_quitar = JSON con ids) y agrega los archivos nuevos
    (campo multipart "docs_extra", varios). Devuelve null si no cambió. */
-async function calcularDocsExtra(oficio, files, body, username) {
+async function calcularDocsExtra(oficio, files, body, username, carpeta = null) {
   let quitar = [];
   try { quitar = JSON.parse(body.docs_extra_quitar || '[]'); } catch { quitar = []; }
   const nuevos = files.docs_extra || [];
@@ -1075,7 +1083,7 @@ async function calcularDocsExtra(oficio, files, body, username) {
   for (const f of nuevos) {
     actuales.push({
       id: randomBytes(4).toString('hex'),
-      ruta: await subirArchivoADrive(f),
+      ruta: await subirArchivoADrive(f, carpeta || areaDeOficio(oficio)),
       nombre: String(f.originalname || 'documento').slice(0, 200),
       subido_por: username,
       fecha: new Date().toISOString(),
@@ -1626,9 +1634,10 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
     res.status(201).json(sanitizarOficio(nuevo));
 
     // Ya se respondió: ahora se suben los documentos a Drive en segundo plano.
-    if (hayDoc1) encolarSubidaDoc({ id: nuevo.id, slot: 'doc1', file: files.doc1[0], marca });
-    if (hayDoc2) encolarSubidaDoc({ id: nuevo.id, slot: 'doc2', file: files.doc2[0], marca });
-    if (hayDoc3) encolarSubidaDoc({ id: nuevo.id, slot: 'doc3', file: files.doc3[0], marca });
+    const carpeta = areaDeOficio(nuevo);
+    if (hayDoc1) encolarSubidaDoc({ id: nuevo.id, slot: 'doc1', file: files.doc1[0], marca, carpeta });
+    if (hayDoc2) encolarSubidaDoc({ id: nuevo.id, slot: 'doc2', file: files.doc2[0], marca, carpeta });
+    if (hayDoc3) encolarSubidaDoc({ id: nuevo.id, slot: 'doc3', file: files.doc3[0], marca, carpeta });
   } catch (err) {
     manejarError(res, err, 'Error al guardar.');
   }
@@ -1643,7 +1652,7 @@ app.post('/api/oficios/:id/doc3-diferido', verifyToken, onlyCoordOrAdmin,
   upload.fields([{ name: 'doc3', maxCount: 1 }]),
   async (req, res) => {
   try {
-    const [o] = await sql`SELECT id, ruta_doc3 FROM oficios WHERE id = ${req.params.id}`;
+    const [o] = await sql`SELECT id, ruta_doc3, turnado_a, area_origen FROM oficios WHERE id = ${req.params.id}`;
     if (!o) return res.status(404).json({ mensaje: 'Oficio no encontrado.' });
     if (!RE_PENDIENTE.test(o.ruta_doc3 || '')) {
       return res.status(409).json({ mensaje: 'Este oficio ya no espera ese documento.' });
@@ -1653,7 +1662,7 @@ app.post('/api/oficios/:id/doc3-diferido', verifyToken, onlyCoordOrAdmin,
       await sql`UPDATE oficios SET ruta_doc3 = NULL, doc3_subido_por = NULL WHERE id = ${o.id} AND ruta_doc3 = ${o.ruta_doc3}`;
       return res.json({ ok: true, sin_documento: true });
     }
-    encolarSubidaDoc({ id: o.id, slot: 'doc3', file, marca: o.ruta_doc3 });
+    encolarSubidaDoc({ id: o.id, slot: 'doc3', file, marca: o.ruta_doc3, carpeta: areaDeOficio(o) });
     res.status(202).json({ ok: true });
   } catch (err) {
     manejarError(res, err, 'No se pudo adjuntar el documento.');
@@ -1696,8 +1705,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       const estatusValidos = ['por_turnar', 'turnado', 'sub_turnado', 'atendido', 'rechazado', 'completado'];
       const nuevoEstatus = estatus && estatusValidos.includes(estatus) ? estatus : null;
 
-      const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0]) : null;
-      const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0]) : null;
+      const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0], areaDeOficio(oficio, req.user.area)) : null;
+      const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0], areaDeOficio(oficio, req.user.area)) : null;
 
       const limpiarAsignacion = nuevoEstatus === 'turnado' ? true : false;
 
@@ -1746,8 +1755,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         if (!tieneDoc(oficio.ruta_doc3) && !files.doc3?.[0])
           return res.status(400).json({ mensaje: 'Falta el documento de Turno.' });
 
-        const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
-        const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;
+        const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0], areaDeOficio(oficio, req.user.area)) : null;
+        const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0], areaDeOficio(oficio, req.user.area)) : null;
         const docsExtra = await calcularDocsExtra(oficio, files, req.body, req.user.username);
 
         const [updated] = await sql`
@@ -1792,7 +1801,7 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       if (!usuarioObj)
         return res.status(400).json({ mensaje: 'El usuario no pertenece a esta área o no puede recibir oficios.' });
 
-      const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
+      const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0], areaDeOficio(oficio, req.user.area)) : null;
 
       const [updated] = await sql`
         UPDATE oficios SET
@@ -1817,8 +1826,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
       if (nuevoEstatus === 'atendido' && !tieneDoc(oficio.ruta_doc3) && !files.doc3?.[0])
         return res.status(400).json({ mensaje: 'Falta el documento de Turno.' });
 
-      const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0]) : null;
-      const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0]) : null;
+      const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0], areaDeOficio(oficio, req.user.area)) : null;
+      const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0], areaDeOficio(oficio, req.user.area)) : null;
       const docsExtra = await calcularDocsExtra(oficio, files, req.body, req.user.username);
 
       const [updated] = await sql`

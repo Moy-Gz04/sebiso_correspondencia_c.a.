@@ -1069,15 +1069,17 @@ async function guardarAtencion() {
 
   const btn = document.getElementById('atender-btn-guardar');
   btn.disabled  = true;
-  btn.innerHTML = 'Guardando...';
+  btn.innerHTML = 'Preparando archivos...';
 
   try {
     const fd = new FormData();
     fd.append('estatus',  'atendido');
     fd.append('obs_area', document.getElementById('atender-obs').value || '');
-    if (doc3File) fd.append('doc3', doc3File);
-    if (doc4File) fd.append('doc4', doc4File);
-    DocsExtra.anexar(fd);
+    // Fotos del celular: se reducen antes de subir (ver DocsExtra.comprimir)
+    if (doc3File) fd.append('doc3', await DocsExtra.comprimir(doc3File));
+    if (doc4File) fd.append('doc4', await DocsExtra.comprimir(doc4File));
+    await DocsExtra.anexar(fd);
+    btn.innerHTML = 'Subiendo...';
 
     const res = await apiFetch(`${API}/oficios/${atendiendoId}`, { method: 'PUT', body: fd });
     if (!res.ok) {
@@ -1092,7 +1094,13 @@ async function guardarAtencion() {
       btnOk:   'Aceptar'
     });
   } catch (err) {
-    errEl.textContent = err.message || 'No se pudo guardar.';
+    // En celular el texto de error queda al fondo de la ventana y no se veía:
+    // además se muestra en una ventana emergente.
+    const msg = err.name === 'TypeError'
+      ? 'Se perdió la conexión mientras se subían los archivos. Revisa tu señal e inténtalo de nuevo.'
+      : (err.message || 'No se pudo guardar.');
+    errEl.textContent = msg;
+    await sbisAlert({ titulo: 'No se guardó', mensaje: msg, tipo: 'error', btnOk: 'Entendido' });
   } finally {
     btn.disabled  = false;
     btn.innerHTML = '<i class="ti ti-circle-check"></i> Marcar como Atendido';

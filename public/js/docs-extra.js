@@ -85,11 +85,36 @@ const DocsExtra = (() => {
   function quitarNuevo(key) { nuevos = nuevos.filter(x => x.key !== key); pintar(); }
   function quitarExistente(id) { quitados.push(id); pintar(); }
 
-  /* Agrega al FormData del guardado los archivos nuevos y los eliminados */
-  function anexar(fd) {
-    nuevos.forEach(x => fd.append('docs_extra', x.file));
+  /* Agrega al FormData del guardado los archivos nuevos y los eliminados.
+     Las fotos se comprimen antes (ver comprimir). */
+  async function anexar(fd) {
+    for (const x of nuevos) fd.append('docs_extra', await comprimir(x.file));
     if (quitados.length) fd.append('docs_extra_quitar', JSON.stringify(quitados));
   }
 
-  return { tarjetas, iniciar, agregar, quitarNuevo, quitarExistente, anexar };
+  /* Fotos tomadas con el celular: pesan 4–12 MB y por datos móviles la
+     subida tardaba tanto que fallaba sin avisar. Se reducen a máx. 2000 px
+     en JPEG (≈300–600 KB), que sigue leyéndose perfecto. PDF, Word y lo que
+     el navegador no pueda dibujar (p. ej. HEIC en Android) se mandan igual;
+     si comprimir no ayuda, también se queda el original. */
+  async function comprimir(file, maxLado = 2000, calidad = 0.82) {
+    if (!file || !/^image\/(jpeg|png|webp|bmp)$/i.test(file.type) || file.size < 700 * 1024) return file;
+    try {
+      const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      const k = Math.min(1, maxLado / Math.max(bmp.width, bmp.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(bmp, 0, 0, c.width, c.height);
+      bmp.close?.();
+      const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', calidad));
+      if (!blob || blob.size >= file.size) return file;
+      return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+    } catch {
+      return file;
+    }
+  }
+
+  return { tarjetas, iniciar, agregar, quitarNuevo, quitarExistente, anexar, comprimir };
 })();
