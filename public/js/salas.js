@@ -254,15 +254,28 @@ async function cargarSalas() {
 }
 
 function pintarSalas() {
-  const chips = document.getElementById('lista-salas-chip');
-  if (chips) {
-    chips.innerHTML = SALAS.length
-      ? SALAS.map(s => `
-        <span class="chip-sala">
-          <i class="ti ti-door"></i> ${s.nombre}
-          <button class="chip-sala-borrar" title="Eliminar sala" onclick="eliminarSala(${s.id}, '${s.nombre.replace(/'/g, "\\'")}')">✕</button>
-        </span>`).join('')
-      : '<span style="color:#b7aeb2; font-size:12.5px;">Todavía no hay salas registradas.</span>';
+  const lista = document.getElementById('lista-salas-chip');
+  if (lista) {
+    const contador = document.getElementById('cat-contador');
+    if (contador) contador.textContent = `${SALAS.length} sala${SALAS.length === 1 ? '' : 's'}`;
+    const elegida = Number(document.getElementById('select-sala')?.value);
+    lista.innerHTML = SALAS.length
+      ? SALAS.map(s => {
+          const n = APARTADOS.filter(a => a.sala_id === s.id).length;
+          const nombreJs = s.nombre.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          return `
+        <div class="cat-sala${s.id === elegida ? ' activa' : ''}" role="button" tabindex="0" title="Apartar ${s.nombre}"
+             onclick="elegirSala(${s.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();elegirSala(${s.id});}">
+          <span class="cat-sala-ico"><i class="ti ti-door"></i></span>
+          <span class="cat-sala-info">
+            <span class="cat-sala-nombre">${s.nombre}</span>
+            <span class="cat-sala-estado${n ? ' ocupada' : ''}">${n ? `${n} apartado${n === 1 ? '' : 's'} vigente${n === 1 ? '' : 's'}` : 'Sin apartados'}</span>
+          </span>
+          <button class="cat-borrar" type="button" title="Eliminar sala" aria-label="Eliminar ${s.nombre}"
+                  onclick="event.stopPropagation(); eliminarSala(${s.id}, '${nombreJs}')"><i class="ti ti-trash"></i></button>
+        </div>`;
+        }).join('')
+      : '<div class="cat-vacio"><i class="ti ti-door-off"></i>Todavía no hay salas. Registra la primera arriba.</div>';
   }
 
   const select = document.getElementById('select-sala');
@@ -271,6 +284,16 @@ function pintarSalas() {
       ? SALAS.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('')
       : '<option value="">No hay salas registradas</option>';
   }
+}
+
+/* Toca una sala del catálogo: queda elegida en «Apartar Sala» */
+function elegirSala(id) {
+  const select = document.getElementById('select-sala');
+  if (!select) return;
+  select.value = id;
+  select.dispatchEvent(new Event('change'));
+  pintarSalas();
+  document.getElementById('titulo-panel-apartar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 async function eliminarSala(id, nombre) {
@@ -345,6 +368,7 @@ async function cargarApartados() {
     if (!res.ok) throw new Error(data.mensaje || 'Error al cargar los apartados.');
     APARTADOS = agruparApartados(data);
     pintarTendedero();
+    pintarSalas();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
