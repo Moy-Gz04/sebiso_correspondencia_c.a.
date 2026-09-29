@@ -437,6 +437,15 @@
       text-transform: uppercase; letter-spacing: .3px;
     }
     .fade-out { opacity: 0; transform: scale(0.8) !important; }
+    /* Mini contador para poder quitar la tarjeta */
+    .ticket-cuenta { display: flex; align-items: center; gap: 5px; margin-top: 10px; padding-top: 8px;
+      border-top: 1px dashed currentColor; font-size: 0.74rem; opacity: .85; font-variant-numeric: tabular-nums; }
+    .ticket-cuenta b { font-weight: 800; white-space: nowrap; }
+    .ticket-cuenta.cuenta-lista { opacity: 1; font-weight: 700; }
+    .ticket.color-guinda .ticket-cuenta { border-top-color: rgba(246,238,221,.35); }
+    .ticket.color-guinda .ticket-cuenta.cuenta-lista { color: #E8D9BC; }
+    .ticket.color-crema .ticket-cuenta { border-top-color: #D9C6A5; }
+    .ticket.color-crema .ticket-cuenta.cuenta-lista { color: #1a6e35; }
 
     /* ── Historial ── */
     .historial-wrap { background: #fff; border: 1px solid #e6dde1; border-radius: 12px; overflow: hidden; }

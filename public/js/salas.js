@@ -403,8 +403,38 @@ function pintarTendedero() {
         ${dias > 1 ? `<span class="ticket-dias-badge"><i class="ti ti-calendar-event"></i> ${dias} días</span>` : ''}
         ${ap.folio_nota ? `<span class="ticket-nota-badge"><i class="ti ti-file-description"></i> Tarjeta ${ap.folio_nota}</span>` : ''}
         <span class="ticket-tag">${estatus}</span>
+        <div class="ticket-cuenta${vencido ? ' cuenta-lista' : ''}" data-fin="${momentoFinApartado(ap).getTime()}">${textoCuentaRegresiva(momentoFinApartado(ap))}</div>
       </div>`;
   }).join('');
+  iniciarCuentaRegresiva();
+}
+
+/* ── Mini contador: cuánto falta para poder quitar la tarjeta ──
+   Una tarjeta se puede eliminar cuando termina su apartado (último día,
+   hora de fin). El texto se refresca cada 30 s; al llegar a cero se
+   vuelve a pintar el tendedero para que diga «Listo para eliminar». */
+function textoCuentaRegresiva(fin) {
+  const ms = fin - Date.now();
+  if (ms <= 0) return '<i class="ti ti-circle-check"></i><span>Ya se puede eliminar</span>';
+  const min = Math.ceil(ms / 60000);
+  const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = min % 60;
+  const t = d ? `${d} d ${h} h` : h ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
+  return `<i class="ti ti-hourglass"></i><span>Eliminar en <b>${t}</b></span>`;
+}
+
+let TIMER_CUENTA = null;
+function iniciarCuentaRegresiva() {
+  clearInterval(TIMER_CUENTA);
+  TIMER_CUENTA = setInterval(() => {
+    let cambio = false;
+    document.querySelectorAll('.ticket-cuenta[data-fin]').forEach(el => {
+      const fin = Number(el.dataset.fin);
+      const lista = fin <= Date.now();
+      if (lista && !el.classList.contains('cuenta-lista')) cambio = true;
+      el.innerHTML = textoCuentaRegresiva(fin);
+    });
+    if (cambio) pintarTendedero();
+  }, 30000);
 }
 
 /* Extrae el fileId de una URL de Drive tipo
