@@ -5,10 +5,14 @@
 
    2026-09-29 — Carpetas por Área:
    · subirDocumento acepta `carpeta` (nombre del área, ej. "R. Humanos").
-     El archivo se guarda en  📁 CORRESPONDENCIA · Archivos por Área / 📁 <área>,
-     y cada subcarpeta se crea sola la primera vez.
+     El archivo se guarda en
+       📁 GENERAL / 📁 CORRESPONDENCIA · Archivos por Área / 📁 <área>
+     y cada subcarpeta se crea sola la primera vez. Al estar DENTRO de la
+     GENERAL, heredan sus permisos: sin compartir nada ni mandar correos.
    · Sin `carpeta`, se guarda en la carpeta GENERAL de siempre
      (FOLDER_ID_DOCUMENTOS), que conserva todo lo subido antes.
+   · obtenerDocumento: el servidor pide aquí el archivo y se lo muestra al
+     usuario (los archivos son privados por la política de la institución).
    · generarPdf y eliminarPdf NO cambiaron.
    ═══════════════════════════════════════════════════════════ */
 
@@ -19,8 +23,8 @@ const FOLDER_ID        = '1_YlxxuwdBQHa4SkZp8lnzETcNg9rMJpP';
 /* Carpeta GENERAL: documentos subidos hasta ahora (y respaldo si no llega el área) */
 const FOLDER_ID_DOCUMENTOS = '1S6ameXMlEgzxtBkKHDmZipAaX51MqtLJ';
 
-/* Carpeta que agrupa las carpetas de cada área. Se crea sola junto a la
-   carpeta general la primera vez y su id se guarda en las propiedades del script. */
+/* Carpeta que agrupa las carpetas de cada área. Va DENTRO de la carpeta
+   GENERAL (se crea sola la primera vez) y su id se guarda en las propiedades del script. */
 const NOMBRE_RAIZ_AREAS = 'CORRESPONDENCIA · Archivos por Área';
 
 /* Rango completo que se exporta a PDF (A1:Y44) */
