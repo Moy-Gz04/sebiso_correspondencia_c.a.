@@ -603,6 +603,7 @@ async function apartarSala() {
       ? (data.nota_pdf_url
           ? ` Tarjeta ${data.folio_nota} generada.`
           : (data.folio_nota ? ` Tarjeta ${data.folio_nota} asignada, pero el PDF no se generó${data.nota_error ? ' — ' + data.nota_error : ''} Abre la tarjeta y pulsa «Reintentar generar PDF».` : ''))
+        + (data.tarjeta_error ? ` ${data.tarjeta_error}` : (data.folio_nota ? ` También quedó registrada en No. Tarjeta Informativa.` : ''))
       : '';
     await sbisAlert({
       titulo: editando ? 'Apartado actualizado' : 'Sala apartada',

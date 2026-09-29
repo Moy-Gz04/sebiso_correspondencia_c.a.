@@ -2231,6 +2231,62 @@ async function siguienteTarjetaAutomatico() {
   return String(siguiente).padStart(4, '0');
 }
 
+/* Número que sigue en la secuencia, SIN gastarlo (solo lectura). */
+async function verSiguienteTarjeta() {
+  const [r] = await sql`SELECT last_value, is_called FROM tarjeta_informativa_seq`;
+  const n = Number(r.last_value) + (r.is_called ? 1 : 0);
+  return String(n).padStart(4, '0');
+}
+
+/* ══ Tarjeta Informativa automática al apartar una sala ══
+   Siempre va dirigida a la Administración del Edificio, la solicita CA
+   (Elizabeth) y el asunto lo redacta la IA en pocas palabras con la
+   cantidad de personas y el área que lo pide. Si la IA no responde, se
+   usa una frase fija con la sala y las personas. */
+const TARJETA_SALA = {
+  a_quien_se_dirige: 'Arq. Analy Meneses Meneses,Encargada de la Administración del Edificio “Casa del Pueblo para el Bienestar y Desarrollo Rural”',
+  area_solicitante: 'CA',
+  solicitante: 'Elizabeth',
+};
+
+async function redactarAsuntoTarjetaSala({ sala, personas, descripcion, noOficio }) {
+  const respaldo = `Solicitud de ${sala} para ${personas} personas`;
+  if (!process.env.GEMINI_API_KEY) return respaldo;
+  const prompt =
+    'Redacta el ASUNTO de una tarjeta informativa para apartar una sala. Máximo 12 palabras, en español, sin punto final ni comillas.\n' +
+    'Formato obligatorio: "Solicitud de <sala> para <N> personas de <área>". SIEMPRE incluye el área que lo solicita: dedúcela de las siglas ' +
+    'del número de oficio (DG = Dirección General, FA = Fomento Artesanal, SSDSyH = Subsecretaría de Desarrollo Social y Humano, ' +
+    'DGIPD = Dirección General de Inclusión para las Personas con Discapacidad, DGAM = Dirección General de Atención al Migrante) ' +
+    'o de la descripción (quiénes participan). Usa el nombre corto del área. Solo si no hay ninguna pista, omítela.\n' +
+    `Sala: ${sala}\nPersonas: ${personas}\nNo. de oficio: ${noOficio || 'sin oficio'}\nDescripción del evento: ${descripcion}\n` +
+    'Responde solo con el asunto.';
+  // Dos intentos (el modelo a veces tarda o responde sin el área); si
+  // ninguno sirve, queda la frase fija.
+  for (let intento = 1; intento <= 2; intento++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    try {
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 120 } }),
+          signal: controller.signal,
+        });
+      const data = await resp.json();
+      const texto = data?.candidates?.[0]?.content?.parts?.map(x => x.text || '').join('').trim()
+        .replace(/^["'“”]+|["'“”.]+$/g, '').split('\n')[0];
+      if (texto && texto.length <= 160) return texto;
+    } catch (err) {
+      console.warn(`⚠️  Intento ${intento}/2 al redactar el asunto de la Tarjeta Informativa:`, err.message);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  return respaldo;
+}
+
 app.get('/api/tarjeta-informativa', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
     const rows = await sql`
@@ -2538,27 +2594,18 @@ app.delete('/api/salas/:id', verifyToken, onlyGestionCompleta, async (req, res) 
    de ahí en adelante (max+1), tal como se pidió. ══ */
 app.get('/api/salas/proximo-folio-nota', verifyToken, onlyGestionCompleta, async (req, res) => {
   try {
-    const [{ max_folio }] = await sql`
-      SELECT MAX(v) AS max_folio FROM (
-        SELECT NULLIF(regexp_replace(folio_nota, '[^0-9]', '', 'g'), '')::int AS v
-          FROM salas_apartados WHERE folio_nota IS NOT NULL
-        UNION ALL
-        SELECT NULLIF(regexp_replace(folio_nota, '[^0-9]', '', 'g'), '')::int AS v
-          FROM salas_historial WHERE folio_nota IS NOT NULL
-      ) t`;
-    const siguiente = (max_folio ?? 76) + 1;
-
+    // Salas usa el consecutivo de No. Tarjeta Informativa (al apartar se
+    // crea ese registro con el mismo número).
+    const siguiente = await verSiguienteTarjeta();
     const usados = await sql`
+      SELECT no_tarjeta AS folio_nota FROM tarjeta_informativa
+      UNION
       SELECT folio_nota FROM salas_apartados WHERE folio_nota IS NOT NULL
       UNION
       SELECT folio_nota FROM salas_historial WHERE folio_nota IS NOT NULL`;
-
-    res.json({
-      siguiente: String(siguiente).padStart(4, '0'),
-      usados: usados.map(r => r.folio_nota),
-    });
+    res.json({ siguiente, usados: usados.map(r => r.folio_nota) });
   } catch (err) {
-    manejarError(res, err, 'No se pudo calcular el siguiente folio de Nota.');
+    manejarError(res, err, 'No se pudo calcular el siguiente número de Tarjeta Informativa.');
   }
 });
 
@@ -2639,24 +2686,62 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
     // formulario antes de apartar — si viene, se usa TAL CUAL (se
     // permiten duplicados a propósito, el frontend solo avisa). Si no
     // viene (o llega vacío), se cae al automático de siempre.
-    const folioNota = normalizarFolioNota(req.body.folio_nota) || await siguienteNotaAutomatica();
-    const { url: notaPdfUrl, motivo: notaMotivo } = await generarNotaSalaPDF({
-      notj: folioNota, sala: sala.nombre, np: numPersonas,
-      horaInicio: hora_inicio, horaFin: hora_fin, fecha: fechas, descripcion: desc, prestamo: solicitudPrestamo,
-    });
+    // El número es el consecutivo de No. Tarjeta Informativa. Si la persona
+    // dejó el sugerido (o nada), se toma de la secuencia; si escribió otro
+    // a mano, se respeta tal cual (y se crea su registro si aún no existe).
+    const folioManual = normalizarFolioNota(req.body.folio_nota);
+    const usaConsecutivo = !folioManual || folioManual === await verSiguienteTarjeta();
+    const folioNota = usaConsecutivo ? await siguienteTarjetaAutomatico() : folioManual;
+    const [{ url: notaPdfUrl, motivo: notaMotivo }, asuntoTarjeta] = await Promise.all([
+      generarNotaSalaPDF({
+        notj: folioNota, sala: sala.nombre, np: numPersonas,
+        horaInicio: hora_inicio, horaFin: hora_fin, fecha: fechas, descripcion: desc, prestamo: solicitudPrestamo,
+      }),
+      redactarAsuntoTarjetaSala({ sala: sala.nombre, personas: numPersonas, descripcion: desc, noOficio: oficio }),
+    ]);
 
     // Una fila por día (así los choques, el vencimiento y el historial
     // siguen funcionando por día), TODAS en una sola transacción: o se
     // aparta cada día o ninguno. Comparten folio, PDF y creado_en (NOW()
     // es el mismo dentro de la transacción) — el frontend las junta en
     // una sola tarjeta con esos datos.
-    const resultados = await sql.transaction(fechas.map(f => sql`
-      INSERT INTO salas_apartados
-        (sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota, nota_pdf_url, creado_por)
-      VALUES
-        (${sala_id}, ${f}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${solicitudPrestamo}, ${folioNota}, ${notaPdfUrl}, ${req.user.username})
-      RETURNING id`));
+    let resultados;
+    try {
+      resultados = await sql.transaction(fechas.map(f => sql`
+        INSERT INTO salas_apartados
+          (sala_id, fecha, hora_inicio, hora_fin, personas, descripcion, no_oficio, prestamo, folio_nota, nota_pdf_url, creado_por)
+        VALUES
+          (${sala_id}, ${f}, ${hora_inicio}, ${hora_fin}, ${numPersonas}, ${desc}, ${oficio}, ${solicitudPrestamo}, ${folioNota}, ${notaPdfUrl}, ${req.user.username})
+        RETURNING id`));
+    } catch (errApartado) {
+      // No se apartó: el número tomado de la secuencia queda libre para reasignarse.
+      if (usaConsecutivo) {
+        await sql`INSERT INTO tarjeta_informativa_liberados (no_tarjeta, liberado_por, liberado_en)
+                  VALUES (${folioNota}, ${req.user.username}, NOW()) ON CONFLICT (no_tarjeta) DO NOTHING`.catch(() => {});
+      }
+      throw errApartado;
+    }
     const ids = resultados.map(r => r[0].id);
+
+    // Registro en No. Tarjeta Informativa (fecha y hora de México en que se genera).
+    let tarjetaError = null;
+    try {
+      const ahora = new Date();
+      const fechaMx = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Mexico_City', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ahora);
+      const horaMx = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: false }).format(ahora);
+      const [yaExiste] = await sql`SELECT id FROM tarjeta_informativa WHERE no_tarjeta = ${folioNota}`;
+      if (!yaExiste) {
+        await sql`DELETE FROM tarjeta_informativa_liberados WHERE no_tarjeta = ${folioNota}`;
+        await sql`
+          INSERT INTO tarjeta_informativa (no_tarjeta, fecha, a_quien_se_dirige, asunto, area_solicitante, solicitante, hora, creado_por)
+          VALUES (${folioNota}, ${fechaMx}, ${TARJETA_SALA.a_quien_se_dirige}, ${asuntoTarjeta},
+                  ${TARJETA_SALA.area_solicitante}, ${TARJETA_SALA.solicitante}, ${horaMx}, ${req.user.username})`;
+        console.log(`✅  Tarjeta Informativa ${folioNota} creada automáticamente al apartar ${sala.nombre}`);
+      }
+    } catch (errTarjeta) {
+      tarjetaError = 'La sala se apartó, pero no se pudo crear el registro en No. Tarjeta Informativa.';
+      console.error('⚠️  Tarjeta Informativa automática:', errTarjeta);
+    }
 
     const filas = await sql`
       SELECT sa.*, s.nombre AS sala_nombre
@@ -2664,7 +2749,7 @@ app.post('/api/salas/apartados', verifyToken, onlyGestionCompleta, async (req, r
       WHERE sa.id = ANY(${ids})
       ORDER BY sa.fecha ASC`;
 
-    res.status(201).json({ ...filas[0], apartados: filas, fechas, nota_error: notaPdfUrl ? null : notaMotivo });
+    res.status(201).json({ ...filas[0], apartados: filas, fechas, nota_error: notaPdfUrl ? null : notaMotivo, tarjeta_error: tarjetaError });
   } catch (err) {
     if (err.code === '23503') {
       return res.status(409).json({ mensaje: 'Esa sala ya no existe — actualiza la página y vuelve a intentar.' });
