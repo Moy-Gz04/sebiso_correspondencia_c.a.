@@ -5,12 +5,11 @@
 
    2026-09-29 — Carpetas por Área:
    · subirDocumento acepta `carpeta` (nombre del área, ej. "R. Humanos").
-     El archivo se guarda en
-       📁 GENERAL / 📁 CORRESPONDENCIA · Archivos por Área / 📁 <área>
-     y cada subcarpeta se crea sola la primera vez. Al estar DENTRO de la
-     GENERAL, heredan sus permisos: sin compartir nada ni mandar correos.
-   · Sin `carpeta`, se guarda en la carpeta GENERAL de siempre
-     (FOLDER_ID_DOCUMENTOS), que conserva todo lo subido antes.
+     El archivo se guarda en la carpeta de esa área (CARPETAS_AREA), creada
+     y compartida a mano solo con la gente del área. El script no crea ni
+     comparte carpetas: no se manda ningún correo.
+   · Sin `carpeta` (o área sin carpeta propia), se guarda en la carpeta
+     GENERAL de siempre (FOLDER_ID_DOCUMENTOS), que conserva todo lo anterior.
    · obtenerDocumento: el servidor pide aquí el archivo y se lo muestra al
      usuario (los archivos son privados por la política de la institución).
    · generarPdf y eliminarPdf NO cambiaron.
@@ -23,9 +22,20 @@ const FOLDER_ID        = '1_YlxxuwdBQHa4SkZp8lnzETcNg9rMJpP';
 /* Carpeta GENERAL: documentos subidos hasta ahora (y respaldo si no llega el área) */
 const FOLDER_ID_DOCUMENTOS = '1S6ameXMlEgzxtBkKHDmZipAaX51MqtLJ';
 
-/* Carpeta que agrupa las carpetas de cada área. Va DENTRO de la carpeta
-   GENERAL (se crea sola la primera vez) y su id se guarda en las propiedades del script. */
-const NOMBRE_RAIZ_AREAS = 'CORRESPONDENCIA · Archivos por Área';
+/* ── Carpeta de cada área (creadas y compartidas a mano en Drive) ──
+   Cada una está compartida SOLO con la gente de esa área. El script solo
+   guarda ahí; no crea carpetas ni comparte nada (no se manda ningún correo).
+   El nombre debe ser igual al del área en el sistema. Un área que no esté
+   aquí (p. ej. Transparencia, sin carpeta todavía) guarda en la GENERAL. */
+const CARPETAS_AREA = {
+  'Archivo':                     '10qz6yJC_ENBWtuRLPV4htQaE_E_7QHCV',
+  'Coordinación Administrativa': '1LDvalB_L0RpJhRMFW9EyqwjVEh4czIBL',
+  'Informática':                 '1OhyjGE8gFX8g-n3ClpPKcqq6OWR1cYSB',
+  'R. Financieros':              '1cUHqb6mYED--GXqLtQHEaC6QcfUnGbgb',
+  'R. Humanos':                  '1ZPtjkjxO_2Ju9d9eCSk8HbKq83_fvbT8',
+  'R. Materiales':               '1BCv5KqPr36OEYYd9KVvHRYckjLhvcr6W',
+  'Seguimiento de Auditorías':   '1qa-U1iiJHcCf-uERjh6ACqS773XjVw3z',
+};
 
 /* Rango completo que se exporta a PDF (A1:Y44) */
 const RANGO_EXPORT = { r1: 0, c1: 0, r2: 44, c2: 25 }; // 0-indexado, fin exclusivo
@@ -125,7 +135,7 @@ function obtenerDocumento(data) {
 
 /* ¿El archivo está en la carpeta GENERAL o dentro de la carpeta de áreas? */
 function estaEnCarpetasPermitidas_(file) {
-  const permitidas = [FOLDER_ID_DOCUMENTOS, FOLDER_ID];
+  const permitidas = [FOLDER_ID_DOCUMENTOS, FOLDER_ID].concat(Object.keys(CARPETAS_AREA).map(a => CARPETAS_AREA[a]));
   const raiz = PropertiesService.getScriptProperties().getProperty('carpeta_raiz_areas');
   if (raiz) permitidas.push(raiz);
   const padres = file.getParents();
@@ -140,61 +150,13 @@ function estaEnCarpetasPermitidas_(file) {
   return false;
 }
 
-/* ── Carpeta de un área (se crea si no existe) ──
-   Los ids se guardan en las propiedades del script para no buscar en
-   Drive en cada subida. Un candado evita que dos subidas simultáneas
-   creen la misma carpeta dos veces. */
+/* ── Carpeta de un área ──
+   Usa la carpeta fija de CARPETAS_AREA (compartida a mano con esa área).
+   Si el área no tiene carpeta o no se puede abrir, se guarda en la GENERAL:
+   nunca se crea ni se comparte nada desde aquí. */
 function carpetaDeArea_(area) {
-  const nombre = String(area).replace(/[\\/:*?"<>|]/g, '-').trim().slice(0, 80) || 'Sin área';
-  const props  = PropertiesService.getScriptProperties();
-  const clave  = 'carpeta_area_' + nombre;
-
-  const guardada = abrirCarpeta_(props.getProperty(clave));
-  if (guardada) return guardada;
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try {
-    const otraVez = abrirCarpeta_(props.getProperty(clave));
-    if (otraVez) return otraVez;
-
-    const raiz = carpetaRaizAreas_();
-    const existentes = raiz.getFoldersByName(nombre);
-    const carpeta = existentes.hasNext() ? existentes.next() : raiz.createFolder(nombre);
-    props.setProperty(clave, carpeta.getId());
-    return carpeta;
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-/* Carpeta que agrupa las de cada área: DENTRO de la carpeta GENERAL, para
-   que herede sus permisos (quien tiene compartida la GENERAL ve también las
-   carpetas por área, sin volver a compartir nada ni mandar correos). */
-function carpetaRaizAreas_() {
-  const props = PropertiesService.getScriptProperties();
-  const general = DriveApp.getFolderById(FOLDER_ID_DOCUMENTOS);
-  const guardada = abrirCarpeta_(props.getProperty('carpeta_raiz_areas'));
-  if (guardada) return guardada;
-
-  const existentes = general.getFoldersByName(NOMBRE_RAIZ_AREAS);
-  const raiz = existentes.hasNext() ? existentes.next() : general.createFolder(NOMBRE_RAIZ_AREAS);
-  props.setProperty('carpeta_raiz_areas', raiz.getId());
-  return raiz;
-}
-
-/* ── Mover la carpeta de áreas DENTRO de la GENERAL (se ejecuta una vez) ──
-   Mover no comparte ni notifica a nadie: la carpeta y todo lo que tiene
-   pasan a heredar los permisos de la GENERAL. Los enlaces de los archivos
-   no cambian, así que el sistema los sigue abriendo igual. */
-function moverAreasDentroDeGeneral() {
-  const general = DriveApp.getFolderById(FOLDER_ID_DOCUMENTOS);
-  const raiz = carpetaRaizAreas_();
-  const padres = raiz.getParents();
-  const yaDentro = padres.hasNext() && padres.next().getId() === FOLDER_ID_DOCUMENTOS;
-  if (yaDentro) { Logger.log('La carpeta de áreas ya está dentro de la general. Nada que hacer.'); return; }
-  raiz.moveTo(general);
-  Logger.log('Listo: "' + raiz.getName() + '" ahora está dentro de "' + general.getName() + '" y hereda sus permisos.');
+  const id = CARPETAS_AREA[String(area).trim()];
+  return abrirCarpeta_(id) || DriveApp.getFolderById(FOLDER_ID_DOCUMENTOS);
 }
 
 /* Abre una carpeta por id; null si no hay id, no existe o está en la papelera. */
@@ -338,12 +300,13 @@ function probarEnvio() {
   Logger.log(out.getContent());
 }
 
-/* ── Prueba de carpetas por área (Ejecutar → probarCarpetasArea) ──
-   Crea (si no existen) la carpeta raíz y las 8 carpetas de área, SIN subir
-   ningún archivo. Sirve también para dar los permisos la primera vez. */
+/* ── Revisa las carpetas por área (Ejecutar → probarCarpetasArea) ──
+   No crea, no mueve y no comparte nada: solo confirma que el script puede
+   abrir cada carpeta y muestra su nombre. */
 function probarCarpetasArea() {
-  const areas = ['Archivo', 'Coordinación Administrativa', 'Informática', 'R. Financieros',
-                 'R. Humanos', 'R. Materiales', 'Seguimiento de Auditorías', 'Transparencia'];
-  areas.forEach(a => Logger.log(a + ' → ' + carpetaDeArea_(a).getUrl()));
-  Logger.log('Carpeta que agrupa las áreas: ' + carpetaRaizAreas_().getUrl());
+  Object.keys(CARPETAS_AREA).forEach(a => {
+    const f = abrirCarpeta_(CARPETAS_AREA[a]);
+    Logger.log((f ? '✓ ' : '✗ NO SE PUDO ABRIR — ') + a + (f ? ' → "' + f.getName() + '"' : ''));
+  });
+  Logger.log('Áreas sin carpeta propia (guardan en la GENERAL): Transparencia');
 }
