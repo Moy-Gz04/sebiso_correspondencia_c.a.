@@ -437,6 +437,17 @@
       text-transform: uppercase; letter-spacing: .3px;
     }
     .fade-out { opacity: 0; transform: scale(0.8) !important; }
+    /* Campana de fondo en cada tarjeta (img/campana-fondo.png, silueta usada
+       como máscara: toma el color de cada tarjeta y queda tenue, detrás del texto) */
+    .ticket { isolation: isolate; overflow: hidden; }
+    .ticket::before {
+      content: ""; position: absolute; z-index: -1; pointer-events: none;
+      left: -6px; bottom: -10px; width: 62%; height: 92%;
+      -webkit-mask: url(img/campana-fondo.png) left bottom / contain no-repeat;
+              mask: url(img/campana-fondo.png) left bottom / contain no-repeat;
+    }
+    .ticket.color-guinda::before { background: #F6EEDD; opacity: .13; }
+    .ticket.color-crema::before  { background: var(--guinda, #5F2132); opacity: .09; }
     /* Mini contador para poder quitar la tarjeta */
     .ticket-cuenta { display: flex; align-items: center; gap: 5px; margin-top: 10px; padding-top: 8px;
       border-top: 1px dashed currentColor; font-size: 0.74rem; opacity: .85; font-variant-numeric: tabular-nums; }
