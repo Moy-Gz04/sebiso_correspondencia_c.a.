@@ -1707,6 +1707,14 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
 
       const ruta_doc1 = files.doc1?.[0] ? await subirArchivoADrive(files.doc1[0], areaDeOficio(oficio, req.user.area)) : null;
       const ruta_doc2 = files.doc2?.[0] ? await subirArchivoADrive(files.doc2[0], areaDeOficio(oficio, req.user.area)) : null;
+      // Documentos de respuesta: cuando quien atiende es admin o del área que
+      // registró el oficio (p. ej. Coordinación se lo turna a sí misma), la
+      // petición entra por esta rama. Antes aquí solo se guardaban doc1/doc2 y
+      // el Turno, el Seguimiento y los archivos extra se descartaban en silencio
+      // aunque el oficio sí quedaba "atendido".
+      const ruta_doc3 = files.doc3?.[0] ? await subirArchivoADrive(files.doc3[0], areaDeOficio(oficio, req.user.area)) : null;
+      const ruta_doc4 = files.doc4?.[0] ? await subirArchivoADrive(files.doc4[0], areaDeOficio(oficio, req.user.area)) : null;
+      const docsExtra = await calcularDocsExtra(oficio, files, req.body, req.user.username);
 
       const limpiarAsignacion = nuevoEstatus === 'turnado' ? true : false;
 
@@ -1734,6 +1742,11 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           hora_recibido           = COALESCE(${hora_recibido  ?? null}, hora_recibido),
           ruta_doc1               = COALESCE(${ruta_doc1}, ruta_doc1),
           ruta_doc2               = COALESCE(${ruta_doc2}, ruta_doc2),
+          ruta_doc3               = COALESCE(${ruta_doc3}, ruta_doc3),
+          ruta_doc4               = COALESCE(${ruta_doc4}, ruta_doc4),
+          doc3_subido_por         = COALESCE(${ruta_doc3 ? req.user.username : null}, doc3_subido_por),
+          doc4_subido_por         = COALESCE(${ruta_doc4 ? req.user.username : null}, doc4_subido_por),
+          docs_extra              = COALESCE(${docsExtra}::jsonb, docs_extra),
           usuario_asignado_id     = CASE WHEN ${limpiarAsignacion} THEN NULL ELSE usuario_asignado_id END,
           usuario_asignado_nombre = CASE WHEN ${limpiarAsignacion} THEN NULL ELSE usuario_asignado_nombre END,
           instrucciones_turno     = CASE WHEN ${limpiarAsignacion} THEN NULL ELSE instrucciones_turno END,
