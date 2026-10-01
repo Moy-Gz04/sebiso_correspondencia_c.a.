@@ -376,8 +376,17 @@
   <div id="modal-subturnar">
     <div class="modal-box">
       <div class="modal-header">
-        <h2><i class="ti ti-user-share"></i> Turnar Oficio</h2>
-        <button onclick="cerrarSubturnar()" title="Cerrar"><i class="ti ti-x"></i></button>
+        <div class="modal-header-top">
+          <h2><i class="ti ti-user-share"></i> Turnar Oficio</h2>
+          <button onclick="cerrarSubturnar()" title="Cerrar"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="modal-header-asunto">
+          <i class="ti ti-file-text"></i>
+          <div class="modal-header-asunto-txt">
+            <span class="modal-header-asunto-label">Asunto</span>
+            <span class="modal-header-asunto-val" id="subturnar-asunto">—</span>
+          </div>
+        </div>
       </div>
       <div class="modal-body">
         <div class="modal-info-box">

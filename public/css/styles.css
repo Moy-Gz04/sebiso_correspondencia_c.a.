@@ -1532,9 +1532,12 @@ img { max-width: 100%; }
 }
 
 /* Compactar para que quepa sin scroll en pantallas normales */
-#modal-atender .modal-header  { padding: 13px 22px; gap: 8px; }
-#modal-atender .modal-header h2 { font-size: 1.18rem; }
-#modal-atender .modal-header-asunto { padding: 7px 11px; font-size: 12px; }
+#modal-atender .modal-header,
+#modal-subturnar .modal-header  { padding: 13px 22px; gap: 8px; }
+#modal-atender .modal-header h2,
+#modal-subturnar .modal-header h2 { font-size: 1.18rem; }
+#modal-atender .modal-header-asunto,
+#modal-subturnar .modal-header-asunto { padding: 7px 11px; font-size: 12px; }
 #modal-atender .modal-body    { padding: 16px 22px 4px; }
 #modal-atender .modal-campo   { margin-bottom: 12px; }
 #modal-atender .modal-campo label { margin-bottom: 4px; }

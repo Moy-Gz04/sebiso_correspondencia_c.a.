@@ -784,6 +784,9 @@ async function abrirSubturnar(id) {
 
   const oficio = DATOS.find(o => o.id === id);
   document.getElementById('subturnar-instruccion').value = oficio?.instrucciones_turno || '';
+  // Asunto del oficio en la cabecera, igual que en el modal de Atender
+  document.getElementById('subturnar-asunto').textContent =
+    oficio?.descripcion?.trim() || 'Sin descripción registrada';
 
   // Documento de Turno: campo de subida siempre disponible aquí (permite
   // reemplazar el archivo aunque ya exista uno), con un aviso si el
