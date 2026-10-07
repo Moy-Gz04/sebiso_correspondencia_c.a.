@@ -423,7 +423,7 @@ function construirTarjeta(r, i) {
 
   return `
   <div class="tarjeta ${claseExtra}" id="tarjeta-${i}">
-    <div class="t-header" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
+    <div class="t-header t-header-5" onclick="toggleTarjeta(${i})" role="button" aria-expanded="false">
       <div class="th-bloque">
         <span class="th-label">N. Control</span>
         <span class="th-val mono">${r.n_control}</span>

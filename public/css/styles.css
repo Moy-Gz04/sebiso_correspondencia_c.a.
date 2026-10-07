@@ -1758,3 +1758,31 @@ body::before {
   -webkit-mask: url(../img/campana-fondo.png) left bottom / contain no-repeat;
           mask: url(../img/campana-fondo.png) left bottom / contain no-repeat;
 }
+
+/* Tarjetas de Área y Usuario: tienen 5 datos (sin F. Sello), no 6 como el
+   historial; con la cuadrícula de 6 el estatus caía en una columna angosta
+   y se cortaba. Columnas propias y textos que no se recortan. */
+@media (min-width: 769px) {
+  .t-header.t-header-5 { grid-template-columns: 150px minmax(0, 1fr) 105px 150px 150px 38px; gap: 12px; }
+  .t-header-5 .tag-prioridad { white-space: normal; max-width: 100%; line-height: 1.3; }
+  .t-header-5 .th-bloque .th-val { white-space: normal; overflow: visible; text-overflow: clip; }
+  .t-header-5 .badge { max-width: 100%; width: fit-content; }
+}
+@media (min-width: 769px) and (max-width: 1100px) {
+  .t-header.t-header-5 { grid-template-columns: 130px minmax(0, 1fr) 95px 120px 140px 34px; gap: 8px; }
+}
+
+/* Encabezado: en computadora y tablet se mantiene en una sola línea y los
+   contenidos se encogen; solo en móvil (≤768px) se acomoda en dos líneas */
+@media (min-width: 769px) {
+  .header-banda-superior { flex-wrap: nowrap; }
+  .header-texto { flex: 1 1 auto; min-width: 0; }
+  .header-secretaria { font-size: clamp(1rem, 1.75vw, 1.5rem); line-height: 1.2; }
+  .header-gobierno { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header-spacer { flex: 0 1 auto; min-width: 0; }
+  .header-derecha { flex: 0 0 auto; flex-wrap: nowrap; }
+}
+@media (min-width: 769px) and (max-width: 1250px) {
+  .header-fecha { display: none; }
+  .header-derecha { gap: 10px; padding-left: 12px; }
+}
