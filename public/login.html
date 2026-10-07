@@ -12,338 +12,36 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
 
-  <style>
-    /* ══════════════════════════════════════════════════════════════
-       LOGIN — Neumorfismo guinda/dorado
-       Mismo lenguaje visual que el login de PROGRAMAS: superficie en
-       relieve de doble sombra, inputs en pill hundidos, acento dorado
-       en foco/botón, tipografía Poppins. Esto reemplaza SOLO esta
-       pantalla — el resto de SBIS (área, historial, capturas...)
-       conserva su identidad de siempre (fondo con flores, Montserrat).
 
-       Nota sobre los sombreados hundidos (.neu-input, .neu-toggle-track):
-       el offset del box-shadow va CASI vertical (x≈0), no diagonal. Un
-       offset diagonal concentra el sombreado cerca de las esquinas y
-       en un pill ancho deja el centro plano ("cortado en piezas"). Con
-       x≈0 el sombreado corre parejo a lo largo de todo el borde sin
-       importar el ancho del campo.
-       ══════════════════════════════════════════════════════════════ */
-    :root {
-      --neu-bg:        #4A0A1D;
-      --neu-surface:   #4A0A1D;
-      --neu-light:     rgba(140,51,88,.55);
-      --neu-dark:      rgba(8,1,4,.6);
-      --neu-accent:    #C8A951;
-      --neu-accent-soft: #9a7d30;
-      --neu-heading:   #C8A951;
-      --neu-text:      #F3E2D9;
-      --neu-text-soft: #C89BA8;
-      --neu-btn-text:  #3A0818;
-      --neu-error:     #C8A951;
-      --neu-font:      'Poppins', 'Segoe UI', sans-serif;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: 15px; -webkit-text-size-adjust: 100%; }
-
-    /* El degradado de fondo vive en <body>, NO en .login-wrap: así queda
-       por debajo de TODO (z-index implícito más bajo posible) y la
-       lluvia (.lluvia-flores, position:fixed) se ve encima de él, en
-       vez de quedar tapada por un fondo opaco pintado despues en el DOM. */
-    body {
-      font-family: var(--neu-font);
-      min-height: 100vh;
-      display: flex;
-      background: radial-gradient(ellipse 70% 55% at 50% 32%, #6B0F2B 0%, #2a0510 72%);
-      overflow-x: hidden;
-    }
-
-    .login-wrap {
-      position: relative;
-      z-index: 1;
-      min-height: 100vh;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: transparent;
-    }
-
-    /* ══ LLUVIA DE FLORES DE CEMPASÚCHIL — igual que el resto de SBIS ══
-       Misma capa (z-index:0) que .login-halo: cae detrás de la tarjeta
-       (.login-card, z-index:1), generada por js/lluvia.js. Cada flor
-       es "tocable": un click la hace explotar en chispas tipo fuegos
-       artificiales. Reglas propias aquí (no las de css/styles.css)
-       porque esta pantalla tiene su hoja de estilos inline aparte. */
-    .lluvia-flores { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
-    .flor-lluvia {
-      position: absolute; top: -6%;
-      background-image: url('img/lluvia.png');
-      background-size: contain; background-repeat: no-repeat; background-position: center;
-      opacity: 0;
-      animation-name: caerFlorCempasuchil; animation-timing-function: linear; animation-iteration-count: infinite;
-      will-change: transform, opacity;
-      pointer-events: auto; cursor: pointer;
-    }
-    @keyframes caerFlorCempasuchil {
-      0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
-      8%   { opacity: .8; }
-      90%  { opacity: .7; }
-      100% { transform: translateY(112vh) translateX(var(--deriva, 24px)) rotate(var(--giro-final, 300deg)); opacity: 0; }
-    }
-    .chispa-fuego {
-      position: absolute; border-radius: 50%; pointer-events: none;
-      transform: translate(-50%, -50%); box-shadow: 0 0 4px currentColor;
-      animation: explotarChispa .6s cubic-bezier(.15,.8,.4,1) forwards;
-      will-change: transform, opacity;
-    }
-    @keyframes explotarChispa {
-      0%   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
-      65%  { opacity: 1; }
-      100% { transform: translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px))) scale(.25); opacity: 0; }
-    }
-    .destello-fuego {
-      position: absolute; width: 5px; height: 5px; border-radius: 50%;
-      transform: translate(-50%, -50%);
-      background: radial-gradient(circle, #fff8dc 0%, rgba(255,193,79,.85) 45%, transparent 75%);
-      pointer-events: none; animation: destelloFuego .35s ease-out forwards;
-    }
-    @keyframes destelloFuego {
-      0%   { transform: translate(-50%, -50%) scale(.3);  opacity: 1; }
-      100% { transform: translate(-50%, -50%) scale(5.5); opacity: 0; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .flor-lluvia { animation: none; opacity: 0; }
-      .chispa-fuego, .destello-fuego { animation: none; opacity: 0; }
-    }
-
-    /* Halo suave detrás de la tarjeta */
-    .login-halo {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: min(560px, 90vw);
-      height: min(560px, 90vw);
-      border-radius: 50%;
-      z-index: 0;
-      background: radial-gradient(circle, rgba(140,51,88,.55) 0%, rgba(140,51,88,0) 70%);
-      pointer-events: none;
-    }
-
-    .login-card {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 420px;
-      background: var(--neu-surface);
-      border-radius: 36px;
-      padding: 40px 34px 32px;
-      box-shadow: 14px 14px 28px var(--neu-dark), -14px -14px 28px var(--neu-light);
-      animation: aparecer .5s cubic-bezier(.22,1,.36,1) both;
-    }
-    @keyframes aparecer {
-      from { opacity: 0; transform: translateY(20px) scale(.98); }
-      to   { opacity: 1; transform: translateY(0)    scale(1); }
-    }
-
-    /* ── Cabecera ── */
-    .login-header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
-
-    .escudo-placeholder {
-      width: 56px; height: 56px; flex-shrink: 0; margin-bottom: 10px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, var(--neu-accent), var(--neu-accent-soft));
-      border: none;
-      display: flex; align-items: center; justify-content: center;
-      overflow: hidden;
-      box-shadow: 0 4px 10px rgba(0,0,0,.3);
-    }
-    .escudo-placeholder img { width: 100%; height: 100%; object-fit: cover; }
-    .escudo-placeholder i { font-size: 24px; color: var(--neu-btn-text); }
-
-    .login-gov {
-      font-size: .58rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-      color: var(--neu-text-soft);
-    }
-    .login-secretaria {
-      font-size: 1rem; font-weight: 700; color: var(--neu-text); line-height: 1.25; margin-top: 2px;
-    }
-    .login-subsecretaria { font-size: .7rem; color: var(--neu-text-soft); margin-top: 2px; }
-
-    .login-titulo-bloque { text-align: center; margin-top: 18px; }
-    .login-titulo { font-size: 1.6rem; font-weight: 800; color: var(--neu-heading); letter-spacing: -.01em; }
-    .login-subtitulo { font-size: .8rem; color: var(--neu-text-soft); margin-top: 6px; }
-
-    /* ── Cuerpo del formulario ── */
-    .login-body { display: flex; flex-direction: column; gap: 16px; margin-top: 26px; }
-
-    .campo-grupo { display: flex; flex-direction: column; gap: 8px; }
-    .campo-label {
-      font-size: .68rem; font-weight: 600; letter-spacing: .04em; text-transform: none;
-      color: var(--neu-text-soft);
-    }
-
-    .campo-input-wrap {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--neu-surface);
-      border-radius: 99px;
-      padding: 0 18px;
-      height: 50px;
-      box-shadow: inset 0 3px 7px var(--neu-dark), inset 0 -3px 7px var(--neu-light);
-      transition: box-shadow .2s ease;
-    }
-    .campo-input-wrap:focus-within {
-      box-shadow: inset 0 2px 5px var(--neu-dark), inset 0 -2px 5px var(--neu-light), 0 0 0 1.5px var(--neu-accent);
-    }
-    .campo-input-wrap .icono-campo {
-      flex-shrink: 0; font-size: 16px; color: var(--neu-text-soft); transition: color .2s;
-    }
-    .campo-input-wrap:focus-within .icono-campo { color: var(--neu-accent); }
-
-    .campo-input {
-      flex: 1; min-width: 0; height: 100%;
-      border: none; background: transparent; outline: none;
-      font-size: .92rem; font-family: var(--neu-font); color: var(--neu-text);
-    }
-    .campo-input::placeholder { color: rgba(243,226,217,.4); }
-
-    /* Autocompletado / íconos nativos del navegador. Chrome/Edge pintan
-       su propio fondo sólido encima del input autocompletado (y su
-       propio botón de "revelar contraseña"/"credenciales"), sobre el
-       pill. El truco estándar para neutralizarlo es un box-shadow
-       interior gigante del color de la superficie — pero ESE relleno
-       sólido, al no llevar el degradado del hundido, borra el
-       sombreado neumórfico justo en el área del input, mientras el
-       resto del contenedor (icono, padding, puntas redondeadas) sí lo
-       conserva: la costura entre "adentro sin sombra" y "afuera con
-       sombra" es la medialuna. Se arregla apilando el MISMO sombreado
-       hundido (arriba oscuro / abajo claro) encima del relleno, para
-       que el input autocompletado luzca igual de hundido que el resto
-       del pill, con o sin autocompletar. */
-    .campo-input:-webkit-autofill,
-    .campo-input:-webkit-autofill:hover,
-    .campo-input:-webkit-autofill:focus,
-    .campo-input:-webkit-autofill:active {
-      -webkit-text-fill-color: var(--neu-text);
-      caret-color: var(--neu-text);
-      -webkit-box-shadow:
-        inset 0 3px 7px var(--neu-dark),
-        inset 0 -3px 7px var(--neu-light),
-        0 0 0 1000px var(--neu-surface) inset;
-      box-shadow:
-        inset 0 3px 7px var(--neu-dark),
-        inset 0 -3px 7px var(--neu-light),
-        0 0 0 1000px var(--neu-surface) inset;
-      transition: background-color 5000s ease-in-out 0s;
-    }
-    .campo-input[type="password"]::-ms-reveal,
-    .campo-input[type="password"]::-ms-clear { display: none; }
-    .campo-input::-webkit-textfield-decoration-container { display: none; }
-    .campo-input::-webkit-credentials-auto-fill-button,
-    .campo-input::-webkit-strong-password-auto-fill-button {
-      visibility: hidden; display: none !important; pointer-events: none; position: absolute; right: 0;
-    }
-
-    .btn-ver-pass {
-      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-      width: 22px; height: 22px; padding: 0; border: none; background: transparent; cursor: pointer;
-      font-size: 16px; color: var(--neu-text-soft); transition: color .2s;
-    }
-    .btn-ver-pass:hover { color: var(--neu-accent); }
-
-    /* ── Recordarme ── */
-    .fila-recordarme { display: flex; align-items: center; margin: 2px 2px 0; }
-    .neu-toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
-    .neu-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-    .neu-toggle-track {
-      width: 34px; height: 19px; border-radius: 99px; background: var(--neu-surface);
-      position: relative; flex-shrink: 0;
-      box-shadow: inset 0 2px 4px var(--neu-dark), inset 0 -2px 4px var(--neu-light);
-      transition: background .2s ease;
-    }
-    .neu-toggle-thumb {
-      position: absolute; top: 2.5px; left: 2.5px; width: 14px; height: 14px; border-radius: 50%;
-      background: var(--neu-text); box-shadow: 1px 1px 3px rgba(0,0,0,.35); transition: transform .2s ease;
-    }
-    .neu-toggle input:checked + .neu-toggle-track { background: var(--neu-accent-soft); }
-    .neu-toggle input:checked + .neu-toggle-track .neu-toggle-thumb { transform: translateX(15px); background: var(--neu-btn-text); }
-    .neu-toggle-label { font-size: .78rem; color: var(--neu-text-soft); font-weight: 500; }
-
-    /* ── Mensaje de error ── */
-    .error-msg {
-      display: none; align-items: center; gap: 8px;
-      background: rgba(8,1,4,.35);
-      border-radius: 14px;
-      padding: 10px 14px;
-      font-size: .78rem;
-      color: var(--neu-error);
-      font-weight: 600;
-      animation: shake .35s ease;
-    }
-    .error-msg.visible { display: flex; }
-    @keyframes shake {
-      0%,100% { transform: translateX(0); }
-      20%,60%  { transform: translateX(-5px); }
-      40%,80%  { transform: translateX(5px); }
-    }
-
-    /* ── Botón de acceso ── */
-    .btn-login {
-      width: 100%; height: 52px;
-      background: linear-gradient(135deg, var(--neu-accent), var(--neu-accent-soft));
-      color: var(--neu-btn-text);
-      border: none;
-      border-radius: 99px;
-      font-size: .82rem; font-weight: 700; font-family: var(--neu-font);
-      letter-spacing: .06em; text-transform: uppercase;
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: box-shadow .15s ease, transform .15s ease, filter .15s ease;
-      box-shadow: 8px 8px 16px var(--neu-dark), -8px -8px 16px var(--neu-light);
-    }
-    .btn-login:hover { filter: brightness(1.06); }
-    .btn-login:active { box-shadow: inset 0 3px 6px rgba(0,0,0,.35); transform: translateY(1px); }
-    .btn-login:disabled { opacity: .65; cursor: not-allowed; }
-
-    .spinner {
-      display: none; width: 16px; height: 16px;
-      border: 2px solid rgba(58,8,24,.3); border-top-color: var(--neu-btn-text);
-      border-radius: 50%; animation: spin .6s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .btn-login.cargando .spinner   { display: block; }
-    .btn-login.cargando .btn-texto { display: none; }
-    .btn-login.cargando .btn-icono { display: none; }
-
-    .login-pie { font-size: .72rem; color: var(--neu-text-soft); text-align: center; margin-top: 22px; line-height: 1.6; }
-
-    @media (max-width: 768px) { .campo-input { font-size: 16px; } }
-
-    @media (max-width: 600px) {
-      .login-card { padding: 32px 24px 26px; border-radius: 28px; }
-      .login-titulo { font-size: 1.4rem; }
-    }
-    @media (max-height: 700px) {
-      .login-wrap { align-items: flex-start; padding-top: 28px; }
-    }
-  </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<link rel="stylesheet" href="css/login-eclipse.css?v=1">
 </head>
 <body>
 
-  <!-- Lluvia de flores de cempasúchil: capa de fondo decorativa, ver css arriba y js/lluvia.js -->
-  <div class="lluvia-flores" id="lluvia-flores"></div>
+<!-- ============ LOGIN (mismo diseño que Contratos: cielo, anillos, tarjeta circular y MiniSEBISO) ============ -->
+<div class="login-eclipse">
+  <div class="login-espacio" aria-hidden="true">
+    <canvas id="login-estrellas"></canvas>
+    <span class="anillo a1"></span><span class="anillo a2"></span><span class="anillo a3"></span>
+    <span class="eclipse"></span>
+  </div>
 
   <div class="login-wrap">
     <div class="login-halo"></div>
 
     <div class="login-card">
-
-      <!-- Cabecera -->
       <div class="login-header">
-        <div class="escudo-placeholder">
-          <img src="img/logo.png" alt="Escudo Secretaría de Bienestar e Inclusión Social"
-               onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ti ti-building-bank'}))"/>
+        <!-- MiniSEBISO: la mascota del sistema; sus ojos siguen el ratón (js/minisebiso.js) -->
+        <div class="minisebiso" role="button" tabindex="0" aria-label="MiniSEBISO, la mascota de SEBISO. Toca para saludar">
+          <div class="ms-burbuja" aria-live="polite">¡Hola! Soy el asistente virtual de los sistemas C.A.</div>
+          <div class="ms-cuerpo">
+            <span class="ms-ojo-mov izq"><span class="ms-ojo"></span></span>
+            <span class="ms-ojo-mov der"><span class="ms-ojo"></span></span>
+          </div>
+          <div class="ms-estrella"></div>
         </div>
         <div class="login-gov">Gobierno del Estado de Hidalgo</div>
         <div class="login-secretaria">Secretaría de Bienestar e Inclusión Social</div>
@@ -352,43 +50,23 @@
 
       <div class="login-titulo-bloque">
         <div class="login-titulo">Acceso al Sistema</div>
-        <div class="login-subtitulo">Ingresa tus credenciales institucionales</div>
       </div>
 
-      <!-- Cuerpo -->
       <div class="login-body">
-
-        <!-- Usuario -->
         <div class="campo-grupo">
           <label class="campo-label" for="inp-usuario">Usuario</label>
           <div class="campo-input-wrap">
             <i class="ti ti-user icono-campo"></i>
-            <input
-              class="campo-input"
-              id="inp-usuario"
-              type="text"
-              autocomplete="username"
-              placeholder="Ej. rhumanos"
-              spellcheck="false"
-            />
+            <input class="campo-input" id="inp-usuario" type="text" autocomplete="username" placeholder="Tu usuario" spellcheck="false">
           </div>
         </div>
 
-        <!-- Contraseña -->
         <div class="campo-grupo">
           <label class="campo-label" for="inp-password">Contraseña</label>
           <div class="campo-input-wrap">
             <i class="ti ti-lock icono-campo"></i>
-            <input
-              class="campo-input"
-              id="inp-password"
-              type="password"
-              autocomplete="current-password"
-              placeholder="••••••••"
-            />
-            <button class="btn-ver-pass" type="button" id="btn-ver" title="Mostrar contraseña" tabindex="-1">
-              <i class="ti ti-eye" id="ico-ojo"></i>
-            </button>
+            <input class="campo-input" id="inp-password" type="password" autocomplete="current-password" placeholder="••••••••">
+            <button class="btn-ver-pass" type="button" id="btn-ver" title="Mostrar contraseña" tabindex="-1"><i class="ti ti-eye" id="ico-ojo"></i></button>
           </div>
         </div>
 
@@ -400,14 +78,9 @@
           </label>
         </div>
 
-        <!-- Error -->
-        <div class="error-msg" id="error-msg">
-          <i class="ti ti-alert-circle"></i>
-          <span id="error-txt">Usuario o contraseña incorrectos.</span>
-        </div>
+        <div class="error-msg error-toggle" id="error-msg"><i class="ti ti-alert-circle"></i><span id="error-txt">Usuario o contraseña incorrectos.</span></div>
 
-        <!-- Botón -->
-        <button class="btn-login" id="btn-login" type="button">
+        <button id="btn-login" type="button" class="btn-login">
           <span class="spinner"></span>
           <i class="ti ti-login btn-icono"></i>
           <span class="btn-texto">Ingresar al Sistema</span>
@@ -415,12 +88,12 @@
 
         <div class="login-pie">
           Sistema de uso exclusivo para personal autorizado de la Secretaría.<br>
-          SBIS © 2026 — Gobierno del Estado de Hidalgo
+          SEBISO © 2026 — Gobierno del Estado de Hidalgo
         </div>
-
-      </div><!-- /login-body -->
-    </div><!-- /login-card -->
+      </div>
+    </div>
   </div>
+</div>
 
   <script>
     /* ═══════════════════════════════════════════════════
@@ -561,6 +234,7 @@
       }
     });
   </script>
-  <script src="js/lluvia.js"></script>
+<script src="js/login-espacio.js"></script>
+<script src="js/minisebiso.js"></script>
 </body>
 </html>
