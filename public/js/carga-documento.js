@@ -40,32 +40,10 @@ function iniciarCargaDocumento(ventana) {
   return {
     async abrir(url) {
       if (!ventana) { window.open(url, '_blank', 'noopener'); return; }
-      try {
-        const r = await fetch(url, { credentials: 'same-origin' });
-        if (!r.ok || !r.body) throw new Error('descarga');
-        const tipo = r.headers.get('Content-Type') || 'application/pdf';
-        if (/text\/html/i.test(tipo)) throw new Error('no es archivo');
-        const total = Number(r.headers.get('Content-Length')) || 0;
-        const lector = r.body.getReader();
-        const partes = []; let recibido = 0;
-        for (;;) {
-          const { done, value } = await lector.read();
-          if (done) break;
-          partes.push(value); recibido += value.length;
-          if (total) real = recibido / total * 100;
-        }
-        clearInterval(avance); pintar(100);
-        const enlace = URL.createObjectURL(new Blob(partes, { type: tipo }));
-        ventana.document.title = 'Documento';
-        ventana.document.body.innerHTML = '';
-        const marco = ventana.document.createElement('iframe');
-        marco.src = enlace;
-        marco.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0';
-        ventana.document.body.appendChild(marco);
-      } catch (e) {
-        clearInterval(avance);
-        ventana.location.href = url;
-      }
+      // La pestaña abre el archivo directo para que Chrome lo muestre en su visor
+      // (descargar, imprimir, zoom). Mientras el servidor responde, Chrome sigue
+      // mostrando esta pantalla con la barra avanzando.
+      ventana.location.href = url;
     },
     cancelar() {
       clearInterval(avance);
