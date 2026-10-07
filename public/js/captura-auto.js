@@ -543,6 +543,22 @@ async function enviarForm(e) {
 
     /* Modal de confirmación de éxito → al cerrar va a historial. Se muestra
        AL INSTANTE con el número de control; el PDF de Turno se anexa solo. */
+    // MiniSEBISO entrega el oficio: regresa a su lugar y luego avisa el número asignado
+    if (window.MiniSEBISO && window.MiniSEBISO.preguntar) {
+      if (window.MiniSEBISO.retirar) await window.MiniSEBISO.retirar();
+      await window.MiniSEBISO.preguntar({
+        titulo:   '¡Listo!',
+        pregunta: `He asignado el No. ${data.n_control}, regresemos al Historial.`,
+        btnOk:    'Continuar…',
+        iconoOk:  'ti-arrow-right',
+        soloOk:   true,
+        saludoOk: '¡Vamos!',
+        textoOk:  'Te llevo al Historial…'
+      });
+      await Promise.allSettled([subidaDoc3, limpieza]);
+      window.location.href = '/historial';
+      return;
+    }
     const yaFueTurnado = !!data.turnado_a;
     const pdfEnCamino  = data.doc3?.tipo === 'pendiente';
     await sbisAlert({
@@ -922,6 +938,16 @@ function seleccionarPendiente(id) {
 
   document.getElementById('titulo-panel-apartar')?.scrollIntoView?.({ behavior: 'smooth' });
   document.querySelector('.card-captura-unica')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Días de entrega: "No aplica" en automático, y MiniSEBISO lo avisa junto al campo
+  const dias = document.getElementById('dias_entrega');
+  if (dias) {
+    dias.value = '0';
+    dias.dispatchEvent(new Event('change'));
+    if (window.MiniSEBISO && window.MiniSEBISO.presentar) {
+      setTimeout(() => window.MiniSEBISO.presentar(dias, '¡Hola! Llené por ti el siguiente campo.'), 600);
+    }
+  }
 }
 
 /* OpenCV.js (cargado en captura-auto.html, solo en el navegador) tarda

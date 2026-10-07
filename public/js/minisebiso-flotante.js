@@ -8,7 +8,7 @@
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=9';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=10';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
@@ -77,7 +77,7 @@
       <div class="ms-estrella"></div>`;
   }
 
-  async function preguntar({ titulo = '¡Hola!', pregunta = '', detalle = '', btnOk = 'Sí, eliminar', btnCancel = 'Cancelar', iconoOk = 'ti-trash' } = {}) {
+  async function preguntar({ titulo = '¡Hola!', pregunta = '', detalle = '', btnOk = 'Sí, eliminar', btnCancel = 'Cancelar', iconoOk = 'ti-trash', soloOk = false, saludoOk = '¡Entendido!', textoOk = 'Lo elimino ahora mismo…' } = {}) {
     const esquina = document.querySelector('.ms-flotante');
     const overlay = document.createElement('div');
     overlay.className = 'ms-dlg-overlay';
@@ -89,8 +89,8 @@
           <div class="ms-dlg-pregunta" id="ms-dlg-pregunta">${pregunta}</div>
           ${detalle ? `<div class="ms-dlg-detalle">${detalle}</div>` : ''}
           <div class="ms-dlg-botones">
-            <button type="button" class="ms-dlg-btn ms-dlg-cancelar"><i class="ti ti-x"></i> ${btnCancel}</button>
-            <button type="button" class="ms-dlg-btn ms-dlg-ok"><i class="ti ${iconoOk}"></i> ${btnOk}</button>
+            ${soloOk ? '' : `<button type="button" class="ms-dlg-btn ms-dlg-cancelar"><i class="ti ti-x"></i> ${btnCancel}</button>`}
+            <button type="button" class="ms-dlg-btn ms-dlg-ok${soloOk ? ' ms-dlg-ok-dorado' : ''}"><i class="ti ${iconoOk}"></i> ${btnOk}</button>
           </div>
         </div>
       </div>`;
@@ -143,10 +143,11 @@
       { opacity: 1, transform: 'translateX(4px) scale(1.03)', offset: .7 },
       { opacity: 1, transform: 'none' }
     ], { duration: 380, easing: 'cubic-bezier(.34, 1.56, .64, 1)' });
-    overlay.querySelector('.ms-dlg-cancelar').focus();
+    overlay.querySelector(soloOk ? '.ms-dlg-ok' : '.ms-dlg-cancelar').focus();
 
     const respuesta = await new Promise((resolve) => {
       overlay.querySelector('.ms-dlg-ok').onclick = () => resolve(true);
+      if (soloOk) return;
       overlay.querySelector('.ms-dlg-cancelar').onclick = () => resolve(false);
       overlay.addEventListener('click', (e) => { if (e.target === overlay) resolve(false); });
       overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') resolve(false); });
@@ -155,8 +156,9 @@
 
     if (respuesta) {
       // Confirmó: la mascota se decide (aprieta y brinca), el globo se arruga y sale volando
-      globo.querySelector('.ms-dlg-saludo').textContent = '¡Entendido!';
-      globo.querySelector('.ms-dlg-pregunta').textContent = 'Lo elimino ahora mismo…';
+      globo.querySelector('.ms-dlg-saludo').textContent = saludoOk;
+      globo.querySelector('.ms-dlg-pregunta').textContent = textoOk;
+      const det = globo.querySelector('.ms-dlg-detalle'); if (det) det.remove();
       mirar(4, 3);
       await anim(mascota, [
         { transform: 'scale(1)' }, { transform: 'scale(1.15, .8)', offset: .35 },
@@ -400,4 +402,88 @@
   }
 
   window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { ayudarEditar, senalar });
+})();
+
+// =========================================================
+// MiniSEBISO.presentar(campo, texto): despierta, salta con marometa junto a
+// un campo de la página (no en ventana) y lo comenta con su globo. Se queda
+// ahí hasta que se le toca o se llama a MiniSEBISO.retirar(); entonces
+// regresa a su esquina a dormir.
+// =========================================================
+(function () {
+  const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, opts).finished.catch(() => {});
+  let actual = null;
+
+  async function presentar(campo, texto) {
+    if (!campo) return;
+    if (actual) await retirar();
+    const esquina = document.querySelector('.ms-flotante');
+    const ms = document.createElement('div');
+    ms.className = 'minisebiso ms-ayudante ms-presentador';
+    ms.setAttribute('role', 'button');
+    ms.setAttribute('tabindex', '0');
+    ms.setAttribute('aria-label', 'MiniSEBISO: ' + texto + ' Toca para cerrar');
+    ms.innerHTML = `
+      <div class="ms-burbuja">${texto}</div>
+      <div class="ms-cuerpo">
+        <span class="ms-ojo-mov izq"><span class="ms-ojo"></span></span>
+        <span class="ms-ojo-mov der"><span class="ms-ojo"></span></span>
+      </div>
+      <div class="ms-estrella"></div>`;
+    document.body.appendChild(ms);
+    const W = ms.offsetWidth, H = ms.offsetHeight;
+    // Espera a que la página termine de moverse antes de medir dónde está el campo
+    await new Promise(r => setTimeout(r, 900));
+    campo.scrollIntoView({ behavior: 'auto', block: 'center' });
+    const c = campo.getBoundingClientRect();
+    let x = c.right + 14, y = c.top + c.height / 2 - H / 2;
+    if (x + W > innerWidth - 8) { x = Math.min(innerWidth - W - 8, c.right - W); y = c.top - H - 6; }
+    y = Math.max(8, Math.min(y, innerHeight - H - 70));
+    ms.style.left = x + 'px'; ms.style.top = y + 'px';
+    const o = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
+    const dx = (o.left + o.width / 2) - (x + W / 2), dy = (o.top + o.height / 2) - (y + H / 2), s0 = o.width / W;
+    if (esquina) { esquina.classList.remove('dormido', 'hablando'); esquina.style.visibility = 'hidden'; }
+    campo.classList.add('ms-campo-senalado');
+    actual = { ms, esquina, o, W, H, s0, campo };
+    // Ojos siguen el cursor
+    const ojos = ms.querySelectorAll('.ms-ojo-mov');
+    actual.seguir = (e) => ojos.forEach(el => {
+      const r = el.getBoundingClientRect();
+      const ex = e.clientX - (r.left + r.width / 2), ey = e.clientY - (r.top + r.height / 2);
+      const d = Math.hypot(ex, ey) || 1, f = Math.min(1, d / 220);
+      el.style.setProperty('--dx', (ex / d * r.width * .55 * f).toFixed(1) + 'px');
+      el.style.setProperty('--dy', (ey / d * r.height * .32 * f).toFixed(1) + 'px');
+    });
+    window.addEventListener('pointermove', actual.seguir);
+    ms.addEventListener('click', () => retirar());
+    await anim(ms, [
+      { transform: `translate(${dx}px, ${dy}px) scale(${s0}) rotate(0deg)` },
+      { transform: `translate(${dx * .4}px, ${dy * .4 - 200}px) scale(${(s0 + 1) / 2}) rotate(-200deg)`, offset: .55 },
+      { transform: 'translate(0, -36px) scale(1.04) rotate(-330deg)', offset: .85 },
+      { transform: 'translate(0, 0) scale(1) rotate(-360deg)' }
+    ], { duration: 950, easing: 'cubic-bezier(.4, .05, .4, 1)' });
+    await anim(ms, [{ transform: 'scale(1.12, .86)' }, { transform: 'scale(1)' }], { duration: 260, easing: 'ease-out' });
+    ms.classList.add('hablando');
+  }
+
+  async function retirar() {
+    if (!actual) return;
+    const { ms, esquina, o, W, H, s0, campo, seguir } = actual;
+    actual = null;
+    window.removeEventListener('pointermove', seguir);
+    campo.classList.remove('ms-campo-senalado');
+    ms.classList.remove('hablando');
+    const r = ms.getBoundingClientRect();
+    const rx = (o.left + o.width / 2) - (r.left + W / 2), ry = (o.top + o.height / 2) - (r.top + H / 2);
+    await anim(ms, [
+      { transform: 'translate(0, 0) scale(1) rotate(0deg)' },
+      { transform: `translate(${rx * .55}px, ${ry * .55 - 200}px) scale(${(s0 + 1) / 2}) rotate(190deg)`, offset: .5 },
+      { transform: `translate(${rx}px, ${ry}px) scale(${s0}) rotate(360deg)` }
+    ], { duration: 900, easing: 'cubic-bezier(.4, .05, .4, 1)', fill: 'forwards' });
+    ms.remove();
+    if (esquina) { esquina.style.visibility = ''; esquina.classList.add('dormido'); }
+  }
+
+  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { presentar, retirar });
 })();
