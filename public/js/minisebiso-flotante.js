@@ -8,7 +8,7 @@
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=4';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=5';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
@@ -55,4 +55,134 @@
   ms.addEventListener('click', despertar);
   ms.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); despertar(); } });
   ms.addEventListener('animationend', (e) => { if (e.animationName === 'msSalto') ms.classList.remove('saltando'); });
+})();
+
+// =========================================================
+// MiniSEBISO.preguntar(): diálogo de confirmación "hablado" por la mascota.
+// Salta desde su esquina hasta un lado de la ventana, la ventana es su globo
+// de diálogo y responde con una animación distinta al cancelar o confirmar.
+// Devuelve una promesa con true (confirmó) o false (canceló).
+// =========================================================
+(function () {
+  const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, opts).finished.catch(() => {});
+
+  function mascotaHTML() {
+    return `
+      <div class="ms-cuerpo">
+        <span class="ms-ojo-mov izq"><span class="ms-ojo"></span></span>
+        <span class="ms-ojo-mov der"><span class="ms-ojo"></span></span>
+      </div>
+      <div class="ms-estrella"></div>`;
+  }
+
+  async function preguntar({ titulo = '¡Hola!', pregunta = '', detalle = '', btnOk = 'Sí, eliminar', btnCancel = 'Cancelar', iconoOk = 'ti-trash' } = {}) {
+    const esquina = document.querySelector('.ms-flotante');
+    const overlay = document.createElement('div');
+    overlay.className = 'ms-dlg-overlay';
+    overlay.innerHTML = `
+      <div class="ms-dlg-escena" role="alertdialog" aria-modal="true" aria-labelledby="ms-dlg-pregunta">
+        <div class="minisebiso ms-dlg-mascota" aria-hidden="true">${mascotaHTML()}</div>
+        <div class="ms-dlg-globo">
+          <div class="ms-dlg-saludo">${titulo}</div>
+          <div class="ms-dlg-pregunta" id="ms-dlg-pregunta">${pregunta}</div>
+          ${detalle ? `<div class="ms-dlg-detalle">${detalle}</div>` : ''}
+          <div class="ms-dlg-botones">
+            <button type="button" class="ms-dlg-btn ms-dlg-cancelar"><i class="ti ti-x"></i> ${btnCancel}</button>
+            <button type="button" class="ms-dlg-btn ms-dlg-ok"><i class="ti ${iconoOk}"></i> ${btnOk}</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const mascota = overlay.querySelector('.ms-dlg-mascota');
+    const globo = overlay.querySelector('.ms-dlg-globo');
+    const ojos = mascota.querySelectorAll('.ms-ojo-mov');
+    const mirar = (dx, dy) => ojos.forEach(o => { o.style.setProperty('--dx', dx + 'px'); o.style.setProperty('--dy', dy + 'px'); });
+
+    // Desde dónde salta: la mascota de la esquina (o la esquina inferior derecha)
+    const destino = mascota.getBoundingClientRect();
+    const origen = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
+    const dx = (origen.left + origen.width / 2) - (destino.left + destino.width / 2);
+    const dy = (origen.top + origen.height / 2) - (destino.top + destino.height / 2);
+    const s0 = origen.width / destino.width;
+    if (esquina) { esquina.classList.remove('dormido', 'hablando'); esquina.style.visibility = 'hidden'; }
+
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    globo.style.opacity = '0';
+    mirar(0, -2);
+    // Salto en arco hasta su lugar y aterrizaje con rebote
+    await anim(mascota, [
+      { transform: `translate(${dx}px, ${dy}px) scale(${s0})` },
+      { transform: `translate(${dx * .45}px, ${dy * .45 - 190}px) scale(${(s0 + 1) / 2}) rotate(-10deg)`, offset: .5 },
+      { transform: 'translate(0, 0) scale(1) rotate(0deg)' }
+    ], { duration: 720, easing: 'cubic-bezier(.45, .05, .35, 1)' });
+    await anim(mascota, [
+      { transform: 'scale(1.12, .86)' }, { transform: 'scale(.95, 1.06)' }, { transform: 'scale(1)' }
+    ], { duration: 320, easing: 'ease-out' });
+    // El globo "sale" de la mascota
+    globo.style.opacity = '';
+    mirar(4, 0);
+    await anim(globo, [
+      { opacity: 0, transform: 'translateX(-24px) scale(.6)' },
+      { opacity: 1, transform: 'translateX(4px) scale(1.03)', offset: .7 },
+      { opacity: 1, transform: 'none' }
+    ], { duration: 380, easing: 'cubic-bezier(.34, 1.56, .64, 1)' });
+    overlay.querySelector('.ms-dlg-cancelar').focus();
+
+    const respuesta = await new Promise((resolve) => {
+      overlay.querySelector('.ms-dlg-ok').onclick = () => resolve(true);
+      overlay.querySelector('.ms-dlg-cancelar').onclick = () => resolve(false);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) resolve(false); });
+      overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') resolve(false); });
+    });
+    overlay.querySelectorAll('.ms-dlg-btn').forEach(b => { b.disabled = true; });
+
+    if (respuesta) {
+      // Confirmó: la mascota se decide (aprieta y brinca), el globo se arruga y sale volando
+      globo.querySelector('.ms-dlg-saludo').textContent = '¡Entendido!';
+      globo.querySelector('.ms-dlg-pregunta').textContent = 'Lo elimino ahora mismo…';
+      mirar(4, 3);
+      await anim(mascota, [
+        { transform: 'scale(1)' }, { transform: 'scale(1.15, .8)', offset: .35 },
+        { transform: 'translateY(-34px) scale(.92, 1.1) rotate(6deg)', offset: .7 }, { transform: 'scale(1)' }
+      ], { duration: 520, easing: 'ease-in-out' });
+      await anim(globo, [
+        { transform: 'none', opacity: 1 },
+        { transform: 'scale(.82) rotate(-6deg)', opacity: 1, offset: .35 },
+        { transform: 'translate(220px, 260px) scale(.08) rotate(220deg)', opacity: 0 }
+      ], { duration: 560, easing: 'cubic-bezier(.55, 0, .75, .4)' });
+      globo.style.visibility = 'hidden';
+    } else {
+      // Canceló: la mascota niega con la cabeza y el globo regresa a ella
+      globo.querySelector('.ms-dlg-saludo').textContent = '¡Va!';
+      globo.querySelector('.ms-dlg-pregunta').textContent = 'Lo dejamos como está.';
+      await anim(mascota, [
+        { transform: 'rotate(0deg)' }, { transform: 'rotate(-9deg)' }, { transform: 'rotate(9deg)' },
+        { transform: 'rotate(-6deg)' }, { transform: 'rotate(0deg)' }
+      ], { duration: 520, easing: 'ease-in-out' });
+      await esperar(quieto ? 0 : 350);
+      await anim(globo, [
+        { opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-30px) scale(.5)' }
+      ], { duration: 260, easing: 'ease-in' });
+      globo.style.visibility = 'hidden';
+    }
+
+    // Regresa saltando a su esquina y se vuelve a dormir
+    const ahora = mascota.getBoundingClientRect();
+    const rx = (origen.left + origen.width / 2) - (ahora.left + ahora.width / 2);
+    const ry = (origen.top + origen.height / 2) - (ahora.top + ahora.height / 2);
+    overlay.classList.remove('visible');
+    mirar(5, 2);
+    await anim(mascota, [
+      { transform: 'translate(0, 0) scale(1)' },
+      { transform: `translate(${rx * .55}px, ${ry * .55 - 170}px) scale(${(s0 + 1) / 2}) rotate(10deg)`, offset: .5 },
+      { transform: `translate(${rx}px, ${ry}px) scale(${s0})` }
+    ], { duration: 680, easing: 'cubic-bezier(.45, .05, .35, 1)', fill: 'forwards' });
+    overlay.remove();
+    if (esquina) { esquina.style.visibility = ''; esquina.classList.add('dormido'); }
+    return respuesta;
+  }
+
+  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { preguntar });
 })();

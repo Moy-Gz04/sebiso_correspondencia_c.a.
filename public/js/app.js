@@ -850,13 +850,25 @@ async function finalizar(id) {
 
 /* ── Eliminar ── */
 async function eliminar(id) {
-  const ok = await sbisConfirm({
-    titulo:   'Eliminar oficio',
-    mensaje:  'Esta acción no se puede deshacer. ¿Confirmas eliminar este registro?',
-    btnOk:    'Eliminar',
-    btnCancel:'Cancelar',
-    tipo:     'danger'
-  });
+  // MiniSEBISO pregunta (salta junto a la ventana y la ventana es su globo);
+  // si no está disponible, se usa la ventana de confirmación de siempre.
+  const oficio = DATOS.find(o => String(o.id) === String(id));
+  const numero = oficio && oficio.n_control ? oficio.n_control : '';
+  const ok = window.MiniSEBISO && window.MiniSEBISO.preguntar
+    ? await window.MiniSEBISO.preguntar({
+        titulo:    '¡Hola!',
+        pregunta:  numero ? `¿Eliminamos el Oficio No. ${numero}?` : '¿Eliminamos este oficio?',
+        detalle:   'Esta acción no se puede deshacer.',
+        btnOk:     'Sí, eliminar',
+        btnCancel: 'Cancelar'
+      })
+    : await sbisConfirm({
+        titulo:   'Eliminar oficio',
+        mensaje:  'Esta acción no se puede deshacer. ¿Confirmas eliminar este registro?',
+        btnOk:    'Eliminar',
+        btnCancel:'Cancelar',
+        tipo:     'danger'
+      });
   if (!ok) return;
   try {
     const res = await apiFetch(`${API}/oficios/${id}`, { method: 'DELETE' });
