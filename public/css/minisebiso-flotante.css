@@ -172,3 +172,26 @@
   .ms-dlg-globo::before { left: 50%; top: -14px; bottom: auto; transform: translateX(-50%) rotate(135deg); }
   .ms-dlg-botones { justify-content: center; }
 }
+
+/* ---- MiniSEBISO ayudante (ventanas de edición) ---- */
+.ms-ayudante { position: fixed; z-index: 10000; width: 120px; margin: 0; animation: msRespirar 5s ease-in-out infinite; cursor: default; }
+.ms-ayudante .ms-burbuja { width: 210px; font-size: 12.5px; }
+/* Lentes: dos aros guinda con un puente, sobre los ojos */
+.ms-lentes { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.ms-lente {
+  position: absolute; top: 32.8%; width: 26%; aspect-ratio: 1; border-radius: 50%;
+  border: 3px solid #4A0A1D;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .55) 0 14%, rgba(255, 255, 255, .12) 15% 100%);
+  box-shadow: 0 2px 3px rgba(60, 10, 25, .25);
+}
+.ms-lente.izq { left: 19.1%; }
+.ms-lente.der { left: 55.1%; }
+.ms-puente { position: absolute; left: 44.6%; top: 43%; width: 11%; height: 7%; border-top: 3px solid #4A0A1D; border-radius: 50% 50% 0 0; }
+.ms-lentes::before, .ms-lentes::after {
+  content: ""; position: absolute; top: 44%; width: 9%; height: 3px; background: #4A0A1D; border-radius: 2px;
+}
+.ms-lentes::before { left: 10.6%; transform: rotate(-12deg); }
+.ms-lentes::after  { left: 80.6%; transform: rotate(12deg); }
+/* Con lentes los ojos se separan un poco para que quepan los aros */
+.con-lentes .ms-ojo-mov.izq { left: 27%; }
+.con-lentes .ms-ojo-mov.der { left: 63%; }

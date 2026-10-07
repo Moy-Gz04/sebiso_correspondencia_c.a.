@@ -989,6 +989,12 @@ function abrirEditar(id) {
   document.getElementById('edit-error').textContent   = '';
 
   document.getElementById('modal-editar').style.display = 'flex';
+  // MiniSEBISO (con lentes) abre la ventana y acompaña mientras se edita
+  if (window.MiniSEBISO && window.MiniSEBISO.ayudarEditar) {
+    window.MiniSEBISO.ayudarEditar(document.getElementById('modal-editar'), {
+      texto: r.n_control ? `¡Te ayudo a editar el Oficio No. ${r.n_control}!` : '¡Te ayudo a editar este oficio!'
+    });
+  }
 }
 
 function cerrarEditar() {

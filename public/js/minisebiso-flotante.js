@@ -8,7 +8,7 @@
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=5';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=7';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
@@ -204,4 +204,117 @@
   }
 
   window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { preguntar });
+})();
+
+// =========================================================
+// MiniSEBISO.ayudarEditar(): al abrir una ventana de edición, MiniSEBISO se
+// pone sus lentes, salta con marometa hasta un lado de la ventana y la "abre"
+// (la ventana se despliega desde él). Se queda acompañando mientras está
+// abierta y, al cerrarse, regresa con marometa a su esquina a dormir.
+// =========================================================
+(function () {
+  const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, opts).finished.catch(() => {});
+  let activo = null;
+
+  const lentesHTML = '<span class="ms-lentes" aria-hidden="true"><span class="ms-lente izq"></span><span class="ms-puente"></span><span class="ms-lente der"></span></span>';
+
+  async function ayudarEditar(overlay, { texto = '¡Te ayudo a editar!' } = {}) {
+    if (!overlay || activo) return;
+    const caja = overlay.querySelector('.modal-box') || overlay.firstElementChild;
+    const esquina = document.querySelector('.ms-flotante');
+    if (!caja) return;
+
+    // MiniSEBISO con lentes, en una capa encima de la ventana
+    const ms = document.createElement('div');
+    ms.className = 'minisebiso ms-ayudante con-lentes';
+    ms.setAttribute('aria-hidden', 'true');
+    ms.innerHTML = `
+      <div class="ms-burbuja">${texto}</div>
+      <div class="ms-cuerpo">
+        <span class="ms-ojo-mov izq"><span class="ms-ojo"></span></span>
+        <span class="ms-ojo-mov der"><span class="ms-ojo"></span></span>
+        ${lentesHTML}
+      </div>
+      <div class="ms-estrella"></div>`;
+    document.body.appendChild(ms);
+    const ojos = ms.querySelectorAll('.ms-ojo-mov');
+    const mirar = (x, y) => ojos.forEach(o => { o.style.setProperty('--dx', x + 'px'); o.style.setProperty('--dy', y + 'px'); });
+    let girando = 0;
+    const ojosEnVuelo = (ms_) => {
+      if (quieto) return () => {};
+      const t0 = performance.now();
+      const paso = (t) => { const a = (t - t0) / 110; mirar(Math.cos(a) * 5, Math.sin(a) * 4); if (t - t0 < ms_) girando = requestAnimationFrame(paso); };
+      girando = requestAnimationFrame(paso);
+      return () => cancelAnimationFrame(girando);
+    };
+
+    // Dónde se acomoda: a la izquierda de la ventana; si no cabe, sentado sobre su esquina superior
+    const W = ms.offsetWidth, H = ms.offsetHeight;
+    const r = caja.getBoundingClientRect();
+    let x = r.left - W - 18, y = Math.min(r.top + 70, innerHeight - H - 20);
+    if (x < 8) { x = Math.max(8, r.left + 12); y = Math.max(8, r.top - H + 18); }
+    ms.style.left = x + 'px'; ms.style.top = y + 'px';
+
+    const o = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
+    const dx = (o.left + o.width / 2) - (x + W / 2), dy = (o.top + o.height / 2) - (y + H / 2), s0 = o.width / W;
+    if (esquina) { esquina.classList.remove('dormido', 'hablando'); esquina.style.visibility = 'hidden'; }
+    activo = { ms, esquina, overlay, o, W, H, s0 };
+
+    // La ventana espera escondida hasta que MiniSEBISO llega
+    caja.style.opacity = '0';
+    const pararOjos = ojosEnVuelo(950);
+    await anim(ms, [
+      { transform: `translate(${dx}px, ${dy}px) scale(${s0}) rotate(0deg)` },
+      { transform: `translate(${dx * .4}px, ${dy * .4 - 200}px) scale(${(s0 + 1) / 2}) rotate(-200deg)`, offset: .55 },
+      { transform: 'translate(0, -36px) scale(1.04) rotate(-330deg)', offset: .85 },
+      { transform: 'translate(0, 0) scale(1) rotate(-360deg)' }
+    ], { duration: 950, easing: 'cubic-bezier(.4, .05, .4, 1)' });
+    pararOjos();
+    mirar(5, 0);
+    // "Abre" la ventana: se estira hacia ella y la ventana se despliega desde su lado
+    caja.style.opacity = '';
+    caja.style.transformOrigin = x < r.left ? 'left center' : 'left top';
+    await Promise.all([
+      anim(ms, [{ transform: 'none' }, { transform: 'translateX(10px) scale(1.12, .9)', offset: .35 }, { transform: 'none' }], { duration: 420, easing: 'ease-out' }),
+      anim(caja, [
+        { opacity: 0, transform: 'scale(.15, .3)' },
+        { opacity: 1, transform: 'scale(1.03, 1.01)', offset: .7 },
+        { opacity: 1, transform: 'none' }
+      ], { duration: 460, easing: 'cubic-bezier(.34, 1.4, .64, 1)' })
+    ]);
+    // Saluda un momento y se queda mirando el formulario
+    ms.classList.add('hablando');
+    setTimeout(() => ms.classList.remove('hablando'), 3800);
+
+    // Cuando la ventana se cierre (display:none), regresa a su esquina
+    const obs = new MutationObserver(() => {
+      if (getComputedStyle(overlay).display === 'none') { obs.disconnect(); regresar(); }
+    });
+    obs.observe(overlay, { attributes: true, attributeFilter: ['style', 'class'] });
+  }
+
+  async function regresar() {
+    if (!activo) return;
+    const { ms, esquina, o, W, H, s0 } = activo;
+    activo = null;
+    ms.classList.remove('hablando');
+    const r = ms.getBoundingClientRect();
+    const rx = (o.left + o.width / 2) - (r.left + W / 2), ry = (o.top + o.height / 2) - (r.top + H / 2);
+    const ojos = ms.querySelectorAll('.ms-ojo-mov');
+    let id = 0; const t0 = performance.now();
+    const paso = (t) => { const a = (t - t0) / 110; ojos.forEach(e => { e.style.setProperty('--dx', Math.cos(a) * 5 + 'px'); e.style.setProperty('--dy', Math.sin(a) * 4 + 'px'); }); if (t - t0 < 900) id = requestAnimationFrame(paso); };
+    if (!quieto) id = requestAnimationFrame(paso);
+    await anim(ms, [
+      { transform: 'translate(0, 0) scale(1) rotate(0deg)' },
+      { transform: 'translate(0, -50px) scale(1.04) rotate(40deg)', offset: .18 },
+      { transform: `translate(${rx * .55}px, ${ry * .55 - 200}px) scale(${(s0 + 1) / 2}) rotate(190deg)`, offset: .5 },
+      { transform: `translate(${rx}px, ${ry}px) scale(${s0}) rotate(360deg)` }
+    ], { duration: 900, easing: 'cubic-bezier(.4, .05, .4, 1)', fill: 'forwards' });
+    cancelAnimationFrame(id);
+    ms.remove();
+    if (esquina) { esquina.style.visibility = ''; esquina.classList.add('dormido'); }
+  }
+
+  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { ayudarEditar });
 })();
