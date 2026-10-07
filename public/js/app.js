@@ -988,11 +988,19 @@ function abrirEditar(id) {
   document.getElementById('edit-turnado').value       = r.turnado_a      || '';
   document.getElementById('edit-error').textContent   = '';
 
+  // "Turnar al área" directo desde aquí, solo para oficios que aún no se turnan
+  const porTurnar = r.estatus === 'por_turnar';
+  document.getElementById('edit-btn-turnar').hidden = !porTurnar;
+
   document.getElementById('modal-editar').style.display = 'flex';
-  // MiniSEBISO (con lentes) abre la ventana y acompaña mientras se edita
+  // MiniSEBISO (con lentes) abre la ventana y acompaña mientras se edita;
+  // su mensaje se queda fijo y sus ojos siguen el cursor
   if (window.MiniSEBISO && window.MiniSEBISO.ayudarEditar) {
     window.MiniSEBISO.ayudarEditar(document.getElementById('modal-editar'), {
-      texto: r.n_control ? `¡Te ayudo a editar el Oficio No. ${r.n_control}!` : '¡Te ayudo a editar este oficio!'
+      texto: porTurnar
+        ? '¡Hola! Agrega la Instrucción, la Hora y el Área a turnar. Yo me encargo del resto.'
+        : (r.n_control ? `¡Te ayudo a editar el Oficio No. ${r.n_control}!` : '¡Te ayudo a editar este oficio!'),
+      persistente: true
     });
   }
 }
@@ -1002,7 +1010,7 @@ function cerrarEditar() {
   editandoId = null;
 }
 
-async function guardarEdicion() {
+async function guardarEdicion(turnar = false) {
   if (!editandoId) return;
 
   const fOficio   = document.getElementById('edit-f-oficio').value;
@@ -1011,6 +1019,13 @@ async function guardarEdicion() {
 
   if (!fOficio || !remitente) {
     errEl.textContent = 'F. Oficio y Remitente son obligatorios.';
+    return;
+  }
+  // Turnar desde aquí: hace falta el área (la instrucción y la hora son opcionales)
+  const areaTurnar = document.getElementById('edit-turnado').value;
+  if (turnar && !areaTurnar) {
+    errEl.textContent = 'Selecciona en "Turnado a" el área a la que se turnará el oficio.';
+    document.getElementById('edit-turnado').focus();
     return;
   }
   errEl.textContent = '';
@@ -1029,10 +1044,12 @@ async function guardarEdicion() {
     descripcion:    document.getElementById('edit-descripcion').value   || null,
     turnado_a:      document.getElementById('edit-turnado').value       || null,
   };
+  if (turnar) payload.estatus = 'turnado';
 
-  const btnGuardar = document.getElementById('edit-btn-guardar');
+  const btnGuardar = document.getElementById(turnar ? 'edit-btn-turnar' : 'edit-btn-guardar');
+  const textoBoton = btnGuardar.innerHTML;
   btnGuardar.disabled     = true;
-  btnGuardar.textContent  = 'Guardando...';
+  btnGuardar.textContent  = turnar ? 'Turnando...' : 'Guardando...';
 
   try {
     const res = await apiFetch(`${API}/oficios/${editandoId}`, {
@@ -1046,7 +1063,12 @@ async function guardarEdicion() {
     }
     cerrarEditar();
     cargarOficios(filtroActual);
-    await sbisAlert({
+    await sbisAlert(turnar ? {
+      titulo:  'Oficio turnado',
+      mensaje: `Cambios guardados y turnado correctamente a: ${areaTurnar}`,
+      tipo:    'success',
+      btnOk:   'Aceptar'
+    } : {
       titulo:  'Cambios guardados',
       mensaje: 'El registro fue actualizado correctamente.',
       tipo:    'success',
@@ -1060,8 +1082,8 @@ async function guardarEdicion() {
       tipo:    'error'
     });
   } finally {
-    btnGuardar.disabled    = false;
-    btnGuardar.textContent = 'Guardar cambios';
+    btnGuardar.disabled  = false;
+    btnGuardar.innerHTML = textoBoton;
   }
 }
 

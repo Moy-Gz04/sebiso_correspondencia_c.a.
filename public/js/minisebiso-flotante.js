@@ -8,7 +8,7 @@
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=7';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=8';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
@@ -219,7 +219,7 @@
 
   const lentesHTML = '<span class="ms-lentes" aria-hidden="true"><span class="ms-lente izq"></span><span class="ms-puente"></span><span class="ms-lente der"></span></span>';
 
-  async function ayudarEditar(overlay, { texto = '¡Te ayudo a editar!' } = {}) {
+  async function ayudarEditar(overlay, { texto = '¡Te ayudo a editar!', persistente = false } = {}) {
     if (!overlay || activo) return;
     const caja = overlay.querySelector('.modal-box') || overlay.firstElementChild;
     const esquina = document.querySelector('.ms-flotante');
@@ -283,9 +283,19 @@
         { opacity: 1, transform: 'none' }
       ], { duration: 460, easing: 'cubic-bezier(.34, 1.4, .64, 1)' })
     ]);
-    // Saluda un momento y se queda mirando el formulario
+    // Su mensaje: fijo mientras la ventana esté abierta (persistente) o solo un momento
     ms.classList.add('hablando');
-    setTimeout(() => ms.classList.remove('hablando'), 3800);
+    if (!persistente) setTimeout(() => ms.classList.remove('hablando'), 3800);
+    // Sus ojos siguen el cursor mientras acompaña
+    const seguir = (e) => ojos.forEach(o => {
+      const r = o.getBoundingClientRect();
+      const ex = e.clientX - (r.left + r.width / 2), ey = e.clientY - (r.top + r.height / 2);
+      const dist = Math.hypot(ex, ey) || 1, f = Math.min(1, dist / 220);
+      o.style.setProperty('--dx', (ex / dist * r.width * .55 * f).toFixed(1) + 'px');
+      o.style.setProperty('--dy', (ey / dist * r.height * .32 * f).toFixed(1) + 'px');
+    });
+    window.addEventListener('pointermove', seguir);
+    activo.seguir = seguir;
 
     // Cuando la ventana se cierre (display:none), regresa a su esquina
     const obs = new MutationObserver(() => {
@@ -296,8 +306,9 @@
 
   async function regresar() {
     if (!activo) return;
-    const { ms, esquina, o, W, H, s0 } = activo;
+    const { ms, esquina, o, W, H, s0, seguir } = activo;
     activo = null;
+    if (seguir) window.removeEventListener('pointermove', seguir);
     ms.classList.remove('hablando');
     const r = ms.getBoundingClientRect();
     const rx = (o.left + o.width / 2) - (r.left + W / 2), ry = (o.top + o.height / 2) - (r.top + H / 2);

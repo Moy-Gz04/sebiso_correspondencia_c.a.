@@ -195,3 +195,11 @@
 /* Con lentes los ojos se separan un poco para que quepan los aros */
 .con-lentes .ms-ojo-mov.izq { left: 27%; }
 .con-lentes .ms-ojo-mov.der { left: 63%; }
+
+/* Globo del ayudante: debajo de él, alineado a su izquierda (arriba no cabría en pantalla) */
+.ms-ayudante .ms-burbuja {
+  left: 0; bottom: auto; top: calc(100% + 12px); width: 220px; text-align: left;
+  transform: translateY(-8px) scale(.9); transform-origin: 40px 0;
+}
+.ms-ayudante.hablando .ms-burbuja { transform: none; }
+.ms-ayudante .ms-burbuja::after { left: 40px; top: auto; bottom: 100%; transform: none; border-top-color: transparent; border-bottom-color: #FBF6EE; }
