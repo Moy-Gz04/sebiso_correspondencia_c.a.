@@ -8,7 +8,7 @@
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=10';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=11';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
@@ -413,11 +413,16 @@
 (function () {
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, opts).finished.catch(() => {});
-  let actual = null;
+  let actual = null, turnoPresentar = 0;
 
   async function presentar(campo, texto) {
     if (!campo) return;
+    // Solo un presentador a la vez: si se vuelve a llamar, el anterior se cancela
+    const turno = ++turnoPresentar;
     if (actual) await retirar();
+    // Espera a que la página termine de moverse antes de medir dónde está el campo
+    await new Promise(r => setTimeout(r, 900));
+    if (turno !== turnoPresentar) return;
     const esquina = document.querySelector('.ms-flotante');
     const ms = document.createElement('div');
     ms.className = 'minisebiso ms-ayudante ms-presentador';
@@ -433,14 +438,18 @@
       <div class="ms-estrella"></div>`;
     document.body.appendChild(ms);
     const W = ms.offsetWidth, H = ms.offsetHeight;
-    // Espera a que la página termine de moverse antes de medir dónde está el campo
-    await new Promise(r => setTimeout(r, 900));
-    campo.scrollIntoView({ behavior: 'auto', block: 'center' });
+    // Lleva el campo al centro al instante (la página tiene desplazamiento suave por estilo)
+    const rc = campo.getBoundingClientRect();
+    if (rc.top < 80 || rc.bottom > innerHeight - 80) window.scrollTo({ top: scrollY + rc.top - innerHeight / 2 + rc.height / 2, behavior: 'instant' });
     const c = campo.getBoundingClientRect();
     let x = c.right + 14, y = c.top + c.height / 2 - H / 2;
     if (x + W > innerWidth - 8) { x = Math.min(innerWidth - W - 8, c.right - W); y = c.top - H - 6; }
     y = Math.max(8, Math.min(y, innerHeight - H - 70));
-    ms.style.left = x + 'px'; ms.style.top = y + 'px';
+    // Anclado a la página (no a la pantalla) para que siga al campo si la página se mueve
+    ms.style.position = 'absolute';
+    ms.style.left = (x + scrollX) + 'px'; ms.style.top = (y + scrollY) + 'px';
+    // Si el globo no cabe a la derecha, se abre hacia la izquierda
+    if (x + 240 > innerWidth - 8) ms.classList.add('ms-burbuja-izq');
     const o = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
     const dx = (o.left + o.width / 2) - (x + W / 2), dy = (o.top + o.height / 2) - (y + H / 2), s0 = o.width / W;
     if (esquina) { esquina.classList.remove('dormido', 'hablando'); esquina.style.visibility = 'hidden'; }

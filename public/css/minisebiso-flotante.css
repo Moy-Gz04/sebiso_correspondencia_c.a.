@@ -211,3 +211,5 @@
 @keyframes msSacudir { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 50% { transform: rotate(7deg); } 75% { transform: rotate(-4deg); } }
 @media (prefers-reduced-motion: reduce) { .ms-campo-senalado, .ms-ayudante.ms-alerta .ms-cuerpo { animation: none; } }
 .ms-dlg-ok.ms-dlg-ok-dorado { background: linear-gradient(135deg, #D8B866, #9C7A2E); color: #3A0818; box-shadow: 0 6px 16px rgba(156, 122, 46, .35); }
+.ms-ayudante.ms-burbuja-izq .ms-burbuja { left: auto; right: 0; transform-origin: calc(100% - 40px) 0; }
+.ms-ayudante.ms-burbuja-izq .ms-burbuja::after { left: auto; right: 40px; }
