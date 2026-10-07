@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('cm-usuario').textContent = `Captura desde celular — ${USUARIO?.username || ''}`;
   if (TIPO === 'sala') {
-    document.title = 'Captura para Salas — Secretaría de Bienestar e Inclusión Social';
+    document.title = 'Correspondencia C.A. SEBISO';
     const eyebrow = document.querySelector('.cm-header-eyebrow');
     if (eyebrow) eyebrow.textContent = 'Apartado de Salas';
     const zona = document.querySelector('#cm-captura-zona strong');
