@@ -87,9 +87,10 @@
 .ms-flotante.dormido { animation: msDormir 4.5s ease-in-out infinite; }
 .ms-flotante.dormido .ms-ojo-mov { transform: none; }
 .ms-flotante.dormido .ms-ojo {
-  animation: none; background: none; box-shadow: none;
-  inset: 40% -35% auto -35%; height: 26%;
-  border-bottom: 3px solid #1b1b20; border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  /* Ojos cerrados: curva suave con pestañitas (dibujo SVG) */
+  animation: none; box-shadow: none; border: 0; border-radius: 0;
+  inset: 22% -60% auto -60%; height: 60%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 18'%3E%3Cg fill='none' stroke='%232a1219' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M2.5 5.5 Q12 15.5 21.5 5.5'/%3E%3Cpath d='M6.2 10.4 L4.6 13.6' stroke-width='1.8'/%3E%3Cpath d='M12 12.6 L12 16' stroke-width='1.8'/%3E%3Cpath d='M17.8 10.4 L19.4 13.6' stroke-width='1.8'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
 }
 .ms-flotante.dormido .ms-ojo::after { display: none; }
 @keyframes msDormir { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025, .975); } }
@@ -112,8 +113,8 @@
 @media (max-width: 600px) { .ms-flotante { width: 70px; right: 12px; bottom: 12px; } .ms-flotante .ms-burbuja { width: 200px; font-size: 11.5px; } }
 @media print { .ms-flotante { display: none; } }
 
-/* Versión flotante en dorado clarito para que no se pierda sobre el fondo blanco */
-.ms-flotante .ms-cuerpo {
+/* MiniSEBISO en dorado clarito (color universal de la mascota) */
+.minisebiso .ms-cuerpo {
   background:
     radial-gradient(ellipse 55% 40% at 30% 18%, #FFF9EC 0%, rgba(255,249,236,0) 70%),
     linear-gradient(180deg, #FBEFD6 0%, #F2DFB4 40%, #E6CB93 72%, #D4B472 100%);
@@ -124,3 +125,6 @@
     0 0 0 1px rgba(188, 149, 92, .55),
     0 8px 18px rgba(60, 10, 25, .35);
 }
+
+/* Mejillas sonrojadas mientras duerme */
+.ms-flotante.dormido .ms-cuerpo::after { content: ""; position: absolute; left: 22%; right: 22%; top: 60%; height: 12%; background: radial-gradient(circle at 12% 50%, rgba(214, 90, 110, .35) 0 30%, transparent 32%), radial-gradient(circle at 88% 50%, rgba(214, 90, 110, .35) 0 30%, transparent 32%); filter: blur(1.5px); }
