@@ -698,12 +698,9 @@
         <button class="btn-modal-cancelar" onclick="cerrarEditar()">
           <i class="ti ti-x"></i> Cancelar
         </button>
+        <!-- Guarda los cambios; si el oficio está Por turnar, además lo turna al área elegida -->
         <button class="btn-modal-guardar" id="edit-btn-guardar" onclick="guardarEdicion()">
-          <i class="ti ti-device-floppy"></i> Guardar cambios
-        </button>
-        <!-- Guarda los cambios y turna el oficio al área elegida en un solo paso -->
-        <button class="btn-modal-guardar btn-modal-turnar" id="edit-btn-turnar" onclick="guardarEdicion(true)" hidden>
-          <i class="ti ti-arrow-forward"></i> Turnar al área
+          <i class="ti ti-device-floppy"></i> Actualizar cambios
         </button>
       </div>
 
@@ -831,6 +828,6 @@
   <script src="js/app.js"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
-  <script src="js/minisebiso-flotante.js?v=10"></script>
+  <script src="js/minisebiso-flotante.js?v=11"></script>
 </body>
 </html>

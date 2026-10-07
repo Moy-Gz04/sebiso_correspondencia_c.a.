@@ -8,7 +8,7 @@
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=8';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=9';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
@@ -259,7 +259,7 @@
     const o = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
     const dx = (o.left + o.width / 2) - (x + W / 2), dy = (o.top + o.height / 2) - (y + H / 2), s0 = o.width / W;
     if (esquina) { esquina.classList.remove('dormido', 'hablando'); esquina.style.visibility = 'hidden'; }
-    activo = { ms, esquina, overlay, o, W, H, s0 };
+    activo = { ms, esquina, overlay, o, W, H, s0, x, y, texto };
 
     // La ventana espera escondida hasta que MiniSEBISO llega
     caja.style.animation = 'none';      // su animación de entrada propia la mostraría antes de tiempo
@@ -309,6 +309,7 @@
     if (!activo) return;
     const { ms, esquina, o, W, H, s0, seguir } = activo;
     activo = null;
+    document.querySelectorAll('.ms-campo-senalado').forEach(c => c.classList.remove('ms-campo-senalado'));
     if (seguir) window.removeEventListener('pointermove', seguir);
     ms.classList.remove('hablando');
     const r = ms.getBoundingClientRect();
@@ -328,5 +329,55 @@
     if (esquina) { esquina.style.visibility = ''; esquina.classList.add('dormido'); }
   }
 
-  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { ayudarEditar });
+  // Brinca (con marometa) del lugar donde está a (nx, ny) en pantalla
+  async function brincarA(ms, nx, ny) {
+    const r = ms.getBoundingClientRect();
+    const dx = r.left - nx, dy = r.top - ny;
+    ms.style.left = nx + 'px'; ms.style.top = ny + 'px';
+    await anim(ms, [
+      { transform: `translate(${dx}px, ${dy}px) rotate(0deg)` },
+      { transform: `translate(${dx * .5}px, ${dy * .5 - 120}px) rotate(-180deg)`, offset: .5 },
+      { transform: 'translate(0, 0) rotate(-360deg)' }
+    ], { duration: 700, easing: 'cubic-bezier(.4, .05, .4, 1)' });
+    await anim(ms, [{ transform: 'scale(1.1, .88)' }, { transform: 'scale(1)' }], { duration: 220, easing: 'ease-out' });
+  }
+
+  // MiniSEBISO.senalar(campo, texto): mientras ayuda a editar, salta junto a un
+  // campo y lo pide con su globo; cuando el campo recibe un valor, regresa a su lugar.
+  // Devuelve false si no hay ayudante en pantalla (para usar el aviso normal).
+  function senalar(campo, texto) {
+    if (!activo || !campo) return false;
+    const a = activo, ms = a.ms, globo = ms.querySelector('.ms-burbuja');
+    const c = campo.getBoundingClientRect();
+    // A la derecha del campo si cabe; si no, encima de él
+    let nx = c.right + 14, ny = c.top + c.height / 2 - a.H / 2;
+    if (nx + a.W > innerWidth - 8) { nx = Math.min(innerWidth - a.W - 8, c.right - a.W); ny = c.top - a.H - 6; }
+    ny = Math.max(8, Math.min(ny, innerHeight - a.H - 60));
+    campo.classList.add('ms-campo-senalado');
+    ms.classList.remove('hablando');
+    (async () => {
+      if (!a.senalando) { a.senalando = true; await brincarA(ms, nx, ny); }
+      globo.textContent = texto;
+      ms.classList.add('hablando', 'ms-alerta');
+      setTimeout(() => ms.classList.remove('ms-alerta'), 600);
+    })();
+    if (!a.alCambiar) {
+      a.alCambiar = async () => {
+        if (!campo.value) return;
+        campo.removeEventListener('change', a.alCambiar);
+        a.alCambiar = null;
+        campo.classList.remove('ms-campo-senalado');
+        ms.classList.remove('hablando');
+        if (activo !== a) return;
+        await brincarA(ms, a.x, a.y);
+        a.senalando = false;
+        globo.textContent = '¡Perfecto! Ya puedes actualizar los cambios.';
+        ms.classList.add('hablando');
+      };
+      campo.addEventListener('change', a.alCambiar);
+    }
+    return true;
+  }
+
+  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { ayudarEditar, senalar });
 })();

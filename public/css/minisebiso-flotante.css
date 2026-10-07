@@ -203,3 +203,10 @@
 }
 .ms-ayudante.hablando .ms-burbuja { transform: none; }
 .ms-ayudante .ms-burbuja::after { left: 40px; top: auto; bottom: 100%; transform: none; border-top-color: transparent; border-bottom-color: #FBF6EE; }
+
+/* Campo que MiniSEBISO está señalando y su "sacudida" de aviso */
+.ms-campo-senalado { outline: 2px solid #C9A35A !important; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(201, 163, 90, .25) !important; animation: msCampo 1.4s ease-in-out infinite; }
+@keyframes msCampo { 0%, 100% { box-shadow: 0 0 0 4px rgba(201, 163, 90, .2); } 50% { box-shadow: 0 0 0 9px rgba(201, 163, 90, .35); } }
+.ms-ayudante.ms-alerta .ms-cuerpo { animation: msSacudir .5s ease-in-out; }
+@keyframes msSacudir { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 50% { transform: rotate(7deg); } 75% { transform: rotate(-4deg); } }
+@media (prefers-reduced-motion: reduce) { .ms-campo-senalado, .ms-ayudante.ms-alerta .ms-cuerpo { animation: none; } }
