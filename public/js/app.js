@@ -1078,6 +1078,22 @@ async function guardarEdicion() {
     }
     cerrarEditar();
     cargarOficios(filtroActual);
+    // MiniSEBISO avisa (después de regresar a su esquina tras cerrar la ventana)
+    if (window.MiniSEBISO && window.MiniSEBISO.preguntar) {
+      await new Promise(r => setTimeout(r, 600));
+      await window.MiniSEBISO.preguntar({
+        titulo:   '¡Listo!',
+        pregunta: turnar
+          ? `He agregado la información y turnado a ${areaTurnar}.`
+          : 'He agregado la información del oficio.',
+        btnOk:    'Continuar…',
+        iconoOk:  'ti-arrow-right',
+        soloOk:   true,
+        saludoOk: '¡Perfecto!',
+        textoOk:  'Sigamos trabajando…'
+      });
+      return;
+    }
     await sbisAlert(turnar ? {
       titulo:  'Oficio turnado',
       mensaje: `Cambios guardados y turnado correctamente a: ${areaTurnar}`,
