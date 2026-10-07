@@ -912,6 +912,8 @@ function vigilarDocsPendientes() {
 
 async function verDocSeguro(oficioId, slot) {
   const nuevaVentana = window.open('', '_blank');
+  // Pantalla de carga con barra de avance mientras baja el archivo (js/carga-documento.js)
+  const carga = iniciarCargaDocumento(nuevaVentana);
   try {
     const res = await apiFetch(`${API}/oficios/${oficioId}/doc-token/${slot}`);
     if (!res.ok) {
@@ -919,10 +921,9 @@ async function verDocSeguro(oficioId, slot) {
       throw new Error(d.mensaje || 'No se pudo abrir el documento.');
     }
     const { url } = await res.json();
-    if (nuevaVentana) nuevaVentana.location.href = url;
-    else window.open(url, '_blank', 'noopener');
+    await carga.abrir(url);
   } catch (err) {
-    if (nuevaVentana) nuevaVentana.close();
+    carga.cancelar();
     await sbisAlert({ titulo: 'Error', mensaje: err.message || 'No se pudo abrir el documento.', tipo: 'error' });
   }
 }
