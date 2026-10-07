@@ -99,6 +99,18 @@
     const globo = overlay.querySelector('.ms-dlg-globo');
     const ojos = mascota.querySelectorAll('.ms-ojo-mov');
     const mirar = (dx, dy) => ojos.forEach(o => { o.style.setProperty('--dx', dx + 'px'); o.style.setProperty('--dy', dy + 'px'); });
+    // Durante el vuelo los ojos giran en círculo, como mareado; devuelve una función para detenerlos
+    const ojosEnVuelo = (ms) => {
+      if (quieto) return () => {};
+      const t0 = performance.now(); let id = 0;
+      const paso = (t) => {
+        const a = (t - t0) / 110;                 // ~una vuelta de ojos cada 0.7 s
+        mirar(Math.cos(a) * 5, Math.sin(a) * 4);
+        if (t - t0 < ms) id = requestAnimationFrame(paso);
+      };
+      id = requestAnimationFrame(paso);
+      return () => cancelAnimationFrame(id);
+    };
 
     // Desde dónde salta: la mascota de la esquina (o la esquina inferior derecha)
     const destino = mascota.getBoundingClientRect();
@@ -110,13 +122,16 @@
 
     requestAnimationFrame(() => overlay.classList.add('visible'));
     globo.style.opacity = '0';
-    mirar(0, -2);
-    // Salto en arco hasta su lugar y aterrizaje con rebote
+    // Salto en arco con marometa (una vuelta completa); los ojos van dando vueltas
+    const pararOjos = ojosEnVuelo(1000);
     await anim(mascota, [
-      { transform: `translate(${dx}px, ${dy}px) scale(${s0})` },
-      { transform: `translate(${dx * .45}px, ${dy * .45 - 190}px) scale(${(s0 + 1) / 2}) rotate(-10deg)`, offset: .5 },
-      { transform: 'translate(0, 0) scale(1) rotate(0deg)' }
-    ], { duration: 720, easing: 'cubic-bezier(.45, .05, .35, 1)' });
+      { transform: `translate(${dx}px, ${dy}px) scale(${s0}) rotate(0deg)` },
+      { transform: `translate(${dx * .7}px, ${dy * .7 - 120}px) scale(${(s0 * 2 + 1) / 3}) rotate(-60deg)`, offset: .25 },
+      { transform: `translate(${dx * .4}px, ${dy * .4 - 210}px) scale(${(s0 + 1) / 2}) rotate(-200deg)`, offset: .55 },
+      { transform: 'translate(0, -40px) scale(1.04) rotate(-330deg)', offset: .85 },
+      { transform: 'translate(0, 0) scale(1) rotate(-360deg)' }
+    ], { duration: 1000, easing: 'cubic-bezier(.4, .05, .4, 1)' });
+    pararOjos();
     await anim(mascota, [
       { transform: 'scale(1.12, .86)' }, { transform: 'scale(.95, 1.06)' }, { transform: 'scale(1)' }
     ], { duration: 320, easing: 'ease-out' });
@@ -173,12 +188,16 @@
     const rx = (origen.left + origen.width / 2) - (ahora.left + ahora.width / 2);
     const ry = (origen.top + origen.height / 2) - (ahora.top + ahora.height / 2);
     overlay.classList.remove('visible');
-    mirar(5, 2);
+    // Regreso con marometa hacia el otro lado y los ojos dando vueltas
+    const pararOjos2 = ojosEnVuelo(950);
     await anim(mascota, [
-      { transform: 'translate(0, 0) scale(1)' },
-      { transform: `translate(${rx * .55}px, ${ry * .55 - 170}px) scale(${(s0 + 1) / 2}) rotate(10deg)`, offset: .5 },
-      { transform: `translate(${rx}px, ${ry}px) scale(${s0})` }
-    ], { duration: 680, easing: 'cubic-bezier(.45, .05, .35, 1)', fill: 'forwards' });
+      { transform: 'translate(0, 0) scale(1) rotate(0deg)' },
+      { transform: 'translate(0, -50px) scale(1.04) rotate(40deg)', offset: .18 },
+      { transform: `translate(${rx * .55}px, ${ry * .55 - 200}px) scale(${(s0 + 1) / 2}) rotate(190deg)`, offset: .5 },
+      { transform: `translate(${rx * .85}px, ${ry * .85 - 70}px) scale(${(s0 * 2 + 1) / 3}) rotate(320deg)`, offset: .8 },
+      { transform: `translate(${rx}px, ${ry}px) scale(${s0}) rotate(360deg)` }
+    ], { duration: 950, easing: 'cubic-bezier(.4, .05, .4, 1)', fill: 'forwards' });
+    pararOjos2();
     overlay.remove();
     if (esquina) { esquina.style.visibility = ''; esquina.classList.add('dormido'); }
     return respuesta;
