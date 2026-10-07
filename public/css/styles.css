@@ -1747,3 +1747,14 @@ tr.fila-cargar-mas td { background: transparent !important; border: none !import
 .header-emblema, .header-emblema:hover { border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; transform: none; }
 .header-emblema::after { display: none; }
 .header-emblema img { object-fit: contain; border-radius: 0; }
+
+/* Campana de fondo (la misma silueta de las tarjetas de salas): marca de agua
+   guinda muy tenue, fija y pegada a la esquina inferior izquierda */
+body { position: relative; isolation: isolate; }
+body::before {
+  content: ""; position: fixed; z-index: -1; pointer-events: none;
+  left: 0; bottom: 0; height: 78vh; aspect-ratio: 213 / 384; max-width: 45vw;
+  background: var(--guinda, #5F2132); opacity: .06;
+  -webkit-mask: url(../img/campana-fondo.png) left bottom / contain no-repeat;
+          mask: url(../img/campana-fondo.png) left bottom / contain no-repeat;
+}
