@@ -5,6 +5,9 @@
 // y dice que pronto estará funcionando; luego se vuelve a dormir.
 // =========================================================
 
+// Velocidad de las animaciones de MiniSEBISO (1 = original; menor = más rápido)
+var VEL = 0.5;
+
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
@@ -66,7 +69,7 @@
 (function () {
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const esperar = (ms) => new Promise(r => setTimeout(r, ms));
-  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, opts).finished.catch(() => {});
+  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, Object.assign({}, opts, { duration: Math.round(opts.duration * VEL) })).finished.catch(() => {});
 
   function mascotaHTML() {
     return `
@@ -100,7 +103,7 @@
     const ojos = mascota.querySelectorAll('.ms-ojo-mov');
     const mirar = (dx, dy) => ojos.forEach(o => { o.style.setProperty('--dx', dx + 'px'); o.style.setProperty('--dy', dy + 'px'); });
     // Durante el vuelo los ojos giran en círculo, como mareado; devuelve una función para detenerlos
-    const ojosEnVuelo = (ms) => {
+    const ojosEnVuelo = (ms) => { ms *= VEL;
       if (quieto) return () => {};
       const t0 = performance.now(); let id = 0;
       const paso = (t) => {
@@ -178,7 +181,7 @@
         { transform: 'rotate(0deg)' }, { transform: 'rotate(-9deg)' }, { transform: 'rotate(9deg)' },
         { transform: 'rotate(-6deg)' }, { transform: 'rotate(0deg)' }
       ], { duration: 520, easing: 'ease-in-out' });
-      await esperar(quieto ? 0 : 350);
+      await esperar(quieto ? 0 : 150);
       await anim(globo, [
         { opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(-30px) scale(.5)' }
       ], { duration: 260, easing: 'ease-in' });
@@ -216,7 +219,7 @@
 // =========================================================
 (function () {
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, opts).finished.catch(() => {});
+  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, Object.assign({}, opts, { duration: Math.round(opts.duration * VEL) })).finished.catch(() => {});
   let activo = null;
 
   const lentesHTML = '<span class="ms-lentes" aria-hidden="true"><span class="ms-lente izq"></span><span class="ms-puente"></span><span class="ms-lente der"></span></span>';
@@ -243,7 +246,7 @@
     const ojos = ms.querySelectorAll('.ms-ojo-mov');
     const mirar = (x, y) => ojos.forEach(o => { o.style.setProperty('--dx', x + 'px'); o.style.setProperty('--dy', y + 'px'); });
     let girando = 0;
-    const ojosEnVuelo = (ms_) => {
+    const ojosEnVuelo = (ms_) => { ms_ *= VEL;
       if (quieto) return () => {};
       const t0 = performance.now();
       const paso = (t) => { const a = (t - t0) / 110; mirar(Math.cos(a) * 5, Math.sin(a) * 4); if (t - t0 < ms_) girando = requestAnimationFrame(paso); };
@@ -318,7 +321,7 @@
     const rx = (o.left + o.width / 2) - (r.left + W / 2), ry = (o.top + o.height / 2) - (r.top + H / 2);
     const ojos = ms.querySelectorAll('.ms-ojo-mov');
     let id = 0; const t0 = performance.now();
-    const paso = (t) => { const a = (t - t0) / 110; ojos.forEach(e => { e.style.setProperty('--dx', Math.cos(a) * 5 + 'px'); e.style.setProperty('--dy', Math.sin(a) * 4 + 'px'); }); if (t - t0 < 900) id = requestAnimationFrame(paso); };
+    const paso = (t) => { const a = (t - t0) / 110; ojos.forEach(e => { e.style.setProperty('--dx', Math.cos(a) * 5 + 'px'); e.style.setProperty('--dy', Math.sin(a) * 4 + 'px'); }); if (t - t0 < 900 * VEL) id = requestAnimationFrame(paso); };
     if (!quieto) id = requestAnimationFrame(paso);
     await anim(ms, [
       { transform: 'translate(0, 0) scale(1) rotate(0deg)' },
@@ -412,7 +415,7 @@
 // =========================================================
 (function () {
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, opts).finished.catch(() => {});
+  const anim = (el, frames, opts) => quieto ? Promise.resolve() : el.animate(frames, Object.assign({}, opts, { duration: Math.round(opts.duration * VEL) })).finished.catch(() => {});
   let actual = null, turnoPresentar = 0;
 
   async function presentar(campo, texto) {
@@ -421,7 +424,7 @@
     const turno = ++turnoPresentar;
     if (actual) await retirar();
     // Espera a que la página termine de moverse antes de medir dónde está el campo
-    await new Promise(r => setTimeout(r, 900));
+    await new Promise(r => setTimeout(r, 450));
     if (turno !== turnoPresentar) return;
     const esquina = document.querySelector('.ms-flotante');
     const ms = document.createElement('div');
