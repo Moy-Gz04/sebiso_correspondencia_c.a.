@@ -262,7 +262,8 @@
     activo = { ms, esquina, overlay, o, W, H, s0 };
 
     // La ventana espera escondida hasta que MiniSEBISO llega
-    caja.style.opacity = '0';
+    caja.style.animation = 'none';      // su animación de entrada propia la mostraría antes de tiempo
+    caja.style.visibility = 'hidden';
     const pararOjos = ojosEnVuelo(950);
     await anim(ms, [
       { transform: `translate(${dx}px, ${dy}px) scale(${s0}) rotate(0deg)` },
@@ -273,7 +274,7 @@
     pararOjos();
     mirar(5, 0);
     // "Abre" la ventana: se estira hacia ella y la ventana se despliega desde su lado
-    caja.style.opacity = '';
+    caja.style.visibility = '';
     caja.style.transformOrigin = x < r.left ? 'left center' : 'left top';
     await Promise.all([
       anim(ms, [{ transform: 'none' }, { transform: 'translateX(10px) scale(1.12, .9)', offset: .35 }, { transform: 'none' }], { duration: 420, easing: 'ease-out' }),
