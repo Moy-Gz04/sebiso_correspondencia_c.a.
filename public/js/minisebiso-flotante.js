@@ -8,7 +8,7 @@
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=3';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=4';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
