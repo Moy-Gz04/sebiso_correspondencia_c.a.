@@ -1024,15 +1024,23 @@ async function guardarEdicion() {
     errEl.textContent = 'F. Oficio y Remitente son obligatorios.';
     return;
   }
-  // El área es obligatoria: si falta, MiniSEBISO salta junto a "Turnado a" y lo pide
+  // Instrucción, Hora de recibido y Área son obligatorias. Si falta alguna,
+  // MiniSEBISO salta junto a ella y la pide (una a la vez, en ese orden).
   const selArea    = document.getElementById('edit-turnado');
   const areaTurnar = selArea.value;
-  if (!areaTurnar) {
+  const faltantes = [
+    ['edit-instruccion', 'Escribe la Instrucción para continuar'],
+    ['edit-hora',        'Agrega la Hora de recibido para continuar'],
+    ['edit-turnado',     'Selecciona el Área para continuar']
+  ];
+  for (const [idCampo, mensaje] of faltantes) {
+    const campo = document.getElementById(idCampo);
+    if (String(campo.value || '').trim()) continue;
     const senalo = window.MiniSEBISO && window.MiniSEBISO.senalar
-      ? window.MiniSEBISO.senalar(selArea, 'Selecciona el Área para continuar')
+      ? window.MiniSEBISO.senalar(campo, mensaje)
       : false;
-    if (!senalo) errEl.textContent = 'Selecciona el Área para continuar.';
-    selArea.focus();
+    if (!senalo) errEl.textContent = mensaje + '.';
+    campo.focus();
     return;
   }
   errEl.textContent = '';

@@ -348,6 +348,15 @@
   function senalar(campo, texto) {
     if (!activo || !campo) return false;
     const a = activo, ms = a.ms, globo = ms.querySelector('.ms-burbuja');
+    // Si estaba señalando otro campo, lo suelta (se señala uno a la vez)
+    if (a.campo && a.campo !== campo) {
+      a.campo.removeEventListener('input', a.alCambiar);
+      a.campo.removeEventListener('change', a.alCambiar); if (a.alSalir) a.campo.removeEventListener('change', a.alSalir); if (a.alSalir) campo.removeEventListener('change', a.alSalir);
+      a.campo.classList.remove('ms-campo-senalado');
+      a.alCambiar = null;
+    }
+    const mismoCampo = a.campo === campo;
+    a.campo = campo;
     const c = campo.getBoundingClientRect();
     // A la derecha del campo si cabe; si no, encima de él
     let nx = c.right + 14, ny = c.top + c.height / 2 - a.H / 2;
@@ -356,16 +365,17 @@
     campo.classList.add('ms-campo-senalado');
     ms.classList.remove('hablando');
     (async () => {
-      if (!a.senalando) { a.senalando = true; await brincarA(ms, nx, ny); }
+      if (!mismoCampo || !a.senalando) { a.senalando = true; await brincarA(ms, nx, ny); }
       globo.textContent = texto;
       ms.classList.add('hablando', 'ms-alerta');
       setTimeout(() => ms.classList.remove('ms-alerta'), 600);
     })();
     if (!a.alCambiar) {
       a.alCambiar = async () => {
-        if (!campo.value) return;
-        campo.removeEventListener('change', a.alCambiar);
-        a.alCambiar = null;
+        if (!String(campo.value || '').trim()) return;
+        campo.removeEventListener('input', a.alCambiar);
+        campo.removeEventListener('change', a.alCambiar); if (a.alSalir) campo.removeEventListener('change', a.alSalir);
+        a.alCambiar = null; a.campo = null;
         campo.classList.remove('ms-campo-senalado');
         ms.classList.remove('hablando');
         if (activo !== a) return;
@@ -374,7 +384,17 @@
         globo.textContent = '¡Perfecto! Ya puedes actualizar los cambios.';
         ms.classList.add('hablando');
       };
-      campo.addEventListener('change', a.alCambiar);
+      // Lista y hora: al elegir. Texto: cuando deja de escribir un momento (o sale del campo)
+      const listo = a.alCambiar;
+      if (campo.tagName === 'SELECT' || campo.type === 'time') {
+        campo.addEventListener('change', listo); campo.addEventListener('input', listo);
+      } else {
+        let espera = 0;
+        a.alCambiar = () => { clearTimeout(espera); espera = setTimeout(listo, 1300); };
+        campo.addEventListener('input', a.alCambiar);
+        campo.addEventListener('change', listo);
+        a.alSalir = listo;
+      }
     }
     return true;
   }
