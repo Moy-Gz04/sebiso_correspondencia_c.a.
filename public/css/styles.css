@@ -1742,3 +1742,8 @@ img { max-width: 100%; }
 .btn-cargar-mas:disabled { opacity: .7; cursor: default; }
 .btn-cargar-mas:focus-visible { outline: 2px solid var(--guinda, #5F2132); outline-offset: 2px; }
 tr.fila-cargar-mas td { background: transparent !important; border: none !important; }
+
+/* Logo del Gobierno de Hidalgo en el encabezado: sin círculo ni marco */
+.header-emblema, .header-emblema:hover { border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; transform: none; }
+.header-emblema::after { display: none; }
+.header-emblema img { object-fit: contain; border-radius: 0; }
