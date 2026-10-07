@@ -1,0 +1,113 @@
+/* =========================================================
+   minisebiso-flotante.css
+   MiniSEBISO dormido en la esquina inferior derecha de las páginas
+   de Correspondencia. Al tocarlo despierta 5 s y saluda.
+   La base (cuerpo, ojos, estrella, burbuja) es la misma del login.
+   ========================================================= */
+/*    MiniSEBISO: la mascota del sistema (almohada blanca con la
+   estrella de Hidalgo), en lugar del medallón del login
+   ====================================================== */
+.minisebiso {
+  position: relative; width: 124px; aspect-ratio: 1024 / 935; margin: 0 auto 8px;
+  animation: msRespirar 5s ease-in-out infinite; transform-origin: 50% 90%;
+}
+.ms-cuerpo {
+  position: absolute; left: 12.7%; top: 11.6%; width: 74.6%; height: 74.2%;
+  border-radius: 27% 27% 30% 30% / 29% 29% 31% 31%;
+  background:
+    radial-gradient(ellipse 55% 40% at 30% 18%, #fff 0%, rgba(255,255,255,0) 70%),
+    linear-gradient(180deg, #fbfcfe 0%, #f1f3f8 38%, #dfe5ef 70%, #c8d1e0 100%);
+  box-shadow:
+    inset 0 -8px 14px rgba(132, 150, 186, .45),
+    inset 0 5px 9px rgba(255, 255, 255, .95),
+    inset -5px 0 10px rgba(150, 165, 196, .35),
+    0 8px 16px rgba(0, 0, 0, .5),
+    0 0 26px rgba(214, 180, 110, .28);
+}
+.ms-ojo-mov {
+  position: absolute; top: 37%; width: 10.2%; height: 20.2%;
+  transform: translate(var(--dx, 0px), var(--dy, 0px)); transition: transform .14s ease-out;
+}
+.ms-ojo-mov.izq { left: 32.5%; }
+.ms-ojo-mov.der { left: 57.3%; }
+.ms-ojo {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(ellipse 60% 55% at 45% 40%, #2a2a30 0%, #0d0d10 70%, #050506 100%);
+  box-shadow: 0 1px 1px rgba(255, 255, 255, .7);
+  animation: msParpadear 5.5s infinite;
+}
+.ms-ojo::after {
+  content: ""; position: absolute; left: 22%; top: 9%; width: 42%; height: 24%; border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255,255,255,.8), rgba(255,255,255,0) 70%);
+}
+.ms-estrella {
+  position: absolute; left: 4.5%; top: 2.8%; width: 40%; aspect-ratio: 1;
+  background: url('../img/logo-hidalgo.png') center / contain no-repeat;
+  filter: drop-shadow(0 0 1px #FBEFE6) drop-shadow(0 0 1px #FBEFE6) drop-shadow(0 0 5px rgba(255, 226, 170, .55)) drop-shadow(1px 3px 3px rgba(0, 0, 0, .45));
+  transform: rotate(-4deg);
+}
+@keyframes msRespirar { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.015, .99); } }
+@keyframes msParpadear { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+@media (prefers-reduced-motion: reduce) { .minisebiso, .ms-ojo { animation: none; } }
+
+/* Login: textos de la Secretaría más grandes, pie dentro del círculo y
+   botón que no cambia de tamaño mientras inicia sesión */
+
+/* Burbuja de MiniSEBISO */
+.minisebiso { cursor: pointer; outline: none; }
+.minisebiso:focus-visible .ms-cuerpo { box-shadow: 0 0 0 3px rgba(214, 180, 110, .8); }
+.ms-burbuja {
+  position: absolute; left: 50%; bottom: calc(100% + 10px); z-index: 5;
+  width: 230px; padding: 10px 14px; border-radius: 16px;
+  background: #FBF6EE; color: #3A0818; font-size: 12.5px; font-weight: 600; line-height: 1.35; text-align: center;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .45), 0 0 0 1px rgba(214, 180, 110, .6);
+  opacity: 0; pointer-events: none; transform: translate(-50%, 8px) scale(.9); transform-origin: 50% 100%;
+  transition: opacity .2s ease, transform .25s cubic-bezier(.34, 1.56, .64, 1);
+}
+.ms-burbuja::after {
+  content: ""; position: absolute; left: 50%; top: 100%; transform: translateX(-50%);
+  border: 8px solid transparent; border-top-color: #FBF6EE;
+}
+.minisebiso.hablando .ms-burbuja { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.minisebiso.saltando { animation: msSalto .45s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes msSalto { 0% { transform: translateY(0); } 40% { transform: translateY(-10px) scale(1.04, .97); } 100% { transform: translateY(0); } }
+
+/* ---- Versión flotante ---- */
+.ms-flotante {
+  position: fixed; right: 22px; bottom: 18px; z-index: 900;
+  width: 92px; margin: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.ms-flotante .ms-cuerpo { box-shadow: inset 0 -7px 12px rgba(132,150,186,.45), inset 0 4px 8px rgba(255,255,255,.95), inset -4px 0 9px rgba(150,165,196,.35), 0 8px 18px rgba(60, 10, 25, .35); }
+.ms-flotante .ms-burbuja { left: auto; right: -6px; transform: translate(0, 8px) scale(.9); transform-origin: 85% 100%; width: 240px; }
+.ms-flotante.hablando .ms-burbuja { transform: translate(0, 0) scale(1); }
+.ms-flotante .ms-burbuja::after { left: auto; right: 30px; transform: none; }
+
+/* Dormido: ojos cerrados (una rayita curva), respiración lenta y zzZ */
+.ms-flotante.dormido { animation: msDormir 4.5s ease-in-out infinite; }
+.ms-flotante.dormido .ms-ojo-mov { transform: none; }
+.ms-flotante.dormido .ms-ojo {
+  animation: none; background: none; box-shadow: none;
+  inset: 40% -35% auto -35%; height: 26%;
+  border-bottom: 3px solid #1b1b20; border-radius: 0 0 50% 50% / 0 0 100% 100%;
+}
+.ms-flotante.dormido .ms-ojo::after { display: none; }
+@keyframes msDormir { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025, .975); } }
+
+.ms-zzz { position: absolute; right: -4px; top: -6px; width: 40px; height: 46px; pointer-events: none; }
+.ms-zzz span {
+  position: absolute; left: 0; bottom: 0; font: 800 14px/1 'Poppins', 'Segoe UI', sans-serif; color: #6B0F2B;
+  text-shadow: 0 0 6px rgba(255,255,255,.9); opacity: 0;
+  animation: msZ 3s ease-out infinite;
+}
+.ms-zzz span:nth-child(2) { animation-delay: 1s; font-size: 17px; }
+.ms-zzz span:nth-child(3) { animation-delay: 2s; font-size: 21px; }
+@keyframes msZ {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(-8deg); }
+  20%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(22px, -40px) rotate(10deg); }
+}
+.ms-flotante:not(.dormido) .ms-zzz { display: none; }
+@media (prefers-reduced-motion: reduce) { .ms-flotante.dormido, .ms-zzz span { animation: none; } .ms-zzz span { opacity: .8; } .ms-zzz span:nth-child(2) { transform: translate(10px, -16px); } .ms-zzz span:nth-child(3) { transform: translate(20px, -32px); } }
+@media (max-width: 600px) { .ms-flotante { width: 70px; right: 12px; bottom: 12px; } .ms-flotante .ms-burbuja { width: 200px; font-size: 11.5px; } }
+@media print { .ms-flotante { display: none; } }
