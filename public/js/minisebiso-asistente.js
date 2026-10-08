@@ -52,101 +52,21 @@
   }
 
   /* ─────────────── Lo que sabe de cada página ─────────────── */
+  // Para qué sirve cada página (se dice una vez por sesión al entrar)
   const PAGINAS = {
-    historial: {
-      intro: 'Aquí está el Historial de Oficios: puedes editarlos, turnarlos a un área, pedir correcciones y finalizarlos.',
-      tips: [
-        'Usa los filtros de arriba (Por Turnar, Turnado, Atendido…) para ver solo lo que te interesa.',
-        'En el buscador puedes escribir el número de oficio, el remitente, la dependencia o parte del asunto.',
-        'Cuando un área termina de atender un oficio, aparece como Atendido: revísalo y finalízalo.',
-        'Si un área debe corregir algo, usa «Solicitar corrección» y explica qué necesita cambiar.',
-      ],
-    },
-    area: {
-      intro: 'Esta es la Bandeja de tu área: aquí llegan los oficios que te turnan para asignarlos o atenderlos.',
-      tips: [
-        'En «Pendientes» están los oficios que acaban de llegar a tu área y aún no asignas.',
-        'Con «Turnar Oficio» se lo asignas a alguien de tu área, o a ti mismo si lo vas a atender.',
-        'El filtro con contador junto a «Completados» te muestra lo que tienes asignado a ti.',
-        'Si un oficio regresó para corregirse, lo verás marcado: atiéndelo de nuevo y reenvíalo.',
-        'Puedes buscar por número de oficio, remitente o asunto.',
-      ],
-    },
-    usuario: {
-      intro: 'Esta es tu Bandeja personal: aquí están los oficios que te asignaron para atender.',
-      tips: [
-        'Abre «Atender Oficio», adjunta el documento de Turno y el de Seguimiento, y guarda.',
-        'Si un oficio regresó para corregirse, lo verás en su filtro con contador: corrígelo y vuelve a enviarlo.',
-        'En «Atendidos» puedes revisar lo que ya entregaste.',
-        'Puedes buscar por número de oficio, remitente o asunto.',
-      ],
-    },
-    captura: {
-      intro: 'Aquí registras un oficio a mano: llena sus datos y guárdalo para generar su número.',
-      tips: [
-        'F. Oficio y Remitente son obligatorios; lo demás ayuda a encontrarlo después.',
-        'Lo que escribes se guarda como borrador en este equipo, por si cierras la página sin querer.',
-        'Si tienes la foto del oficio, prueba Registro Automático: yo leo los datos por ti.',
-      ],
-    },
-    'captura-auto': {
-      intro: 'Registro Automático: elige la foto de un oficio y yo leo sus datos para llenar el formulario.',
-      tips: [
-        'Toma la foto desde tu celular en «Captura desde celular» y aquí la verás lista para usar.',
-        'Revisa siempre lo que llené antes de guardar: a veces una letra se lee distinto.',
-        'Si una foto no sirve, puedes descartarla de la lista de pendientes.',
-      ],
-    },
-    'captura-movil': {
-      intro: 'Toma la foto del oficio con tu celular y envíala; después la terminas de registrar en la computadora.',
-      tips: [
-        'Coloca la hoja sobre una superficie lisa y con buena luz para que se lea mejor.',
-        'Después de enviar puedes tomar otra foto de inmediato.',
-        'Abajo verás tus fotos recientes y si ya se procesaron.',
-      ],
-    },
-    circular: {
-      intro: 'Aquí llevas el control de los números de Circular: registra uno nuevo o consulta los anteriores.',
-      tips: [
-        'Con «Nuevo No. Circular» se toma el siguiente número consecutivo.',
-        'Si eliminas un registro, su número queda libre y puedes reasignarlo después.',
-        'Puedes filtrar por fechas y buscar por asunto, destinatario o solicitante.',
-      ],
-    },
-    'no-oficio': {
-      intro: 'Aquí llevas el control de los números de Oficio: registra uno nuevo o reutiliza un número libre.',
-      tips: [
-        'Con «Nuevo No. de Oficio» se toma el siguiente número consecutivo.',
-        '«Oficio Libre del Día» reserva el siguiente número y lo deja disponible en Oficios Libres.',
-        'Los números que eliminas quedan en Oficios Libres para reasignarlos con «Asignar Anteriores».',
-      ],
-    },
-    'tarjeta-informativa': {
-      intro: 'Aquí llevas el control de los números de Tarjeta Informativa.',
-      tips: [
-        'Con «Nuevo No. Tarjeta Informativa» se toma el siguiente número consecutivo.',
-        'Si eliminas un registro, su número queda libre para reasignarlo después.',
-        'Puedes filtrar por fechas y buscar por asunto, destinatario o solicitante.',
-      ],
-    },
-    minutario: {
-      intro: 'Este es el Minutario: aquí registras la Fecha de Sello, la Fecha de Firma y notas de cada número.',
-      tips: [
-        'Cambia entre No. de Oficio, No. Circular y No. Tarjeta Informativa con las pestañas de arriba.',
-        'Cada fecha o nota se guarda sola en cuanto la cambias; yo te aviso cuando quede guardada.',
-        'Usa «Desde» y «Hasta» para ver solo un periodo.',
-      ],
-    },
-    salas: {
-      intro: 'Aquí apartas las salas de juntas y ves los próximos apartados.',
-      tips: [
-        'Para apartar elige la sala, la fecha y el horario; puedes apartar varios días con «Hasta».',
-        'Si tienes la solicitud en papel, tómale foto con el celular y yo propongo los datos.',
-        'En «Próximos apartados» ves lo que viene, del más cercano al último.',
-      ],
-    },
+    historial: 'Aquí está el Historial de Oficios: puedes turnarlos a un área, pedir correcciones y finalizarlos.',
+    area: `Esta es la Bandeja de ${usuario?.area || 'tu área'}: aquí llegan los oficios que les turnan.`,
+    usuario: 'Esta es tu Bandeja: aquí están los oficios que te asignaron para atender.',
+    captura: 'Aquí registras un oficio a mano para generar su número.',
+    'captura-auto': 'Aquí registras un oficio a partir de su foto: yo leo los datos por ti.',
+    'captura-movil': 'Toma la foto del oficio y envíala; después terminas el registro en la computadora.',
+    circular: 'Aquí llevas el control de los números de Circular.',
+    'no-oficio': 'Aquí llevas el control de los números de Oficio.',
+    'tarjeta-informativa': 'Aquí llevas el control de los números de Tarjeta Informativa.',
+    minutario: 'Aquí registras la Fecha de Sello, la Fecha de Firma y notas de cada número.',
+    salas: 'Aquí apartas las salas de juntas y ves los próximos apartados.',
   };
-  const info = PAGINAS[pagina];
+  const info = PAGINAS[pagina] ? { intro: PAGINAS[pagina] } : null;
 
   /* ─────────────── Avisos y confirmaciones hablados ─────────────── */
   const SALUDO_AVISO = {
@@ -332,8 +252,8 @@
     if (!sesion.get(clave)) {
       sesion.set(clave, '1');
       sesion.set('intro_' + pagina, '1');
-      mensajes.push({ texto: `¡${saludoHora()}, ${nombre}! Soy MiniSEBISO y hoy te acompaño en todo lo que hagas.`, duracion: 6000 });
-      mensajes.push({ texto: info.intro + ' Tócame cuando quieras un consejo.', duracion: 7500 });
+      mensajes.push({ texto: `¡${saludoHora()}, ${nombre}! Aquí estoy para ayudarte en lo que necesites.`, duracion: 5500 });
+      mensajes.push({ texto: info.intro + ' Si tienes una duda, tócame.', duracion: 7000 });
     } else if (!sesion.get('intro_' + pagina)) {
       sesion.set('intro_' + pagina, '1');
       mensajes.push({ texto: info.intro, duracion: 7000 });
@@ -351,14 +271,8 @@
     if (mensajes.length) decirSerie(mensajes);
   }
 
-  /* Al tocarlo en la esquina: consejos de la página, uno distinto cada vez */
-  let consejo = -1;
-  M.alTocarEsquina = () => {
-    if (!info) { M.decir(nombre ? `¡Hola, ${nombre}! Aquí estoy para ayudarte.` : '¡Hola! Aquí estoy para ayudarte.'); return; }
-    consejo = (consejo + 1) % (info.tips.length + 1);
-    if (consejo === 0) M.decir(`${info.intro} Tócame otra vez para un consejo.`, { duracion: 7000 });
-    else M.decir(`Consejo ${consejo} de ${info.tips.length}: ${info.tips[consejo - 1]}`, { duracion: 7500 });
-  };
+  /* Al tocarlo en la esquina: «¿En qué puedo ayudarte?» (ver menú de ayuda, más abajo) */
+  M.alTocarEsquina = () => abrirAyuda();
 
   /* ─────────────── Avisa cuando llegan oficios nuevos ─────────────── */
   function vigilarNovedades() {
@@ -543,6 +457,241 @@
     new MutationObserver(() => {
       if (exito.classList.contains('visible')) M.decir('¡Foto enviada! Ya la estoy procesando. Puedes tomar otra cuando quieras.', { duracion: 6000 });
     }).observe(exito, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  /* ─────────────── Menú de ayuda: «¿En qué puedo ayudarte?» ─────────────── */
+  // Al tocarlo pregunta en qué ayudar; las preguntas dependen de la página, el
+  // rol y el área. Cada respuesta explica los pasos y ofrece llevarte a hacerlo.
+  const gestion = usuario?.rol === 'admin' || (usuario?.rol === 'area' && usuario?.area === 'Coordinación Administrativa');
+  const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+  const miArea = usuario?.area || 'tu área';
+
+  // Señala un botón o campo de la página (abre su tarjeta si está cerrada)
+  async function guiar(selector, texto) {
+    const todos = [...document.querySelectorAll(selector)];
+    const el = todos.find(e => e.getClientRects().length) || todos[0];
+    if (!el) { M.decir('Ahora mismo no hay nada de eso en la lista. Prueba con otro filtro o búscalo.', { duracion: 5500 }); return; }
+    const tarjeta = el.closest('[id^="tarjeta-"]');
+    if (tarjeta && !tarjeta.classList.contains('abierta')) { tarjeta.querySelector('.t-header')?.click(); await esperar(450); }
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) { presentarYEsperar(el, texto); return; }
+    M.presentar(el, texto);
+    const soltar = () => { if (M.presentando && M.presentando() === el) M.retirar(); };
+    el.addEventListener('click', soltar, { once: true });
+    setTimeout(soltar, 12000);
+  }
+  const ir = (ruta) => () => { location.href = ruta; };
+  const filtrarY = (estatus, selector, texto) => async () => {
+    irAlFiltro(estatus);
+    if (selector) { await esperar(1200); guiar(selector, texto); }
+  };
+  const buscador = () => guiar('#buscador, .buscador-input', 'Escribe aquí lo que buscas: número, remitente o una palabra del asunto.');
+
+  // Lo que tiene pendiente, con botones para ir a cada grupo
+  async function respuestaPendientes() {
+    const p = await pendientes();
+    const r = resumenTexto(p);
+    if (!r) return { texto: 'No pude consultar tus pendientes en este momento. Intenta de nuevo en un momento.' };
+    const acc = [];
+    if (pagina === 'historial') {
+      if (p.porTurnar) acc.push({ texto: 'Ver por turnar', icono: 'ti-arrow-forward', hacer: () => irAlFiltro('por_turnar') });
+      if (p.atendidos) acc.push({ texto: 'Ver atendidos', icono: 'ti-circle-check', hacer: () => irAlFiltro('atendido') });
+    } else {
+      if (p.nuevos) acc.push({ texto: pagina === 'area' ? 'Ver por asignar' : 'Ver por atender', icono: 'ti-inbox', hacer: () => irAlFiltro(pagina === 'area' ? 'turnado' : 'sub_turnado') });
+      if (p.corregir) acc.push({ texto: 'Ver por corregir', icono: 'ti-arrow-back-up', hacer: () => irAlFiltro('rechazado') });
+      if (pagina === 'area' && p.mios) acc.push({ texto: 'Ver asignados a mí', icono: 'ti-user-check', hacer: () => irAlFiltro('asignados_mi') });
+    }
+    return { texto: r.texto, acciones: acc };
+  }
+
+  const P_REGISTRAR = {
+    pregunta: 'Quiero registrar un oficio nuevo', icono: 'ti-file-plus',
+    texto: 'Tienes dos formas de registrarlo:',
+    pasos: ['Con la foto del oficio (Registro Automático): yo leo los datos y tú solo los revisas.', 'A mano (Nuevo Registro): llenas los datos tú mismo.'],
+    acciones: [
+      { texto: 'Con la foto', icono: 'ti-camera', hacer: ir('/captura-auto') },
+      { texto: 'A mano', icono: 'ti-pencil', hacer: ir('/captura') },
+    ],
+  };
+  const P_BUSCAR = (que) => ({
+    pregunta: '¿Cómo encuentro un registro?', icono: 'ti-search',
+    texto: `Usa el buscador: ${que}`,
+    acciones: [{ texto: 'Llévame al buscador', icono: 'ti-search', hacer: buscador }],
+  });
+  const P_LIMPIAR = {
+    pregunta: 'Quiero empezar de nuevo', icono: 'ti-eraser',
+    texto: 'Usa «Limpiar»: te pediré confirmación antes de borrar lo capturado.',
+    acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('#btn-limpiar', 'Con este botón limpias el formulario.') }],
+  };
+
+  function preguntas() {
+    switch (pagina) {
+      case 'historial': return [
+        { pregunta: '¿Qué tengo pendiente?', icono: 'ti-list-check', cargar: respuestaPendientes },
+        { pregunta: '¿Cómo turno un oficio a un área?', icono: 'ti-arrow-forward',
+          pasos: ['Abre el filtro «Por Turnar».', 'Despliega la tarjeta del oficio.', 'Toca «Turnar a Área», elige el área y confirma.'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: filtrarY('por_turnar', 'button[onclick^="abrirTurnar"]', 'Toca aquí para turnarlo a un área.') }] },
+        { pregunta: '¿Cómo finalizo un oficio atendido?', icono: 'ti-circle-check',
+          pasos: ['Abre el filtro «Atendido».', 'Revisa los documentos que subió el área.', 'Si todo está bien toca «Finalizar»; si falta algo, «Rechazar» y explica qué corregir.'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: filtrarY('atendido', 'button[onclick^="finalizar"]', 'Cuando todo esté en orden, finalízalo aquí.') }] },
+        { pregunta: '¿Cómo corrijo los datos de un oficio?', icono: 'ti-edit',
+          pasos: ['Despliega la tarjeta del oficio.', 'Toca «Editar».', 'Cambia lo necesario y toca «Actualizar cambios».'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('button[onclick^="abrirEditar"]', 'Aquí editas los datos del oficio.') }] },
+        P_BUSCAR('acepta el número de oficio, el remitente, la dependencia o una palabra del asunto. También puedes filtrar por área.'),
+        P_REGISTRAR,
+      ];
+      case 'area': return [
+        { pregunta: '¿Qué tengo pendiente?', icono: 'ti-list-check', cargar: respuestaPendientes },
+        { pregunta: `¿Cómo asigno un oficio a alguien de ${miArea}?`, icono: 'ti-user-share',
+          pasos: ['Abre el filtro «Pendientes».', 'Despliega la tarjeta del oficio.', 'Toca «Turnar / Atender».', 'Elige a la persona (o «Yo mismo») y toca «Confirmar Asignación».'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: filtrarY('turnado', '.btn-subturnar', 'Toca aquí para asignarlo.') }] },
+        { pregunta: '¿Cómo atiendo un oficio que me asignaron?', icono: 'ti-circle-check',
+          pasos: ['Abre el filtro «Para Atender».', 'Toca «Atender Oficio» en su tarjeta.', 'Adjunta el Turno (si no viene) y el Seguimiento, describe lo realizado y guarda.'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: filtrarY('asignados_mi', '.btn-atender', 'Toca aquí para atenderlo.') }] },
+        { pregunta: 'Me regresaron un oficio para corregir', icono: 'ti-arrow-back-up',
+          pasos: ['Abre el filtro «Por Corregir».', 'Lee en la tarjeta qué se debe corregir.', 'Toca «Corregir y Reenviar», o «Re-asignar para Corrección» si lo corregirá otra persona.'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: filtrarY('rechazado', '.btn-atender, .btn-subturnar', 'Desde aquí lo corriges o lo reasignas.') }] },
+        { pregunta: '¿Cómo reasigno un oficio a otra persona?', icono: 'ti-user-switch',
+          pasos: ['Abre el filtro «Sub-turnados» (o «Para Atender» si es tuyo).', 'Despliega la tarjeta y toca «Reasignar».', 'Elige a la nueva persona y confirma.'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: filtrarY('sub_turnado', '.btn-reasignar', 'Toca aquí para reasignarlo.') }] },
+        P_BUSCAR('acepta el número de oficio, el remitente o una palabra del asunto.'),
+        ...(gestion ? [P_REGISTRAR, { pregunta: 'Quiero ver todos los oficios registrados', icono: 'ti-history', texto: 'Todos los oficios que registra Coordinación están en el Historial.', acciones: [{ texto: 'Ir al Historial', icono: 'ti-history', hacer: ir('/historial') }] }] : []),
+      ];
+      case 'usuario': return [
+        { pregunta: '¿Qué tengo pendiente?', icono: 'ti-list-check', cargar: respuestaPendientes },
+        { pregunta: '¿Cómo atiendo un oficio?', icono: 'ti-circle-check',
+          pasos: ['Abre el filtro de oficios por atender.', 'Toca «Atender Oficio» en su tarjeta.', 'Adjunta el Turno (si no viene) y el Seguimiento, describe lo realizado y guarda.'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: filtrarY('sub_turnado', '.btn-atender', 'Toca aquí para atenderlo.') }] },
+        { pregunta: 'Me regresaron un oficio para corregir', icono: 'ti-arrow-back-up',
+          pasos: ['Abre el filtro de oficios por corregir.', 'Lee en la tarjeta qué se debe corregir.', 'Atiéndelo de nuevo con los cambios y guarda para reenviarlo.'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: filtrarY('rechazado', '.btn-atender', 'Desde aquí lo corriges y lo reenvías.') }] },
+        { pregunta: '¿Dónde veo lo que ya entregué?', icono: 'ti-archive', texto: 'Lo que ya atendiste está en «Atendidos», y lo que se cerró por completo en «Completados».',
+          acciones: [{ texto: 'Ver atendidos', icono: 'ti-archive', hacer: () => irAlFiltro('atendido') }] },
+        P_BUSCAR('acepta el número de oficio, el remitente o una palabra del asunto.'),
+      ];
+      case 'captura': return [
+        { pregunta: '¿Qué datos son obligatorios?', icono: 'ti-asterisk',
+          cargar: async () => {
+            const req = [...document.querySelectorAll('#form-captura [required]')];
+            const nombres = req.map(etiquetaDe).filter(Boolean);
+            return {
+              texto: nombres.length ? `Para guardar necesito: ${nombres.join(', ')}. Lo demás ayuda a encontrarlo después.` : 'F. Oficio y Remitente son obligatorios; lo demás ayuda a encontrarlo después.',
+              acciones: [{ texto: 'Llévame al primero que falta', icono: 'ti-hand-finger', hacer: () => {
+                const c = req.find(e => visible(e) && !String(e.value || '').trim());
+                if (c) presentarYEsperar(c, `Empecemos por aquí: «${etiquetaDe(c)}».`);
+                else M.decir('¡Ya tienes todo lo obligatorio! Puedes guardar.', { duracion: 4500 });
+              } }],
+            };
+          } },
+        { pregunta: 'Prefiero registrarlo con la foto', icono: 'ti-camera', texto: 'En Registro Automático eliges la foto del oficio y yo lleno los datos por ti.', acciones: [{ texto: 'Ir a Registro Automático', icono: 'ti-camera', hacer: ir('/captura-auto') }] },
+        { pregunta: '¿Se pierde lo que escribo si cierro?', icono: 'ti-device-floppy', texto: 'No: lo que escribes se guarda como borrador en este equipo hasta que registres el oficio o limpies el formulario.' },
+        P_LIMPIAR,
+      ];
+      case 'captura-auto': return [
+        { pregunta: '¿Cómo registro un oficio con su foto?', icono: 'ti-photo-scan',
+          pasos: ['Toma la foto con tu celular (en «Captura desde celular») o elige una de la lista de pendientes.', 'Espera a que lea los datos.', 'Revisa lo que llené, completa lo que falte y guarda.'] },
+        { pregunta: '¿Cómo tomo la foto con mi celular?', icono: 'ti-device-mobile', texto: 'Entra al sistema desde tu celular y abre «Captura desde celular»: ahí tomas la foto y la envías. Luego la verás aquí lista para usar.' },
+        { pregunta: 'Prefiero escribirlo a mano', icono: 'ti-pencil', texto: 'En Nuevo Registro llenas los datos tú mismo.', acciones: [{ texto: 'Ir a Nuevo Registro', icono: 'ti-pencil', hacer: ir('/captura') }] },
+        { pregunta: 'Una foto no sirve, ¿qué hago?', icono: 'ti-photo-x', texto: 'Puedes descartarla de la lista de pendientes; te pediré confirmación antes. Después toma una nueva con mejor luz.' },
+        P_LIMPIAR,
+      ];
+      case 'captura-movil': return [
+        { pregunta: '¿Cómo tomo una buena foto?', icono: 'ti-camera', pasos: ['Pon la hoja sobre una superficie lisa y con buena luz.', 'Que se vea la hoja completa, sin sombras.', 'Revisa la vista previa y toca «Enviar».'] },
+        { pregunta: '¿Ya se envió mi foto?', icono: 'ti-history', texto: 'En «Tus fotos recientes» ves cada foto que enviaste y si ya se procesó.', acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('.cm-recientes-titulo', 'Aquí están tus fotos recientes.') }] },
+        { pregunta: '¿Dónde termino el registro?', icono: 'ti-device-desktop', texto: 'En la computadora, en «Registro Automático»: ahí eliges tu foto, revisas los datos y guardas.' },
+      ];
+      case 'circular': case 'no-oficio': case 'tarjeta-informativa': {
+        const N = NOMBRE_REGISTRO[pagina];
+        return [
+          { pregunta: `Quiero registrar un ${N} nuevo`, icono: 'ti-file-plus', pasos: ['Toca el botón «Nuevo».', 'Llena los datos de la ventana.', 'Guarda: se toma el siguiente número consecutivo.'],
+            acciones: [{ texto: 'Hazlo ahora', icono: 'ti-file-plus', hacer: () => { if (typeof window.abrirNuevo === 'function') window.abrirNuevo(); } }] },
+          ...(pagina === 'no-oficio' ? [{ pregunta: 'Quiero reservar un número para hoy', icono: 'ti-calendar-star', texto: '«Oficio Libre del Día» reserva el siguiente número con la fecha de hoy y lo deja en Oficios Libres para usarlo después.',
+            acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('.btn-libre-del-dia', 'Con este botón reservas el número de hoy.') }] }] : []),
+          { pregunta: '¿Qué pasa con el número si elimino un registro?', icono: 'ti-recycle', texto: 'El número queda libre y no se reutiliza solo: al registrar uno nuevo puedes elegirlo con «Asignar Anteriores».' },
+          P_BUSCAR('acepta asunto, destinatario o solicitante. También puedes filtrar por fechas con «Desde» y «Hasta».'),
+        ];
+      }
+      case 'minutario': return [
+        { pregunta: '¿Cómo registro la Fecha de Sello o de Firma?', icono: 'ti-calendar-check', pasos: ['Busca el número en la tabla.', 'Elige la fecha en su columna (Sello o Firma).', 'Se guarda sola; yo te aviso cuando quede guardada.'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('[onchange*="fecha_sello"]', 'Aquí eliges la Fecha de Sello.') }] },
+        { pregunta: 'Quiero ver Circulares o Tarjetas', icono: 'ti-switch-horizontal', texto: 'Cambia de tipo con las pestañas de arriba: No. de Oficio, No. Circular o No. Tarjeta Informativa.',
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('.minutario-tab', 'Con estas pestañas cambias de tipo.') }] },
+        { pregunta: 'Quiero ver solo un periodo', icono: 'ti-calendar', texto: 'Usa «Desde» y «Hasta»; con «Limpiar» vuelves a ver todo.', acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('#filtro-desde', 'Elige aquí desde qué fecha.') }] },
+        P_BUSCAR('acepta número, asunto o solicitante.'),
+      ];
+      case 'salas': return [
+        { pregunta: '¿Cómo aparto una sala?', icono: 'ti-calendar-plus', pasos: ['En «Apartar Sala» elige la sala.', 'Pon la fecha (y «Hasta» si son varios días) y el horario.', 'Indica cuántas personas y el evento, y toca «Apartar sala».'],
+          acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('#select-sala', 'Empieza eligiendo la sala.') }] },
+        { pregunta: '¿Cómo cancelo o cambio un apartado?', icono: 'ti-calendar-x', texto: 'En «Próximos apartados», en la tarjeta del apartado: el lápiz lo edita y la ✕ lo cancela (te pediré confirmación).' },
+        { pregunta: 'Tengo la solicitud en papel', icono: 'ti-camera', texto: 'Tómale foto desde tu celular («Captura desde celular») y aparecerá en «Fotos por procesar»: al elegirla propongo los datos del apartado.' },
+        { pregunta: 'Quiero registrar una sala nueva', icono: 'ti-building', texto: 'En el panel para registrar sala escribe su nombre y datos, y toca el botón para registrarla.', acciones: [{ texto: 'Muéstrame', icono: 'ti-hand-finger', hacer: () => guiar('#btn-registrar-sala', 'Con este botón la registras.') }] },
+      ];
+      default: return [];
+    }
+  }
+
+  let panel = null;
+  function cerrarAyuda() {
+    if (!panel) return;
+    panel.remove(); panel = null;
+    M.despierto(false);
+    document.removeEventListener('keydown', teclaAyuda);
+    document.removeEventListener('pointerdown', fueraAyuda, true);
+  }
+  const teclaAyuda = (e) => { if (e.key === 'Escape') cerrarAyuda(); };
+  const fueraAyuda = (e) => { if (panel && !panel.contains(e.target) && !M.esquina().contains(e.target)) cerrarAyuda(); };
+
+  function abrirAyuda() {
+    if (panel) { cerrarAyuda(); return; }
+    const lista = preguntas();
+    if (!lista.length) { M.decir(nombre ? `¡Hola, ${nombre}! Aquí estoy para ayudarte.` : '¡Hola! Aquí estoy para ayudarte.'); return; }
+    M.callar();
+    M.despierto(true);
+    panel = document.createElement('div');
+    panel.className = 'ms-ayuda';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'Ayuda');
+    document.body.appendChild(panel);
+    pintarMenu(lista);
+    document.addEventListener('keydown', teclaAyuda);
+    document.addEventListener('pointerdown', fueraAyuda, true);
+  }
+
+  function pintarMenu(lista = preguntas()) {
+    panel.innerHTML = `
+      <div class="ms-ayuda-cab">
+        <span class="ms-ayuda-saludo">${esc(nombre ? `¡Hola, ${nombre}!` : '¡Hola!')}</span>
+        <strong class="ms-ayuda-titulo">¿En qué puedo ayudarte?</strong>
+      </div>
+      <div class="ms-ayuda-lista">
+        ${lista.map((q, i) => `<button type="button" class="ms-ayuda-op" data-i="${i}"><i class="ti ${q.icono || 'ti-help-circle'}" aria-hidden="true"></i><span>${esc(q.pregunta)}</span><i class="ti ti-chevron-right ms-ayuda-flecha" aria-hidden="true"></i></button>`).join('')}
+      </div>
+      <button type="button" class="ms-ayuda-cerrar">Nada por ahora, gracias</button>`;
+    panel.querySelectorAll('.ms-ayuda-op').forEach(b => { b.onclick = () => pintarRespuesta(lista[Number(b.dataset.i)]); });
+    panel.querySelector('.ms-ayuda-cerrar').onclick = cerrarAyuda;
+    panel.querySelector('.ms-ayuda-op')?.focus();
+  }
+
+  async function pintarRespuesta(q) {
+    panel.innerHTML = `
+      <div class="ms-ayuda-cab ms-ayuda-cab-resp">
+        <button type="button" class="ms-ayuda-volver" aria-label="Volver a las preguntas"><i class="ti ti-arrow-left"></i></button>
+        <strong class="ms-ayuda-titulo">${esc(q.pregunta)}</strong>
+      </div>
+      <div class="ms-ayuda-resp"><p class="ms-ayuda-cargando">Déjame revisar…</p></div>`;
+    panel.querySelector('.ms-ayuda-volver').onclick = () => pintarMenu();
+    const r = q.cargar ? await q.cargar() : {};
+    if (!panel) return;
+    const texto = r.texto ?? q.texto, pasos = r.pasos ?? q.pasos, acciones = r.acciones ?? q.acciones ?? [];
+    panel.querySelector('.ms-ayuda-resp').innerHTML = `
+      ${texto ? `<p>${esc(texto)}</p>` : ''}
+      ${pasos ? `<ol class="ms-ayuda-pasos">${pasos.map(p => `<li>${esc(p)}</li>`).join('')}</ol>` : ''}
+      <div class="ms-ayuda-acciones">
+        ${acciones.map((a, i) => `<button type="button" class="ms-ayuda-accion" data-i="${i}"><i class="ti ${a.icono || 'ti-arrow-right'}" aria-hidden="true"></i> ${esc(a.texto)}</button>`).join('')}
+        <button type="button" class="ms-ayuda-otra">Otra pregunta</button>
+      </div>`;
+    panel.querySelectorAll('.ms-ayuda-accion').forEach(b => { b.onclick = () => { const a = acciones[Number(b.dataset.i)]; cerrarAyuda(); a.hacer(); }; });
+    panel.querySelector('.ms-ayuda-otra').onclick = () => pintarMenu();
+    (panel.querySelector('.ms-ayuda-accion') || panel.querySelector('.ms-ayuda-otra')).focus();
   }
 
   /* ─────────────── Arranque ─────────────── */

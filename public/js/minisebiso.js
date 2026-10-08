@@ -73,7 +73,7 @@
   const recordado = (() => { try { return localStorage.getItem('sbis_usuario_recordado'); } catch { return null; } })();
   setTimeout(() => decir(recordado
     ? `¡${saludo}, ${bonito(recordado)}! Qué gusto verte de nuevo. Solo falta tu contraseña.`
-    : `¡${saludo}! Soy MiniSEBISO, tu asistente. Escribe tu usuario y contraseña para empezar.`, 6500), 700);
+    : `¡${saludo}! Escribe tu usuario y contraseña para empezar.`, 6500), 700);
 
   // Contraseña: cierra los ojos para no ver (a menos que la muestres con el ojito)
   let avisoOjos = false;

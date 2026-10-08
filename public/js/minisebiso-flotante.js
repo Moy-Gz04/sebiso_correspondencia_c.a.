@@ -8,19 +8,31 @@
 // Velocidad de las animaciones de MiniSEBISO (1 = original; menor = más rápido)
 var VEL = 0.5;
 
+// Dónde ponerse junto a algo (rect c) sin taparlo, con su globo (230 px) debajo:
+// a la derecha si cabe; si no, a la izquierda con el globo hacia la izquierda; si no, debajo.
+function msJunto(c, W, H) {
+  const B = 230;
+  let x, y = c.top + c.height / 2 - H / 2, izq = false;
+  if (c.right + 14 + Math.max(W, B) <= innerWidth - 8) x = c.right + 14;
+  else if (c.left - 14 - W >= 8 && c.left - 14 - B >= 8) { x = c.left - 14 - W; izq = true; }
+  else { x = Math.max(8, Math.min(c.left, innerWidth - B - 8)); y = c.bottom + 8; }
+  y = Math.max(8, Math.min(y, innerHeight - H - 100));
+  return { x, y, izq };
+}
+
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=12';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=13';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
   ms.className = 'minisebiso ms-flotante dormido';
   ms.setAttribute('role', 'button');
   ms.setAttribute('tabindex', '0');
-  ms.setAttribute('aria-label', 'MiniSEBISO, el asistente del sistema (dormido). Toca para pedirle ayuda');
+  ms.setAttribute('aria-label', 'Asistente del sistema. Toca para pedirle ayuda');
   ms.innerHTML = `
-    <div class="ms-burbuja" aria-live="polite">¡Hola! Soy MiniSEBISO, tu asistente.</div>
+    <div class="ms-burbuja" aria-live="polite">¿En qué puedo ayudarte?</div>
     <div class="ms-zzz" aria-hidden="true"><span>z</span><span>z</span><span>Z</span></div>
     <div class="ms-cuerpo">
       <span class="ms-ojo-mov izq"><span class="ms-ojo"></span></span>
@@ -59,7 +71,7 @@ var VEL = 0.5;
     tomas = Math.max(0, tomas - 1);
     if (tomas) return;
     ms.style.visibility = '';
-    ms.classList.add('dormido');
+    if (!atendiendo) ms.classList.add('dormido');
   }
 
   // MiniSEBISO.decir(texto, { duracion, alTocar }): despierta en su esquina,
@@ -79,7 +91,7 @@ var VEL = 0.5;
     ms.classList.toggle('ms-con-accion', !!alTocar);
     ms.classList.remove('dormido', 'saltando'); void ms.offsetWidth;
     ms.classList.add('saltando', 'hablando');
-    ms.setAttribute('aria-label', 'MiniSEBISO: ' + texto);
+    ms.setAttribute('aria-label', 'Asistente: ' + texto);
     dormir = setTimeout(callar, duracion);
     return true;
   }
@@ -87,20 +99,27 @@ var VEL = 0.5;
     clearTimeout(dormir); alTocarBurbuja = null;
     ms.classList.remove('hablando', 'ms-con-accion');
     centrar();
-    if (!tomas) ms.classList.add('dormido');
-    ms.setAttribute('aria-label', 'MiniSEBISO, el asistente del sistema (dormido). Toca para pedirle ayuda');
+    if (!tomas && !atendiendo) ms.classList.add('dormido');
+    ms.setAttribute('aria-label', 'Asistente del sistema. Toca para pedirle ayuda');
   }
   function tocar() {
     if (alTocarBurbuja) { const f = alTocarBurbuja; callar(); f(); return; }
     const M = window.MiniSEBISO || {};
     if (M.alTocarEsquina) M.alTocarEsquina();
-    else decir('¡Hola! Soy MiniSEBISO, tu asistente.');
+    else decir('¿En qué puedo ayudarte?');
+  }
+  let atendiendo = false;
+  function despierto(si) {
+    atendiendo = !!si;
+    if (tomas) return;
+    if (si) { clearTimeout(dormir); ms.classList.remove('dormido', 'hablando', 'saltando'); void ms.offsetWidth; ms.classList.add('saltando'); }
+    else { centrar(); ms.classList.add('dormido'); }
   }
   ms.addEventListener('click', tocar);
   ms.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tocar(); } });
   ms.addEventListener('animationend', (e) => { if (e.animationName === 'msSalto') ms.classList.remove('saltando'); });
 
-  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { decir, callar, tomarEsquina, soltarEsquina });
+  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { decir, callar, tomarEsquina, soltarEsquina, despierto, esquina: () => ms });
 })();
 
 // =========================================================
@@ -295,6 +314,11 @@ var VEL = 0.5;
     const caja = overlay.querySelector('.modal-box') || overlay.firstElementChild;
     const esquina = document.querySelector('.ms-flotante:not(.ms-oculto)');
     if (!caja) return;
+    // Solo acompaña si cabe a un lado de la ventana (él y su globo) sin taparla
+    const ANCHO = 240;                       // el globo mide 220 px y va alineado a su izquierda
+    const rc = caja.getBoundingClientRect();
+    const lado = rc.left >= ANCHO + 14 ? 'izq' : innerWidth - rc.right >= ANCHO + 14 ? 'der' : null;
+    if (!lado) return;
 
     // MiniSEBISO con lentes, en una capa encima de la ventana
     const ms = document.createElement('div');
@@ -320,11 +344,11 @@ var VEL = 0.5;
       return () => cancelAnimationFrame(girando);
     };
 
-    // Dónde se acomoda: a la izquierda de la ventana; si no cabe, sentado sobre su esquina superior
+    // Dónde se acomoda: a un lado de la ventana, con espacio para su globo debajo
     const W = ms.offsetWidth, H = ms.offsetHeight;
     const r = caja.getBoundingClientRect();
-    let x = r.left - W - 18, y = Math.min(r.top + 70, innerHeight - H - 20);
-    if (x < 8) { x = Math.max(8, r.left + 12); y = Math.max(8, r.top - H + 18); }
+    const x = lado === 'izq' ? r.left - ANCHO - 6 : r.right + 18;
+    const y = Math.max(8, Math.min(r.top + 40, innerHeight - H - 150));
     ms.style.left = x + 'px'; ms.style.top = y + 'px';
 
     const o = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
@@ -343,12 +367,12 @@ var VEL = 0.5;
       { transform: 'translate(0, 0) scale(1) rotate(-360deg)' }
     ], { duration: 950, easing: 'cubic-bezier(.4, .05, .4, 1)' });
     pararOjos();
-    mirar(5, 0);
+    mirar(lado === 'izq' ? 5 : -5, 0);
     // "Abre" la ventana: se estira hacia ella y la ventana se despliega desde su lado
     caja.style.visibility = '';
-    caja.style.transformOrigin = x < r.left ? 'left center' : 'left top';
+    caja.style.transformOrigin = lado === 'izq' ? 'left center' : 'right center';
     await Promise.all([
-      anim(ms, [{ transform: 'none' }, { transform: 'translateX(10px) scale(1.12, .9)', offset: .35 }, { transform: 'none' }], { duration: 420, easing: 'ease-out' }),
+      anim(ms, [{ transform: 'none' }, { transform: `translateX(${lado === 'izq' ? 10 : -10}px) scale(1.12, .9)`, offset: .35 }, { transform: 'none' }], { duration: 420, easing: 'ease-out' }),
       anim(caja, [
         { opacity: 0, transform: 'scale(.15, .3)' },
         { opacity: 1, transform: 'scale(1.03, 1.01)', offset: .7 },
@@ -429,14 +453,11 @@ var VEL = 0.5;
     const mismoCampo = a.campo === campo;
     a.campo = campo;
     const c = campo.getBoundingClientRect();
-    // A la derecha del campo si cabe; si no, encima de él
-    let nx = c.right + 14, ny = c.top + c.height / 2 - a.H / 2;
-    if (nx + a.W > innerWidth - 8) { nx = Math.min(innerWidth - a.W - 8, c.right - a.W); ny = c.top - a.H - 6; }
-    ny = Math.max(8, Math.min(ny, innerHeight - a.H - 60));
+    const { x: nx, y: ny, izq } = msJunto(c, a.W, a.H);
     campo.classList.add('ms-campo-senalado');
     ms.classList.remove('hablando');
     (async () => {
-      if (!mismoCampo || !a.senalando) { a.senalando = true; await brincarA(ms, nx, ny); }
+      if (!mismoCampo || !a.senalando) { a.senalando = true; ms.classList.toggle('ms-burbuja-izq', izq); await brincarA(ms, nx, ny); }
       globo.textContent = texto;
       ms.classList.add('hablando', 'ms-alerta');
       setTimeout(() => ms.classList.remove('ms-alerta'), 600);
@@ -450,6 +471,7 @@ var VEL = 0.5;
         campo.classList.remove('ms-campo-senalado');
         ms.classList.remove('hablando');
         if (activo !== a) return;
+        ms.classList.remove('ms-burbuja-izq');
         await brincarA(ms, a.x, a.y);
         a.senalando = false;
         globo.textContent = textoListo;
@@ -512,7 +534,7 @@ var VEL = 0.5;
     ms.className = 'minisebiso ms-ayudante ms-presentador';
     ms.setAttribute('role', 'button');
     ms.setAttribute('tabindex', '0');
-    ms.setAttribute('aria-label', 'MiniSEBISO: ' + texto + ' Toca para cerrar');
+    ms.setAttribute('aria-label', 'Asistente: ' + texto + ' Toca para cerrar');
     ms.innerHTML = `
       <div class="ms-burbuja">${texto}</div>
       <div class="ms-cuerpo">
@@ -526,14 +548,12 @@ var VEL = 0.5;
     const rc = campo.getBoundingClientRect();
     if (rc.top < 80 || rc.bottom > innerHeight - 80) window.scrollTo({ top: scrollY + rc.top - innerHeight / 2 + rc.height / 2, behavior: 'instant' });
     const c = campo.getBoundingClientRect();
-    let x = c.right + 14, y = c.top + c.height / 2 - H / 2;
-    if (x + W > innerWidth - 8) { x = Math.min(innerWidth - W - 8, c.right - W); y = c.top - H - 6; }
-    y = Math.max(8, Math.min(y, innerHeight - H - 70));
+    const { x, y, izq } = msJunto(c, W, H);
     // Anclado a la página (no a la pantalla) para que siga al campo si la página se mueve
     ms.style.position = 'absolute';
     ms.style.left = (x + scrollX) + 'px'; ms.style.top = (y + scrollY) + 'px';
-    // Si el globo no cabe a la derecha, se abre hacia la izquierda
-    if (x + 240 > innerWidth - 8) ms.classList.add('ms-burbuja-izq');
+    // A la izquierda del campo, el globo se abre hacia la izquierda
+    if (izq) ms.classList.add('ms-burbuja-izq');
     const o = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
     const dx = (o.left + o.width / 2) - (x + W / 2), dy = (o.top + o.height / 2) - (y + H / 2), s0 = o.width / W;
     window.MiniSEBISO.tomarEsquina();

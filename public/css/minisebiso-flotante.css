@@ -232,3 +232,61 @@
 /* Botón principal verde para buenas noticias / confirmaciones sin riesgo */
 .ms-dlg-ok.ms-dlg-ok-verde { background: linear-gradient(135deg, #3E9B47, #22692A); color: #fff; box-shadow: 0 6px 16px rgba(34, 105, 42, .3); }
 .ms-dlg-detalle { white-space: pre-line; }
+
+/* ---- Menú de ayuda: «¿En qué puedo ayudarte?» ---- */
+.ms-ayuda {
+  position: fixed; right: 22px; bottom: 116px; z-index: 950;
+  width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 150px); overflow-y: auto;
+  padding: 16px; border-radius: 20px; background: #fff; color: #3A0818;
+  box-shadow: 0 18px 44px rgba(40, 8, 20, .28), 0 0 0 1px rgba(188, 149, 92, .35);
+  font-family: 'Montserrat', 'Poppins', 'Segoe UI', sans-serif;
+  animation: msAyudaEntra .28s cubic-bezier(.34, 1.4, .64, 1); transform-origin: 90% 100%;
+}
+@keyframes msAyudaEntra { from { opacity: 0; transform: translateY(10px) scale(.92); } to { opacity: 1; transform: none; } }
+.ms-ayuda-cab { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.ms-ayuda-cab-resp { flex-direction: row; align-items: center; gap: 8px; }
+.ms-ayuda-saludo { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #BC955C; }
+.ms-ayuda-titulo { font-size: 17px; font-weight: 800; line-height: 1.25; color: #4A0A1D; text-wrap: balance; }
+.ms-ayuda-lista { display: flex; flex-direction: column; gap: 6px; }
+.ms-ayuda-op {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid #EADFCB; background: #FBF6EE; color: #4A0A1D; text-align: left;
+  font: 600 13px/1.3 'Montserrat', 'Poppins', sans-serif; cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .12s ease;
+}
+.ms-ayuda-op > .ti:first-child { font-size: 18px; color: #9C7A2E; flex-shrink: 0; }
+.ms-ayuda-op span { flex: 1; }
+.ms-ayuda-flecha { font-size: 15px; color: #C7B08A; }
+.ms-ayuda-op:hover { background: #F5E9D2; border-color: #D8C29A; }
+.ms-ayuda-op:active { transform: scale(.98); }
+.ms-ayuda-op:focus-visible, .ms-ayuda-accion:focus-visible, .ms-ayuda-otra:focus-visible, .ms-ayuda-cerrar:focus-visible, .ms-ayuda-volver:focus-visible { outline: 2px solid #BC955C; outline-offset: 2px; }
+.ms-ayuda-cerrar, .ms-ayuda-otra {
+  margin-top: 10px; padding: 8px 14px; border-radius: 999px; border: 0; cursor: pointer;
+  background: #F4EFEA; color: #4A0A1D; box-shadow: inset 0 0 0 1px #E6DCD2;
+  font: 700 12.5px 'Montserrat', 'Poppins', sans-serif;
+}
+.ms-ayuda-cerrar { display: block; margin-left: auto; }
+.ms-ayuda-volver {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%;
+  border: 0; background: #F4EFEA; color: #4A0A1D; cursor: pointer; font-size: 16px;
+}
+.ms-ayuda-resp { font-size: 13.5px; line-height: 1.5; color: #4E2B35; }
+.ms-ayuda-resp p { margin: 0 0 10px; }
+.ms-ayuda-cargando { color: #9a7f86; font-style: italic; }
+.ms-ayuda-pasos { margin: 0 0 12px; padding-left: 0; list-style: none; counter-reset: paso; display: flex; flex-direction: column; gap: 8px; }
+.ms-ayuda-pasos li { counter-increment: paso; display: flex; gap: 10px; align-items: flex-start; }
+.ms-ayuda-pasos li::before {
+  content: counter(paso); flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: #4A0A1D; color: #F2DFB4; font-size: 11.5px; font-weight: 800; margin-top: 1px;
+}
+.ms-ayuda-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ms-ayuda-acciones .ms-ayuda-otra { margin-top: 0; }
+.ms-ayuda-accion {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 999px; border: 0; cursor: pointer;
+  background: linear-gradient(135deg, #D8B866, #9C7A2E); color: #3A0818; box-shadow: 0 5px 14px rgba(156, 122, 46, .3);
+  font: 800 12.5px 'Montserrat', 'Poppins', sans-serif; transition: transform .12s ease, filter .15s ease;
+}
+.ms-ayuda-accion:hover { filter: brightness(1.05); transform: translateY(-1px); }
+@media (max-width: 600px) { .ms-ayuda { right: 12px; bottom: 92px; } }
+@media (prefers-reduced-motion: reduce) { .ms-ayuda { animation: none; } }
+@media print { .ms-ayuda { display: none; } }
