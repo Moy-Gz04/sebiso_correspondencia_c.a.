@@ -1,8 +1,8 @@
 // =========================================================
 // minisebiso-flotante.js
 // Coloca a MiniSEBISO dormido en la esquina inferior derecha.
-// Al tocarlo despierta 5 segundos: abre los ojos (siguen el ratón)
-// y dice que pronto estará funcionando; luego se vuelve a dormir.
+// Al tocarlo despierta y habla (MiniSEBISO.decir); lo que dice al
+// tocarlo lo decide el asistente (minisebiso-asistente.js).
 // =========================================================
 
 // Velocidad de las animaciones de MiniSEBISO (1 = original; menor = más rápido)
@@ -11,23 +11,26 @@ var VEL = 0.5;
 (function () {
   if (document.querySelector('.ms-flotante')) return;
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=11';
+  css.rel = 'stylesheet'; css.href = 'css/minisebiso-flotante.css?v=12';
   document.head.appendChild(css);
 
   const ms = document.createElement('div');
   ms.className = 'minisebiso ms-flotante dormido';
   ms.setAttribute('role', 'button');
   ms.setAttribute('tabindex', '0');
-  ms.setAttribute('aria-label', 'MiniSEBISO, el asistente del sistema (dormido). Toca para despertarlo');
+  ms.setAttribute('aria-label', 'MiniSEBISO, el asistente del sistema (dormido). Toca para pedirle ayuda');
   ms.innerHTML = `
-    <div class="ms-burbuja" aria-live="polite">¡Hola! Soy el asistente de este sistema, pronto estaré funcionando…</div>
+    <div class="ms-burbuja" aria-live="polite">¡Hola! Soy MiniSEBISO, tu asistente.</div>
     <div class="ms-zzz" aria-hidden="true"><span>z</span><span>z</span><span>Z</span></div>
     <div class="ms-cuerpo">
       <span class="ms-ojo-mov izq"><span class="ms-ojo"></span></span>
       <span class="ms-ojo-mov der"><span class="ms-ojo"></span></span>
     </div>
     <div class="ms-estrella"></div>`;
+  // Páginas sin espacio para la mascota de la esquina (data-ms-sin-esquina en <body>)
+  if (document.body.hasAttribute('data-ms-sin-esquina')) ms.classList.add('ms-oculto');
   document.body.appendChild(ms);
+  const burbuja = ms.querySelector('.ms-burbuja');
 
   const ojos = ms.querySelectorAll('.ms-ojo-mov');
   const centrar = () => ojos.forEach(o => { o.style.setProperty('--dx', '0px'); o.style.setProperty('--dy', '0px'); });
@@ -42,22 +45,62 @@ var VEL = 0.5;
     });
   });
 
-  let dormir = null;
-  function despertar() {
+  // Otras apariciones de MiniSEBISO (diálogo, ayudante, presentador) lo
+  // "toman" de la esquina mientras están en pantalla; con un contador para
+  // que nunca haya dos mascotas a la vez ni se quede escondido de más.
+  let tomas = 0;
+  function tomarEsquina() {
+    tomas++;
+    clearTimeout(dormir); alTocarBurbuja = null;
+    ms.classList.remove('dormido', 'hablando', 'ms-con-accion');
+    ms.style.visibility = 'hidden';
+  }
+  function soltarEsquina() {
+    tomas = Math.max(0, tomas - 1);
+    if (tomas) return;
+    ms.style.visibility = '';
+    ms.classList.add('dormido');
+  }
+
+  // MiniSEBISO.decir(texto, { duracion, alTocar }): despierta en su esquina,
+  // brinca y dice el texto. Si trae alTocar, tocarlo mientras habla lo ejecuta.
+  let dormir = null, alTocarBurbuja = null;
+  function decir(texto, { duracion = 6000, alTocar = null, accion = '' } = {}) {
+    if (tomas || ms.classList.contains('ms-oculto')) return false;
     clearTimeout(dormir);
+    burbuja.textContent = texto;
+    if (alTocar && accion) {
+      const btn = document.createElement('span');
+      btn.className = 'ms-burbuja-accion';
+      btn.textContent = accion;
+      burbuja.appendChild(btn);
+    }
+    alTocarBurbuja = alTocar;
+    ms.classList.toggle('ms-con-accion', !!alTocar);
     ms.classList.remove('dormido', 'saltando'); void ms.offsetWidth;
     ms.classList.add('saltando', 'hablando');
-    ms.setAttribute('aria-label', 'MiniSEBISO, el asistente del sistema');
-    dormir = setTimeout(() => {
-      ms.classList.remove('hablando');
-      centrar();
-      ms.classList.add('dormido');
-      ms.setAttribute('aria-label', 'MiniSEBISO, el asistente del sistema (dormido). Toca para despertarlo');
-    }, 5000);
+    ms.setAttribute('aria-label', 'MiniSEBISO: ' + texto);
+    dormir = setTimeout(callar, duracion);
+    return true;
   }
-  ms.addEventListener('click', despertar);
-  ms.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); despertar(); } });
+  function callar() {
+    clearTimeout(dormir); alTocarBurbuja = null;
+    ms.classList.remove('hablando', 'ms-con-accion');
+    centrar();
+    if (!tomas) ms.classList.add('dormido');
+    ms.setAttribute('aria-label', 'MiniSEBISO, el asistente del sistema (dormido). Toca para pedirle ayuda');
+  }
+  function tocar() {
+    if (alTocarBurbuja) { const f = alTocarBurbuja; callar(); f(); return; }
+    const M = window.MiniSEBISO || {};
+    if (M.alTocarEsquina) M.alTocarEsquina();
+    else decir('¡Hola! Soy MiniSEBISO, tu asistente.');
+  }
+  ms.addEventListener('click', tocar);
+  ms.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tocar(); } });
   ms.addEventListener('animationend', (e) => { if (e.animationName === 'msSalto') ms.classList.remove('saltando'); });
+
+  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { decir, callar, tomarEsquina, soltarEsquina });
 })();
 
 // =========================================================
@@ -80,8 +123,16 @@ var VEL = 0.5;
       <div class="ms-estrella"></div>`;
   }
 
-  async function preguntar({ titulo = '¡Hola!', pregunta = '', detalle = '', btnOk = 'Sí, eliminar', btnCancel = 'Cancelar', iconoOk = 'ti-trash', soloOk = false, saludoOk = '¡Entendido!', textoOk = 'Lo elimino ahora mismo…' } = {}) {
-    const esquina = document.querySelector('.ms-flotante');
+  // Los diálogos van en fila: si llega otro mientras uno está abierto, espera su turno
+  let fila = Promise.resolve();
+  function preguntar(opciones) {
+    const turno = fila.then(() => preguntarAhora(opciones));
+    fila = turno.catch(() => {});
+    return turno;
+  }
+
+  async function preguntarAhora({ titulo = '¡Hola!', pregunta = '', detalle = '', btnOk = 'Sí, eliminar', btnCancel = 'Cancelar', iconoOk = 'ti-trash', soloOk = false, saludoOk = '¡Entendido!', textoOk = 'Lo elimino ahora mismo…', saludoCancel = '¡Va!', textoCancel = 'Lo dejamos como está.', tono = '', estiloOk = '' } = {}) {
+    const esquina = document.querySelector('.ms-flotante:not(.ms-oculto)');
     const overlay = document.createElement('div');
     overlay.className = 'ms-dlg-overlay';
     overlay.innerHTML = `
@@ -93,7 +144,7 @@ var VEL = 0.5;
           ${detalle ? `<div class="ms-dlg-detalle">${detalle}</div>` : ''}
           <div class="ms-dlg-botones">
             ${soloOk ? '' : `<button type="button" class="ms-dlg-btn ms-dlg-cancelar"><i class="ti ti-x"></i> ${btnCancel}</button>`}
-            <button type="button" class="ms-dlg-btn ms-dlg-ok${soloOk ? ' ms-dlg-ok-dorado' : ''}"><i class="ti ${iconoOk}"></i> ${btnOk}</button>
+            <button type="button" class="ms-dlg-btn ms-dlg-ok${estiloOk ? ' ms-dlg-ok-' + estiloOk : (soloOk ? ' ms-dlg-ok-dorado' : '')}"><i class="ti ${iconoOk}"></i> ${btnOk}</button>
           </div>
         </div>
       </div>`;
@@ -121,7 +172,9 @@ var VEL = 0.5;
     const dx = (origen.left + origen.width / 2) - (destino.left + destino.width / 2);
     const dy = (origen.top + origen.height / 2) - (destino.top + destino.height / 2);
     const s0 = origen.width / destino.width;
-    if (esquina) { esquina.classList.remove('dormido', 'hablando'); esquina.style.visibility = 'hidden'; }
+    const M = window.MiniSEBISO;
+    M.tomarEsquina && M.tomarEsquina();
+    if (tono) overlay.classList.add('ms-tono-' + tono);
 
     requestAnimationFrame(() => overlay.classList.add('visible'));
     globo.style.opacity = '0';
@@ -138,6 +191,18 @@ var VEL = 0.5;
     await anim(mascota, [
       { transform: 'scale(1.12, .86)' }, { transform: 'scale(.95, 1.06)' }, { transform: 'scale(1)' }
     ], { duration: 320, easing: 'ease-out' });
+    // Su primera reacción depende de la noticia: festeja, se preocupa o avisa
+    if (tono === 'exito') {
+      await anim(mascota, [
+        { transform: 'none' }, { transform: 'translateY(-26px) rotate(-8deg) scale(1.05)', offset: .4 },
+        { transform: 'translateY(0) rotate(0) scale(1.08, .92)', offset: .75 }, { transform: 'none' }
+      ], { duration: 520, easing: 'ease-out' });
+    } else if (tono === 'error' || tono === 'aviso') {
+      await anim(mascota, [
+        { transform: 'rotate(0)' }, { transform: 'rotate(-7deg)' }, { transform: 'rotate(7deg)' },
+        { transform: 'rotate(-4deg)' }, { transform: 'rotate(0)' }
+      ], { duration: 460, easing: 'ease-in-out' });
+    }
     // El globo "sale" de la mascota
     globo.style.opacity = '';
     mirar(4, 0);
@@ -175,8 +240,9 @@ var VEL = 0.5;
       globo.style.visibility = 'hidden';
     } else {
       // Canceló: la mascota niega con la cabeza y el globo regresa a ella
-      globo.querySelector('.ms-dlg-saludo').textContent = '¡Va!';
-      globo.querySelector('.ms-dlg-pregunta').textContent = 'Lo dejamos como está.';
+      globo.querySelector('.ms-dlg-saludo').textContent = saludoCancel;
+      globo.querySelector('.ms-dlg-pregunta').textContent = textoCancel;
+      const det = globo.querySelector('.ms-dlg-detalle'); if (det) det.remove();
       await anim(mascota, [
         { transform: 'rotate(0deg)' }, { transform: 'rotate(-9deg)' }, { transform: 'rotate(9deg)' },
         { transform: 'rotate(-6deg)' }, { transform: 'rotate(0deg)' }
@@ -204,7 +270,7 @@ var VEL = 0.5;
     ], { duration: 950, easing: 'cubic-bezier(.4, .05, .4, 1)', fill: 'forwards' });
     pararOjos2();
     overlay.remove();
-    if (esquina) { esquina.style.visibility = ''; esquina.classList.add('dormido'); }
+    M.soltarEsquina && M.soltarEsquina();
     return respuesta;
   }
 
@@ -227,7 +293,7 @@ var VEL = 0.5;
   async function ayudarEditar(overlay, { texto = '¡Te ayudo a editar!', persistente = false } = {}) {
     if (!overlay || activo) return;
     const caja = overlay.querySelector('.modal-box') || overlay.firstElementChild;
-    const esquina = document.querySelector('.ms-flotante');
+    const esquina = document.querySelector('.ms-flotante:not(.ms-oculto)');
     if (!caja) return;
 
     // MiniSEBISO con lentes, en una capa encima de la ventana
@@ -263,7 +329,7 @@ var VEL = 0.5;
 
     const o = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
     const dx = (o.left + o.width / 2) - (x + W / 2), dy = (o.top + o.height / 2) - (y + H / 2), s0 = o.width / W;
-    if (esquina) { esquina.classList.remove('dormido', 'hablando'); esquina.style.visibility = 'hidden'; }
+    window.MiniSEBISO.tomarEsquina();
     activo = { ms, esquina, overlay, o, W, H, s0, x, y, texto };
 
     // La ventana espera escondida hasta que MiniSEBISO llega
@@ -331,7 +397,7 @@ var VEL = 0.5;
     ], { duration: 900, easing: 'cubic-bezier(.4, .05, .4, 1)', fill: 'forwards' });
     cancelAnimationFrame(id);
     ms.remove();
-    if (esquina) { esquina.style.visibility = ''; esquina.classList.add('dormido'); }
+    window.MiniSEBISO.soltarEsquina();
   }
 
   // Brinca (con marometa) del lugar donde está a (nx, ny) en pantalla
@@ -350,7 +416,7 @@ var VEL = 0.5;
   // MiniSEBISO.senalar(campo, texto): mientras ayuda a editar, salta junto a un
   // campo y lo pide con su globo; cuando el campo recibe un valor, regresa a su lugar.
   // Devuelve false si no hay ayudante en pantalla (para usar el aviso normal).
-  function senalar(campo, texto) {
+  function senalar(campo, texto, { textoListo = '¡Perfecto! Ya puedes actualizar los cambios.' } = {}) {
     if (!activo || !campo) return false;
     const a = activo, ms = a.ms, globo = ms.querySelector('.ms-burbuja');
     // Si estaba señalando otro campo, lo suelta (se señala uno a la vez)
@@ -386,7 +452,7 @@ var VEL = 0.5;
         if (activo !== a) return;
         await brincarA(ms, a.x, a.y);
         a.senalando = false;
-        globo.textContent = '¡Perfecto! Ya puedes actualizar los cambios.';
+        globo.textContent = textoListo;
         ms.classList.add('hablando');
       };
       // Lista y hora: al elegir. Texto: cuando deja de escribir un momento (o sale del campo)
@@ -404,7 +470,22 @@ var VEL = 0.5;
     return true;
   }
 
-  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { ayudarEditar, senalar });
+  // MiniSEBISO.comentar(texto, { alerta }): el ayudante que acompaña una ventana
+  // cambia lo que dice (con un brinquito, o sacudiéndose si es un aviso).
+  // Devuelve false si no hay ayudante en pantalla.
+  function comentar(texto, { alerta = false } = {}) {
+    if (!activo) return false;
+    const ms = activo.ms;
+    ms.querySelector('.ms-burbuja').textContent = texto;
+    ms.classList.add('hablando');
+    ms.classList.remove('ms-alerta'); void ms.offsetWidth;
+    if (alerta) { ms.classList.add('ms-alerta'); setTimeout(() => ms.classList.remove('ms-alerta'), 600); }
+    else anim(ms, [{ transform: 'none' }, { transform: 'translateY(-14px) scale(1.05, .95)', offset: .4 }, { transform: 'none' }], { duration: 380, easing: 'ease-out' });
+    return true;
+  }
+  const ayudando = () => !!activo;
+
+  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { ayudarEditar, senalar, comentar, ayudando });
 })();
 
 // =========================================================
@@ -426,7 +507,7 @@ var VEL = 0.5;
     // Espera a que la página termine de moverse antes de medir dónde está el campo
     await new Promise(r => setTimeout(r, 450));
     if (turno !== turnoPresentar) return;
-    const esquina = document.querySelector('.ms-flotante');
+    const esquina = document.querySelector('.ms-flotante:not(.ms-oculto)');
     const ms = document.createElement('div');
     ms.className = 'minisebiso ms-ayudante ms-presentador';
     ms.setAttribute('role', 'button');
@@ -455,7 +536,7 @@ var VEL = 0.5;
     if (x + 240 > innerWidth - 8) ms.classList.add('ms-burbuja-izq');
     const o = esquina ? esquina.getBoundingClientRect() : { left: innerWidth - 110, top: innerHeight - 100, width: 92, height: 83 };
     const dx = (o.left + o.width / 2) - (x + W / 2), dy = (o.top + o.height / 2) - (y + H / 2), s0 = o.width / W;
-    if (esquina) { esquina.classList.remove('dormido', 'hablando'); esquina.style.visibility = 'hidden'; }
+    window.MiniSEBISO.tomarEsquina();
     campo.classList.add('ms-campo-senalado');
     actual = { ms, esquina, o, W, H, s0, campo };
     // Ojos siguen el cursor
@@ -494,8 +575,9 @@ var VEL = 0.5;
       { transform: `translate(${rx}px, ${ry}px) scale(${s0}) rotate(360deg)` }
     ], { duration: 900, easing: 'cubic-bezier(.4, .05, .4, 1)', fill: 'forwards' });
     ms.remove();
-    if (esquina) { esquina.style.visibility = ''; esquina.classList.add('dormido'); }
+    window.MiniSEBISO.soltarEsquina();
   }
 
-  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { presentar, retirar });
+  const presentando = () => (actual ? actual.campo : null);
+  window.MiniSEBISO = Object.assign(window.MiniSEBISO || {}, { presentar, retirar, presentando });
 })();

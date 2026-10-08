@@ -213,3 +213,22 @@
 .ms-dlg-ok.ms-dlg-ok-dorado { background: linear-gradient(135deg, #D8B866, #9C7A2E); color: #3A0818; box-shadow: 0 6px 16px rgba(156, 122, 46, .35); }
 .ms-ayudante.ms-burbuja-izq .ms-burbuja { left: auto; right: 0; transform-origin: calc(100% - 40px) 0; }
 .ms-ayudante.ms-burbuja-izq .ms-burbuja::after { left: auto; right: 40px; }
+
+/* ---- Asistente (minisebiso-asistente.js) ---- */
+.ms-oculto { display: none !important; }
+/* Los diálogos de MiniSEBISO van por encima de ventanas, ayudante y escáner */
+.ms-dlg-overlay { z-index: 11000; }
+/* Burbuja con acción: se puede tocar */
+.ms-flotante.ms-con-accion .ms-burbuja { pointer-events: auto; cursor: pointer; }
+.ms-burbuja-accion {
+  display: block; width: fit-content; margin: 8px auto 0; padding: 5px 12px; border-radius: 999px;
+  background: linear-gradient(135deg, #D8B866, #9C7A2E); color: #3A0818; font-size: 11.5px; font-weight: 800;
+}
+.ms-flotante.ms-con-accion .ms-burbuja:hover .ms-burbuja-accion { filter: brightness(1.06); }
+/* El saludo del diálogo toma el color de la noticia */
+.ms-tono-exito .ms-dlg-saludo { color: #2E7D32; }
+.ms-tono-error .ms-dlg-saludo { color: #C0262D; }
+.ms-tono-aviso .ms-dlg-saludo { color: #B7791F; }
+/* Botón principal verde para buenas noticias / confirmaciones sin riesgo */
+.ms-dlg-ok.ms-dlg-ok-verde { background: linear-gradient(135deg, #3E9B47, #22692A); color: #fff; box-shadow: 0 6px 16px rgba(34, 105, 42, .3); }
+.ms-dlg-detalle { white-space: pre-line; }
