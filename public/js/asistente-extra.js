@@ -15,7 +15,7 @@
   window.__asistenteExtra = true;
 
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/asistente-extra.css?v=1';
+  css.rel = 'stylesheet'; css.href = 'css/asistente-extra.css?v=2';
   document.head.appendChild(css);
 
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -560,7 +560,23 @@
 
   /* ─────────────── Arranque ─────────────── */
   const clavePrefUsuario = () => 'msc_pref_' + (usuario && usuario.username || '');
+  // Encabezado: los usuarios conectados van a la derecha de «Cerrar sesión»
+  // (la página los vuelve a poner al principio cada vez que los actualiza)
+  function acomodarEncabezado() {
+    const derecha = document.querySelector('.header-derecha');
+    if (!derecha) return;
+    const mover = () => {
+      const badge = document.getElementById('badge-usuarios-activos');
+      if (badge && derecha.lastElementChild !== badge) derecha.appendChild(badge);
+    };
+    new MutationObserver(mover).observe(derecha, { childList: true });
+    mover();
+    // El usuario va fijo en la esquina inferior izquierda: fuera del encabezado (que crea su propio marco)
+    const yo = document.getElementById('header-usuario');
+    if (yo && yo.parentNode !== document.body) document.body.appendChild(yo);
+  }
   function iniciar() {
+    acomodarEncabezado();
     const esq = M.esquina && M.esquina();
     refrescarPantalla = () => { if (esq) esq.classList.toggle('ms-oculto', !encendido() || document.body.hasAttribute('data-ms-sin-esquina')); };
     prepararBotonesEncabezado();

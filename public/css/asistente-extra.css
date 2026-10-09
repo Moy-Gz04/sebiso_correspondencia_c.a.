@@ -307,3 +307,13 @@ html .con-lentes .ms-ojo-mov.der { left: var(--ojo-der-lectura, 63%); }
 }
 .ms-aviso-mini.visible { opacity: 1; transform: translate(-50%, 0); }
 .ms-aviso-mini.error { background: #94141E; }
+
+/* ---- Usuario en sesión: fijo en la esquina inferior izquierda (la derecha es de la mascota) ---- */
+html #header-usuario {
+  position: fixed; left: 18px; bottom: 18px; z-index: 880; flex: none;
+  box-shadow: 0 6px 18px rgba(60, 10, 25, .18), 0 0 0 1px rgba(188, 149, 92, .35);
+}
+@media (max-width: 600px) { html #header-usuario { left: 12px; bottom: 12px; } }
+@media print { html #header-usuario { display: none; } }
+/* Los conectados, ahora al final: su lista se abre hacia la izquierda sin salirse */
+.header-derecha > .badge-usuarios-activos { margin-left: 4px; }
