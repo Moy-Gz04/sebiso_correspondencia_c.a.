@@ -117,10 +117,12 @@
     }).then(ok => { ultimaConfirmacion = { cuando: Date.now(), ok }; return ok; });
   }
 
-  window.sbisAlert = alerta;
-  window.sbisConfirm = confirmar;
+  // Con el asistente apagado (botón «Asistente» del encabezado) vuelven las ventanas normales de la página
+  const originales = { alerta: window.sbisAlert, confirmar: window.sbisConfirm, alert: window.alert };
+  window.sbisAlert = (o = {}) => M.apagado && originales.alerta ? Promise.resolve(originales.alerta(o)) : alerta(o);
+  window.sbisConfirm = (o = {}) => M.apagado ? Promise.resolve(originales.confirmar ? originales.confirmar(o) : window.confirm(o.mensaje || o.titulo || '¿Continuar?')) : confirmar(o);
   // Los alert() nativos que quedan también los dice él (sin bloquear la página)
-  window.alert = (msg) => { alerta({ titulo: 'Revisa esto', mensaje: String(msg ?? ''), tipo: 'warning' }); };
+  window.alert = (msg) => { if (M.apagado) return originales.alert.call(window, msg); alerta({ titulo: 'Revisa esto', mensaje: String(msg ?? ''), tipo: 'warning' }); };
 
   /* Después de un aviso de datos incompletos, salta junto al primer campo marcado en rojo */
   function etiquetaDe(campo) {
@@ -171,6 +173,7 @@
     document.querySelectorAll('button[onclick="cerrarSesion()"]').forEach(btn => {
       btn.removeAttribute('onclick');
       btn.addEventListener('click', async () => {
+        if (M.apagado) { if (typeof window.cerrarSesion === 'function') window.cerrarSesion(); return; }
         const ok = await M.preguntar({
           titulo: esc(nombre ? `¿Ya te vas, ${nombre}?` : '¿Ya te vas?'),
           pregunta: '¿Cierro tu sesión?',

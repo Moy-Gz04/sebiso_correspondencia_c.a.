@@ -1316,6 +1316,51 @@ app.post('/api/login', limitadorLogin, async (req, res) => {
 /* ══ ME ══ */
 app.get('/api/me', verifyToken, (req, res) => res.json({ usuario: req.user }));
 
+/* ══ PREFERENCIAS DEL ASISTENTE (por usuario) ══
+   Encendido/apagado y apariencia (color, estrella, ropa, lentes). Se
+   guardan en el servidor para verse igual en cualquier equipo. */
+const PREFERENCIAS_LISTAS = sql`CREATE TABLE IF NOT EXISTS usuario_preferencias (
+  usuario_id INTEGER PRIMARY KEY,
+  asistente  JSONB NOT NULL DEFAULT '{}'::jsonb,
+  actualizado TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)`.catch(err => console.error('No se pudo preparar usuario_preferencias:', err.message));
+
+app.get('/api/preferencias', verifyToken, async (req, res) => {
+  try {
+    await PREFERENCIAS_LISTAS;
+    const filas = await sql`SELECT asistente FROM usuario_preferencias WHERE usuario_id = ${req.user.id}`;
+    res.json({ ok: true, asistente: filas[0]?.asistente || {} });
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron leer tus preferencias.');
+  }
+});
+
+app.put('/api/preferencias', verifyToken, async (req, res) => {
+  const a = req.body?.asistente || {};
+  const asistente = {};
+  const valido = (k, lista) => a[k] === undefined || lista.includes(a[k]);
+  if (a.activo !== undefined) asistente.activo = !!a.activo;
+  if (a.color !== undefined) {
+    if (a.color !== null && a.color !== 'galaxia' && !/^#[0-9a-f]{6}$/i.test(String(a.color))) return res.status(400).json({ ok: false, mensaje: 'El color no es válido.' });
+    asistente.color = a.color;
+  }
+  if (!valido('estrella', ['guinda', 'dorada']) || !valido('ropa', ['ninguna', 'mono', 'corbata', 'bufanda', 'saco'])
+    || !valido('gafas', ['ninguno', 'redondos', 'cuadrados', 'sol', 'corazon', 'gato', 'dorados'])) {
+    return res.status(400).json({ ok: false, mensaje: 'Alguna opción del asistente no es válida.' });
+  }
+  ['estrella', 'ropa', 'gafas'].forEach(k => { if (a[k] !== undefined) asistente[k] = a[k]; });
+  try {
+    await PREFERENCIAS_LISTAS;
+    const filas = await sql`
+      INSERT INTO usuario_preferencias (usuario_id, asistente) VALUES (${req.user.id}, ${JSON.stringify(asistente)}::jsonb)
+      ON CONFLICT (usuario_id) DO UPDATE SET asistente = usuario_preferencias.asistente || EXCLUDED.asistente, actualizado = NOW()
+      RETURNING asistente`;
+    res.json({ ok: true, asistente: filas[0].asistente });
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron guardar tus preferencias.');
+  }
+});
+
 /* ══ POST /api/heartbeat ══ */
 app.post('/api/heartbeat', verifyToken, (req, res) => res.sendStatus(204));
 
