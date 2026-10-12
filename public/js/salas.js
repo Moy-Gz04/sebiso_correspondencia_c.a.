@@ -369,6 +369,7 @@ async function cargarApartados() {
     APARTADOS = agruparApartados(data);
     pintarTendedero();
     pintarSalas();
+    buscarDisponibilidad();
   } catch (err) {
     await sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error' });
   }
@@ -408,6 +409,78 @@ function pintarTendedero() {
       </div>`;
   }).join('');
   iniciarCuentaRegresiva();
+}
+
+/* ── Buscador de disponibilidad ──
+   Para un día (y opcionalmente un horario) marca cada sala como ocupada
+   —con los apartados que la ocupan— o libre. Sin horario se revisa el
+   día completo. Usa los apartados ya cargados (APARTADOS), así que se
+   actualiza solo cada vez que cambia el tendedero. */
+const aMin = (h) => { const [hh, mm] = String(h || '').slice(0, 5).split(':').map(Number); return hh * 60 + (mm || 0); };
+function limpiarDisponibilidad() {
+  document.getElementById('disp-desde').value = '';
+  document.getElementById('disp-hasta').value = '';
+  buscarDisponibilidad();
+}
+function buscarDisponibilidad() {
+  const cont = document.getElementById('disp-salas');
+  const resumen = document.getElementById('disp-resumen');
+  const inFecha = document.getElementById('disp-fecha');
+  if (!cont || !inFecha) return;
+  if (!inFecha.value) inFecha.value = fechaISO(new Date());
+  const fecha = inFecha.value;
+  const desde = document.getElementById('disp-desde').value;
+  const hasta = document.getElementById('disp-hasta').value;
+  // Con un solo extremo se toma ese momento; sin ninguno, el día completo
+  const ini = desde ? aMin(desde) : (hasta ? aMin(hasta) - 1 : 0);
+  const fin = hasta ? aMin(hasta) : (desde ? aMin(desde) + 1 : 24 * 60);
+  if (desde && hasta && fin <= ini) {
+    resumen.textContent = 'La hora «Hasta» debe ser después de «Desde».';
+    resumen.className = 'disp-resumen error';
+    cont.innerHTML = '';
+    return;
+  }
+  const delDia = APARTADOS.filter(ap => ap.fechas.includes(fecha));
+  const choca = (ap) => aMin(ap.hora_inicio) < fin && aMin(ap.hora_fin) > ini;
+  const porHora = (a, b) => aMin(a.hora_inicio) - aMin(b.hora_inicio);
+  const filas = SALAS.map(s => ({
+    s,
+    ocupan: delDia.filter(ap => ap.sala_id === s.id && choca(ap)).sort(porHora),
+    resto: delDia.filter(ap => ap.sala_id === s.id && !choca(ap)).sort(porHora),
+  }));
+  const ocupadas = filas.filter(f => f.ocupan.length).length;
+  const cuando = `el ${formatearFechaCorta(fecha)}${desde || hasta ? ` de ${desde || hasta} a ${hasta || desde}` : ' (todo el día)'}`;
+  resumen.className = 'disp-resumen';
+  resumen.innerHTML = SALAS.length
+    ? `${ocupadas ? `<b>${ocupadas} de ${SALAS.length} salas</b> ${ocupadas === 1 ? 'ocupada' : 'ocupadas'}` : '<b>Todas las salas están libres</b>'} ${cuando}.`
+    : 'Todavía no hay salas registradas.';
+  const hora = (ap) => `${ap.hora_inicio.slice(0, 5)}–${ap.hora_fin.slice(0, 5)}`;
+  cont.innerHTML = filas.map(({ s, ocupan, resto }) => `
+    <article class="disp-sala ${ocupan.length ? 'ocupada' : 'libre'}">
+      <div class="disp-sala-cab">
+        <span class="disp-sala-nombre"><i class="ti ti-door"></i> ${s.nombre}</span>
+        <span class="disp-estado">${ocupan.length ? '<i class="ti ti-lock"></i> Ocupada' : '<i class="ti ti-circle-check"></i> Libre'}</span>
+      </div>
+      ${ocupan.map(ap => `
+        <button type="button" class="disp-ap" onclick="verDetalleTicket(${ap.id})" title="Ver el apartado">
+          <b>${hora(ap)}</b><span>${ap.descripcion || 'Sin descripción'}</span>${ap.folio_nota ? `<small>Tarjeta ${ap.folio_nota}</small>` : ''}
+        </button>`).join('')}
+      ${!ocupan.length && resto.length ? `<p class="disp-nota">Ese día también tiene: ${resto.map(hora).join(', ')}</p>` : ''}
+      ${!ocupan.length ? `<button type="button" class="disp-apartar" onclick="apartarDesdeDisponibilidad(${s.id})"><i class="ti ti-calendar-plus"></i> Apartar esta sala</button>` : ''}
+    </article>`).join('');
+}
+/* Desde una sala libre: llena «Apartar Sala» con esa sala, el día y el horario buscados */
+function apartarDesdeDisponibilidad(id) {
+  const fecha = document.getElementById('disp-fecha').value;
+  const desde = document.getElementById('disp-desde').value;
+  const hasta = document.getElementById('disp-hasta').value;
+  const f = document.getElementById('input-fecha-apartado');
+  if (f && fecha) { f.value = fecha; f.dispatchEvent(new Event('change')); }
+  const hi = document.getElementById('input-hora-inicio-apartado');
+  const hf = document.getElementById('input-hora-fin-apartado');
+  if (hi && desde) hi.value = desde;
+  if (hf && hasta) hf.value = hasta;
+  elegirSala(id);
 }
 
 /* ── Mini contador: cuánto falta para poder quitar la tarjeta ──

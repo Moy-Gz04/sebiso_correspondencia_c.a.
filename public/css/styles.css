@@ -1786,3 +1786,56 @@ body::before {
   .header-fecha { display: none; }
   .header-derecha { gap: 10px; padding-left: 12px; }
 }
+
+
+/* ── Salas: buscador de disponibilidad ── */
+.disp-panel {
+  margin: 0 0 22px; padding: 18px 20px 20px; border-radius: 16px;
+  background: #fff; border: 1px solid #ECE1D4; box-shadow: 0 6px 20px rgba(60, 10, 25, .06);
+}
+.disp-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 12px; }
+.disp-titulo { margin: 0; font-size: 1rem; font-weight: 800; color: #4A0A1D; display: flex; align-items: center; gap: 8px; }
+.disp-ayuda { margin: 0; font-size: .82rem; color: #7a5a63; }
+.disp-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
+.disp-campo { display: flex; flex-direction: column; gap: 4px; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #9C7A2E; }
+.disp-campo input {
+  height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid #E3D6C4; background: #FBF7F1;
+  font: 600 .9rem 'Montserrat', sans-serif; color: #3A0818; text-transform: none; letter-spacing: 0;
+}
+.disp-campo input:focus { outline: 2px solid #BC955C; outline-offset: 1px; }
+.disp-limpiar {
+  height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid #E3D6C4; background: #fff; color: #4A0A1D;
+  font: 700 .82rem 'Montserrat', sans-serif; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.disp-limpiar:hover { background: #F7EFE3; }
+.disp-resumen { margin: 14px 0 10px; font-size: .9rem; color: #4E2B35; }
+.disp-resumen.error { color: #B3261E; font-weight: 700; }
+.disp-salas { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.disp-sala {
+  display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px;
+  border: 1px solid #DCEBDD; background: #F4FAF4;
+}
+.disp-sala.ocupada { border-color: #EBCBD3; background: #FBF1F3; }
+.disp-sala-cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.disp-sala-nombre { font-weight: 800; color: #3A0818; font-size: .92rem; display: inline-flex; align-items: center; gap: 6px; }
+.disp-estado {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px;
+  font-size: .72rem; font-weight: 800; letter-spacing: .03em; background: #2F8A3B; color: #fff;
+}
+.disp-sala.ocupada .disp-estado { background: #7A1E35; }
+.disp-ap {
+  display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: baseline; width: 100%; text-align: left;
+  padding: 8px 10px; border-radius: 10px; border: 1px solid #EBCBD3; background: #fff; cursor: pointer;
+  font: 500 .8rem/1.35 'Montserrat', sans-serif; color: #4E2B35;
+}
+.disp-ap:hover { border-color: #C98A9B; }
+.disp-ap b { color: #7A1E35; font-variant-numeric: tabular-nums; }
+.disp-ap span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.disp-ap small { grid-column: 2; color: #9C7A2E; font-weight: 700; }
+.disp-nota { margin: 0; font-size: .76rem; color: #6c7d6d; }
+.disp-apartar {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; border: 0;
+  background: linear-gradient(135deg, #D8B866, #9C7A2E); color: #3A0818; font: 800 .78rem 'Montserrat', sans-serif; cursor: pointer;
+}
+.disp-apartar:hover { filter: brightness(1.05); }
+@media (max-width: 600px) { .disp-panel { padding: 14px; } .disp-campo { flex: 1 1 120px; } .disp-campo input { width: 100%; } }
