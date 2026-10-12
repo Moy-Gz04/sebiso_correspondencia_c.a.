@@ -9,6 +9,8 @@
 const API = window.location.origin + '/api';
 
 let TOKEN   = localStorage.getItem('sbis_token');
+// Las áreas (rol «area») ven solo sus registros y únicamente capturan la Fecha de Sello
+let MODO_AREA = false;
 let USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');
 
 const AREA_CON_GESTION_COMPLETA = 'Coordinación Administrativa';
@@ -25,10 +27,7 @@ function verificarAcceso() {
     window.location.href = '/login';
     return false;
   }
-  if (!tieneGestionCompleta(USUARIO)) {
-    window.location.href = '/area';
-    return false;
-  }
+  MODO_AREA = !tieneGestionCompleta(USUARIO);
   return true;
 }
 
@@ -262,6 +261,9 @@ function filaRegistro(r) {
         <input type="date" class="input-sello" value="${valorFechaInput(r.fecha_sello)}"
                onchange="guardarSello(${r.id}, 'fecha_sello', this)"/>
       </td>
+      ${MODO_AREA ? `
+      <td>${formatearFecha(r.fecha_firma) || '<span class="td-vacio">—</span>'}</td>
+      <td class="td-nota td-nota-lectura">${r.nota ? escaparAtributo(r.nota) : '<span class="td-vacio">—</span>'}</td>` : `
       <td class="td-sello">
         <input type="date" class="input-sello${r.fecha_firma ? ' sello-lleno' : ''}" value="${valorFechaInput(r.fecha_firma)}"
                onchange="guardarSello(${r.id}, 'fecha_firma', this)"/>
@@ -270,7 +272,7 @@ function filaRegistro(r) {
         <textarea class="input-nota" maxlength="500" placeholder="Agregar nota…" rows="1"
                   onchange="guardarSello(${r.id}, 'nota', this)"
                   oninput="autoCrecerNota(this)">${escaparAtributo(r.nota)}</textarea>
-      </td>
+      </td>`}
     </tr>`;
 }
 
@@ -360,6 +362,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!verificarAcceso()) return;
 
   pintarUsuarioHeader(USUARIO?.username || '');
+  if (MODO_AREA) {
+    // Menú de área (sin las opciones de Coordinación) y aviso de qué puede hacer aquí
+    document.body.classList.add('minutario-area');
+    document.querySelectorAll('.menu-solo-gestion').forEach(el => el.remove());
+    document.getElementById('minutario-area').textContent = ` — ${USUARIO?.area || ''}`;
+    document.getElementById('minutario-aviso-area').hidden = false;
+  }
   mostrarFecha();
   iniciarHeartbeat();
   cargarTabla();

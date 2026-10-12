@@ -5,7 +5,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Correspondencia C.A. SEBISO</title>
-  <link rel="stylesheet" href="css/styles.css"/>
+  <link rel="stylesheet" href="css/styles.css?v=3"/>
   <link rel="stylesheet" href="css/no-oficio.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
@@ -128,7 +128,7 @@
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/no-oficio'">No. de Oficio</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/circular'">No. Circular</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/tarjeta-informativa'">No. Tarjeta Inf.</a></li>
-        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item active" onclick="location.href='/minutario'">Minutario</a></li>
+        <li><a style="cursor:pointer" class="menu-item active" onclick="location.href='/minutario'">Minutario</a></li>
         <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/salas'">Salas</a></li>
       </ul>
     </div>
@@ -140,7 +140,8 @@
       <div class="seccion-titulo-bloque">
         <div class="seccion-titulo-txt">
           <span class="seccion-titulo-eyebrow">Control de sellado</span>
-          <h1 class="seccion-titulo-h1">Minutario</h1>
+          <h1 class="seccion-titulo-h1">Minutario<span id="minutario-area"></span></h1>
+          <p class="minutario-aviso-area" id="minutario-aviso-area" hidden><i class="ti ti-info-circle"></i> Aquí ves los registros de tu área. Solo capturas la <b>Fecha de Sello</b>; los demás datos son de consulta.</p>
         </div>
       </div>
 
@@ -238,7 +239,7 @@
   </footer>
 
   <script src="js/paginacion.js"></script>
-  <script src="js/minutario.js"></script>
+  <script src="js/minutario.js?v=3"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>

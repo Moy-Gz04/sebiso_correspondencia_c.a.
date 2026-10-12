@@ -983,6 +983,44 @@ function onlyCoordOrAdmin(req, res, next) {
    TODAS las rutas de No. de Oficio / Minutario (ver más abajo), que
    son exclusivas de Coordinación Administrativa (o el admin legado),
    igual que Nuevo Registro e Historial. */
+/* Minutario por área: el «Área solicitante» es texto libre («Humanos», «Recursos
+   Humanos», «humanos», «Informatica», «Seguimiento a Auditorias»…), así que cada
+   área se reconoce por palabras clave, sin acentos ni mayúsculas. */
+const PATRON_AREA_MINUTARIO = {
+  'R. Humanos':                '(humanos|^rh$)',
+  'R. Financieros':            '(financier|^rf$)',
+  'R. Materiales':             '(materiales|recursos m\\.?$|^rm$)',
+  'Seguimiento de Auditorías': '(auditor|audiria)',
+  'Informática':               'informatica',
+  'Transparencia':             'transparencia',
+  'Archivo':                   'archivo',
+};
+const normalizarArea = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+function coincideAreaMinutario(areaSolicitante, patron) {
+  return new RegExp(patron).test(normalizarArea(areaSolicitante));
+}
+function gestionOMinutarioArea(req, res, next) {
+  if (tieneGestionCompleta(req.user)) { req.areaPatron = null; return next(); }
+  const patron = req.user?.rol === 'area' ? PATRON_AREA_MINUTARIO[req.user.area] : null;
+  if (!patron) return res.status(403).json({ mensaje: 'Sin acceso al Minutario.' });
+  req.areaPatron = patron;
+  next();
+}
+/* Un área solo puede capturar la Fecha de Sello de SUS registros */
+function validarSelloDeArea(req, res, existente) {
+  if (!req.areaPatron) return true;
+  if (!coincideAreaMinutario(existente.area_solicitante, req.areaPatron)) {
+    res.status(403).json({ mensaje: 'Ese registro no pertenece a tu área.' });
+    return false;
+  }
+  const otros = Object.keys(req.body || {}).filter(k => k !== 'fecha_sello');
+  if (otros.length) {
+    res.status(403).json({ mensaje: 'Desde tu área solo se captura la Fecha de Sello.' });
+    return false;
+  }
+  return true;
+}
+
 function onlyGestionCompleta(req, res, next) {
   if (!tieneGestionCompleta(req.user))
     return res.status(403).json({ mensaje: 'Sin acceso a No. de Oficio / Minutario.' });
@@ -2188,7 +2226,7 @@ async function siguienteNoOficioAutomatico() {
    se ven en la tabla (número, fecha, destinatario, asunto, área, solicitante,
    hora, sellos y nota) y filtra por rango de la fecha del registro. Devuelve
    también `totalGeneral` (todos los registros, sin filtro) para el contador. */
-async function registrosPorPartes(tabla, query) {
+async function registrosPorPartes(tabla, query, areaPatron = null) {
   const { limite, desde, patron } = leerPaginado(query);
   const fDesde = /^\d{4}-\d{2}-\d{2}$/.test(query.f_desde || '') ? query.f_desde : null;
   const fHasta = /^\d{4}-\d{2}-\d{2}$/.test(query.f_hasta || '') ? query.f_hasta : null;
@@ -2204,10 +2242,10 @@ async function registrosPorPartes(tabla, query) {
                a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
                area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
                to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
-               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron})
+               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron}) AND (${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron})
         ORDER BY CAST(NULLIF(regexp_replace(no_oficio, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
-      sql`SELECT COUNT(*)::int AS n FROM no_oficio`,
+      sql`SELECT COUNT(*)::int AS n FROM no_oficio WHERE ${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron}`,
     ]),
     circular: () => Promise.all([
       sql`
@@ -2219,10 +2257,10 @@ async function registrosPorPartes(tabla, query) {
                a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
                area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
                to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
-               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron})
+               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron}) AND (${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron})
         ORDER BY CAST(NULLIF(regexp_replace(no_circular, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
-      sql`SELECT COUNT(*)::int AS n FROM circular`,
+      sql`SELECT COUNT(*)::int AS n FROM circular WHERE ${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron}`,
     ]),
     tarjeta_informativa: () => Promise.all([
       sql`
@@ -2234,19 +2272,20 @@ async function registrosPorPartes(tabla, query) {
                a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
                area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
                to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
-               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron})
+               to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron}) AND (${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron})
         ORDER BY CAST(NULLIF(regexp_replace(no_tarjeta, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
-      sql`SELECT COUNT(*)::int AS n FROM tarjeta_informativa`,
+      sql`SELECT COUNT(*)::int AS n FROM tarjeta_informativa WHERE ${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron}`,
     ]),
   };
   const [filas, [{ n }]] = await CONSULTAS[tabla]();
   return respuestaPaginada(filas, desde, { totalGeneral: n });
 }
 
-app.get('/api/no-oficio', verifyToken, onlyGestionCompleta, async (req, res) => {
+app.get('/api/no-oficio', verifyToken, gestionOMinutarioArea, async (req, res) => {
   try {
-    if (req.query.limite) return res.json(await registrosPorPartes('no_oficio', req.query));
+    // Las áreas siempre reciben solo sus registros (y por partes)
+    if (req.query.limite || req.areaPatron) return res.json(await registrosPorPartes('no_oficio', { limite: 15, ...req.query }, req.areaPatron));
     const rows = await sql`
       SELECT * FROM no_oficio
       ORDER BY CAST(NULLIF(regexp_replace(no_oficio, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;
@@ -2355,10 +2394,11 @@ app.post('/api/no-oficio/libre-del-dia', verifyToken, onlyGestionCompleta, async
    Edición de cualquier campo, incluidos Fecha de Sello / Fecha de
    Firma / Nota (los únicos que edita la vista Minutario). Solo se
    actualizan los campos presentes en el body. */
-app.put('/api/no-oficio/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+app.put('/api/no-oficio/:id', verifyToken, gestionOMinutarioArea, async (req, res) => {
   try {
     const [existente] = await sql`SELECT * FROM no_oficio WHERE id = ${req.params.id}`;
     if (!existente) return res.status(404).json({ mensaje: 'No encontrado.' });
+    if (!validarSelloDeArea(req, res, existente)) return;
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,
@@ -2424,9 +2464,10 @@ async function siguienteCircularAutomatico() {
   return String(siguiente).padStart(4, '0');
 }
 
-app.get('/api/circular', verifyToken, onlyGestionCompleta, async (req, res) => {
+app.get('/api/circular', verifyToken, gestionOMinutarioArea, async (req, res) => {
   try {
-    if (req.query.limite) return res.json(await registrosPorPartes('circular', req.query));
+    // Las áreas siempre reciben solo sus registros (y por partes)
+    if (req.query.limite || req.areaPatron) return res.json(await registrosPorPartes('circular', { limite: 15, ...req.query }, req.areaPatron));
     const rows = await sql`
       SELECT * FROM circular
       ORDER BY CAST(NULLIF(regexp_replace(no_circular, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;
@@ -2513,10 +2554,11 @@ app.post('/api/circular/libre-del-dia', verifyToken, onlyGestionCompleta, async 
   }
 });
 
-app.put('/api/circular/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+app.put('/api/circular/:id', verifyToken, gestionOMinutarioArea, async (req, res) => {
   try {
     const [existente] = await sql`SELECT * FROM circular WHERE id = ${req.params.id}`;
     if (!existente) return res.status(404).json({ mensaje: 'No encontrado.' });
+    if (!validarSelloDeArea(req, res, existente)) return;
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,
@@ -2630,9 +2672,10 @@ async function redactarAsuntoTarjetaSala({ sala, personas, descripcion, noOficio
   return respaldo;
 }
 
-app.get('/api/tarjeta-informativa', verifyToken, onlyGestionCompleta, async (req, res) => {
+app.get('/api/tarjeta-informativa', verifyToken, gestionOMinutarioArea, async (req, res) => {
   try {
-    if (req.query.limite) return res.json(await registrosPorPartes('tarjeta_informativa', req.query));
+    // Las áreas siempre reciben solo sus registros (y por partes)
+    if (req.query.limite || req.areaPatron) return res.json(await registrosPorPartes('tarjeta_informativa', { limite: 15, ...req.query }, req.areaPatron));
     const rows = await sql`
       SELECT * FROM tarjeta_informativa
       ORDER BY CAST(NULLIF(regexp_replace(no_tarjeta, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC`;
@@ -2719,10 +2762,11 @@ app.post('/api/tarjeta-informativa/libre-del-dia', verifyToken, onlyGestionCompl
   }
 });
 
-app.put('/api/tarjeta-informativa/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+app.put('/api/tarjeta-informativa/:id', verifyToken, gestionOMinutarioArea, async (req, res) => {
   try {
     const [existente] = await sql`SELECT * FROM tarjeta_informativa WHERE id = ${req.params.id}`;
     if (!existente) return res.status(404).json({ mensaje: 'No encontrado.' });
+    if (!validarSelloDeArea(req, res, existente)) return;
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,

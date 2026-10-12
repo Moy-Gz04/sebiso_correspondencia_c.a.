@@ -1869,3 +1869,16 @@ body::before {
 
 /* Campo que la mascota está explicando en «¿Cómo se usa?» */
 .disp-campo input.disp-campo-guia { outline: 3px solid #D8B866; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(216, 184, 102, .25); }
+
+
+/* ── Minutario por área: aviso y nota de solo lectura ── */
+.minutario-aviso-area {
+  margin: 8px 0 0; padding: 8px 14px; border-radius: 10px; background: #FBF6EE; border: 1px solid #EADFCB;
+  font-size: .85rem; color: #4E2B35; display: inline-flex; align-items: center; gap: 8px;
+}
+.minutario-aviso-area[hidden] { display: none; }
+.minutario-aviso-area .ti { color: #9C7A2E; font-size: 1.05rem; }
+.td-nota-lectura { white-space: pre-line; font-size: .85rem; color: #4E2B35; max-width: 260px; }
+/* En la vista de área (Firma y Nota son solo texto) el Asunto tiene espacio y no parte palabras */
+body.minutario-area .td-asunto { min-width: 240px; word-break: normal; overflow-wrap: break-word; }
+body.minutario-area .td-dirige { min-width: 190px; }
