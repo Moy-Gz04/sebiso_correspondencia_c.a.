@@ -258,19 +258,23 @@ function filaRegistro(r) {
       <td>${r.solicitante || '<span class="td-vacio">—</span>'}</td>
       <td>${formatearHora(r.hora) || '<span class="td-vacio">—</span>'}</td>
       <td class="td-sello">
-        <span class="sello-campo${MODO_AREA && !r.fecha_sello ? ' sello-pendiente' : ''}">
+        <span class="sello-campo${!r.fecha_sello ? ' sello-pendiente' : ''}">
           <input type="date" class="input-sello" value="${valorFechaInput(r.fecha_sello)}"
                  title="${r.fecha_sello ? 'Fecha de sello' : 'Falta capturar la fecha de sello'}"
                  onchange="guardarSello(${r.id}, 'fecha_sello', this)"/>
-          ${MODO_AREA ? '<i></i><i></i><i></i><i></i>' : ''}
+          <i></i><i></i><i></i><i></i>
         </span>
       </td>
       ${MODO_AREA ? `
       <td>${formatearFecha(r.fecha_firma) || '<span class="td-vacio">—</span>'}</td>
       <td class="td-nota td-nota-lectura">${r.nota ? escaparAtributo(r.nota) : '<span class="td-vacio">—</span>'}</td>` : `
       <td class="td-sello">
-        <input type="date" class="input-sello${r.fecha_firma ? ' sello-lleno' : ''}" value="${valorFechaInput(r.fecha_firma)}"
-               onchange="guardarSello(${r.id}, 'fecha_firma', this)"/>
+        <span class="sello-campo${!r.fecha_firma ? ' sello-pendiente' : ''}">
+          <input type="date" class="input-sello${r.fecha_firma ? ' sello-lleno' : ''}" value="${valorFechaInput(r.fecha_firma)}"
+                 title="${r.fecha_firma ? 'Fecha de firma' : 'Falta capturar la fecha de firma'}"
+                 onchange="guardarSello(${r.id}, 'fecha_firma', this)"/>
+          <i></i><i></i><i></i><i></i>
+        </span>
       </td>
       <td class="td-nota">
         <textarea class="input-nota" maxlength="500" placeholder="Agregar nota…" rows="1"
@@ -352,8 +356,8 @@ async function guardarSello(id, campo, input) {
     if (campo === 'fecha_firma') {
       input.classList.toggle('sello-lleno', !!input.value);
     }
-    // En la vista de área, el sello vacío brilla para pedir que se capture; al llenarlo se apaga
-    if (campo === 'fecha_sello' && MODO_AREA) {
+    // Las fechas vacías brillan para pedir que se capturen; al llenarlas se apagan
+    if (campo === 'fecha_sello' || campo === 'fecha_firma') {
       input.closest('.sello-campo')?.classList.toggle('sello-pendiente', !input.value);
     }
   } catch (err) {
