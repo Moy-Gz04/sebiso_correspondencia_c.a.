@@ -19,6 +19,7 @@
   document.head.appendChild(css);
 
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const API = location.origin + '/api';
   const origFetch = window.fetch.bind(window);
   const token = () => localStorage.getItem('sbis_token') || sessionStorage.getItem('sbis_token') || '';
@@ -258,10 +259,19 @@
     });
   }
 
+  // Nunca dos ventanas de la mascota a la vez: si ella abre un diálogo (aviso, confirmación,
+  // «¡Listo!…»), la ventana de trabajo se cierra antes; y mientras haya diálogo no se abre otra.
+  const dialogoAbierto = () => !!document.querySelector('.ms-dlg-overlay:not(.ms-trabajo)');
+  const preguntarOriginal = M.preguntar;
+  M.preguntar = function () {
+    if (op) { const o = op; op = null; finalizarYa(o); }
+    return preguntarOriginal.apply(this, arguments);
+  };
+
   window.fetch = async function (entrada, opciones = {}) {
     const url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || String(entrada);
     const metodo = String(opciones.method || (entrada && entrada.method) || 'GET').toUpperCase();
-    if (!esApi(url) || !encendido() || sinVentana(url, metodo)) {
+    if (!esApi(url) || !encendido() || sinVentana(url, metodo) || (!op && dialogoAbierto())) {
       // Si ya hay una ventana abierta (se recarga la lista después de guardar), la espera
       if (!op || metodo !== 'GET' || !esApi(url)) return origFetch(entrada, opciones);
       op.pendientes++;
@@ -536,12 +546,14 @@
       // (clientWidth/Height: sin la barra de desplazamiento)
       const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
       const r = { left: vw - parseFloat(cs.right) - w + 4, top: vh - parseFloat(cs.bottom) - h + 4, right: vw - parseFloat(cs.right) - 4, bottom: vh - parseFloat(cs.bottom) - 4 };
+      if (![r.left, r.top, r.right, r.bottom].every(Number.isFinite) || r.right <= r.left) return;   // aún sin medidas (p. ej. mientras está en un diálogo)
       const tapa = [...document.querySelectorAll(INTERACTIVO)].some(el => {
         if (esq.contains(el) || el.closest('.ms-ayuda, .ms-dlg-overlay')) return false;
         const b = el.getBoundingClientRect();
         if (!b.width || !b.height || b.bottom < r.top || b.top > r.bottom || b.right < r.left || b.left > r.right) return false;
         // Solo si de verdad se ve ahí (no tapado por una ventana ni recortado)
         const x = Math.max(b.left, r.left) + 1, y = Math.max(b.top, r.top) + 1;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
         return document.elementsFromPoint(x, y).some(e => e === el || el.contains(e));
       });
       esq.classList.toggle('ms-asomado', tapa);

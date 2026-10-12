@@ -486,6 +486,9 @@ async function enviarForm(e) {
       const el = document.getElementById(c);
       if (el) fd.append(c, el.value);
     });
+    // De qué foto de «Fotos por procesar» salió: el servidor la quita de la lista al registrar
+    const idFoto = document.getElementById('pendiente_ia_id')?.value || PENDIENTE_SELECCIONADO_ID;
+    if (idFoto) fd.append('pendiente_ia_id', String(idFoto));
 
     // Si el registro viene de una foto de Registro Automático, el escaneo
     // se adjunta como documento de Turno (doc3) para que el área a la que
