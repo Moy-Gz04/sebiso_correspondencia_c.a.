@@ -5,7 +5,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Correspondencia C.A. SEBISO</title>
-  <link rel="stylesheet" href="css/styles.css?v=2"/>
+  <link rel="stylesheet" href="css/styles.css?v=3"/>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
 
@@ -600,11 +600,13 @@
       </div>
 
       <!-- ── Buscador de disponibilidad: ¿qué salas están ocupadas en esa fecha y horario? ── -->
-      <section class="disp-panel" aria-labelledby="disp-titulo">
-        <div class="disp-cab">
-          <h2 class="disp-titulo" id="disp-titulo"><i class="ti ti-calendar-search"></i> ¿Hay sala libre?</h2>
-          <p class="disp-ayuda">Elige el día y, si quieres, el horario: te marco qué salas están ocupadas y cuáles libres.</p>
-        </div>
+      <details class="disp-panel" id="disp-panel">
+        <summary class="disp-cab">
+          <span class="disp-titulo"><i class="ti ti-calendar-search"></i> ¿Hay sala libre?</span>
+          <span class="disp-breve" id="disp-breve"></span>
+          <i class="ti ti-chevron-down disp-flecha" aria-hidden="true"></i>
+        </summary>
+        <p class="disp-ayuda">Elige el día y, si quieres, el horario: te marco qué salas están ocupadas y cuáles libres.</p>
         <div class="disp-filtros">
           <label class="disp-campo">Fecha<input type="date" id="disp-fecha" oninput="buscarDisponibilidad()"/></label>
           <label class="disp-campo">Desde<input type="time" id="disp-desde" oninput="buscarDisponibilidad()"/></label>
@@ -613,7 +615,7 @@
         </div>
         <p class="disp-resumen" id="disp-resumen" aria-live="polite"></p>
         <div class="disp-salas" id="disp-salas"></div>
-      </section>
+      </details>
 
       <!-- ── Tendedero de apartados (ordenados del más próximo al último) ── -->
       <div class="tendedero-header">
@@ -833,7 +835,7 @@
     </div>
   </div>
 
-  <script src="js/salas.js?v=2"></script>
+  <script src="js/salas.js?v=3"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>

@@ -454,6 +454,12 @@ function buscarDisponibilidad() {
   resumen.innerHTML = SALAS.length
     ? `${ocupadas ? `<b>${ocupadas} de ${SALAS.length} salas</b> ${ocupadas === 1 ? 'ocupada' : 'ocupadas'}` : '<b>Todas las salas están libres</b>'} ${cuando}.`
     : 'Todavía no hay salas registradas.';
+  // Resumen corto en la barra (visible aunque el panel esté plegado)
+  const breve = document.getElementById('disp-breve');
+  if (breve) {
+    breve.textContent = SALAS.length ? `${ocupadas ? `${ocupadas} ocupada${ocupadas === 1 ? '' : 's'}` : 'Todas libres'} · ${formatearFechaCorta(fecha)}${desde || hasta ? ` ${desde || hasta}–${hasta || desde}` : ''}` : '';
+    breve.classList.toggle('hay-ocupadas', !!ocupadas);
+  }
   const hora = (ap) => `${ap.hora_inicio.slice(0, 5)}–${ap.hora_fin.slice(0, 5)}`;
   cont.innerHTML = filas.map(({ s, ocupan, resto }) => `
     <article class="disp-sala ${ocupan.length ? 'ocupada' : 'libre'}">
@@ -469,6 +475,14 @@ function buscarDisponibilidad() {
       ${!ocupan.length ? `<button type="button" class="disp-apartar" onclick="apartarDesdeDisponibilidad(${s.id})"><i class="ti ti-calendar-plus"></i> Apartar esta sala</button>` : ''}
     </article>`).join('');
 }
+/* El panel se recuerda abierto o cerrado (por defecto, cerrado para no estorbar) */
+(function () {
+  const p = document.getElementById('disp-panel');
+  if (!p) return;
+  try { p.open = localStorage.getItem('sbis_salas_disp_abierto') === '1'; } catch { /* sin storage */ }
+  p.addEventListener('toggle', () => { try { localStorage.setItem('sbis_salas_disp_abierto', p.open ? '1' : '0'); } catch { /* nada */ } });
+})();
+
 /* Desde una sala libre: llena «Apartar Sala» con esa sala, el día y el horario buscados */
 function apartarDesdeDisponibilidad(id) {
   const fecha = document.getElementById('disp-fecha').value;

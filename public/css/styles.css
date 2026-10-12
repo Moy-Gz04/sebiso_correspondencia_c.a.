@@ -1790,10 +1790,29 @@ body::before {
 
 /* ── Salas: buscador de disponibilidad ── */
 .disp-panel {
-  margin: 0 0 22px; padding: 18px 20px 20px; border-radius: 16px;
+  margin: 0 0 22px; border-radius: 16px;
   background: #fff; border: 1px solid #ECE1D4; box-shadow: 0 6px 20px rgba(60, 10, 25, .06);
 }
-.disp-cab { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 12px; }
+.disp-panel { padding: 0; }
+.disp-cab {
+  display: flex; align-items: center; gap: 10px 14px; padding: 14px 20px; cursor: pointer; list-style: none;
+  border-radius: 16px; user-select: none;
+}
+.disp-cab::-webkit-details-marker { display: none; }
+.disp-cab:hover { background: #FBF7F1; }
+.disp-cab:focus-visible { outline: 2px solid #BC955C; outline-offset: -2px; }
+.disp-breve {
+  padding: 3px 11px; border-radius: 999px; background: #EAF5EA; color: #2F6F37;
+  font-size: .76rem; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.disp-breve:empty { display: none; }
+.disp-breve.hay-ocupadas { background: #F6E3E8; color: #7A1E35; }
+.disp-flecha { margin-left: auto; font-size: 18px; color: #9C7A2E; transition: transform .2s ease; }
+.disp-panel[open] .disp-flecha { transform: rotate(180deg); }
+.disp-panel[open] .disp-cab { border-radius: 16px 16px 0 0; }
+.disp-panel > :not(summary) { margin-left: 20px; margin-right: 20px; }
+.disp-panel > .disp-salas { margin-bottom: 20px; }
+.disp-ayuda { margin-top: 0; margin-bottom: 12px; }
 .disp-titulo { margin: 0; font-size: 1rem; font-weight: 800; color: #4A0A1D; display: flex; align-items: center; gap: 8px; }
 .disp-ayuda { margin: 0; font-size: .82rem; color: #7a5a63; }
 .disp-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
@@ -1838,4 +1857,4 @@ body::before {
   background: linear-gradient(135deg, #D8B866, #9C7A2E); color: #3A0818; font: 800 .78rem 'Montserrat', sans-serif; cursor: pointer;
 }
 .disp-apartar:hover { filter: brightness(1.05); }
-@media (max-width: 600px) { .disp-panel { padding: 14px; } .disp-campo { flex: 1 1 120px; } .disp-campo input { width: 100%; } }
+@media (max-width: 600px) { .disp-cab { padding: 12px 14px; flex-wrap: wrap; } .disp-panel > :not(summary) { margin-left: 14px; margin-right: 14px; } .disp-campo { flex: 1 1 120px; } .disp-campo input { width: 100%; } }
