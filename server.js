@@ -1001,7 +1001,8 @@ function coincideAreaMinutario(areaSolicitante, patron) {
 }
 function gestionOMinutarioArea(req, res, next) {
   if (tieneGestionCompleta(req.user)) { req.areaPatron = null; return next(); }
-  const patron = req.user?.rol === 'area' ? PATRON_AREA_MINUTARIO[req.user.area] : null;
+  // Jefes de área (rol «area») y sus usuarios (rol «usuario_area») ven el Minutario de su área
+  const patron = ['area', 'usuario_area'].includes(req.user?.rol) ? PATRON_AREA_MINUTARIO[req.user.area] : null;
   if (!patron) return res.status(403).json({ mensaje: 'Sin acceso al Minutario.' });
   req.areaPatron = patron;
   next();

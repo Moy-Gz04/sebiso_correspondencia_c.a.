@@ -23,7 +23,7 @@ function verificarAcceso() {
   TOKEN   = localStorage.getItem('sbis_token');
   USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');
 
-  if (!TOKEN || (USUARIO?.rol !== 'admin' && USUARIO?.rol !== 'area')) {
+  if (!TOKEN || !['admin', 'area', 'usuario_area'].includes(USUARIO?.rol)) {
     window.location.href = '/login';
     return false;
   }
@@ -365,6 +365,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (MODO_AREA) {
     // Menú de área (sin las opciones de Coordinación) y aviso de qué puede hacer aquí
     document.body.classList.add('minutario-area');
+    // Los usuarios de área regresan a «Mi Bandeja» (/usuario), no a la bandeja del jefe
+    if (USUARIO?.rol === 'usuario_area') {
+      document.querySelectorAll('.menu-lista .menu-item').forEach(a => {
+        if ((a.getAttribute('onclick') || '').includes("'/area'")) { a.setAttribute('onclick', "location.href='/usuario'"); a.textContent = 'Mi Bandeja'; }
+      });
+    }
     document.querySelectorAll('.menu-solo-gestion').forEach(el => el.remove());
     document.getElementById('minutario-area').textContent = ` — ${USUARIO?.area || ''}`;
     document.getElementById('minutario-aviso-area').hidden = false;
