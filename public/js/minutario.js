@@ -258,8 +258,12 @@ function filaRegistro(r) {
       <td>${r.solicitante || '<span class="td-vacio">—</span>'}</td>
       <td>${formatearHora(r.hora) || '<span class="td-vacio">—</span>'}</td>
       <td class="td-sello">
-        <input type="date" class="input-sello" value="${valorFechaInput(r.fecha_sello)}"
-               onchange="guardarSello(${r.id}, 'fecha_sello', this)"/>
+        <span class="sello-campo${MODO_AREA && !r.fecha_sello ? ' sello-pendiente' : ''}">
+          <input type="date" class="input-sello" value="${valorFechaInput(r.fecha_sello)}"
+                 title="${r.fecha_sello ? 'Fecha de sello' : 'Falta capturar la fecha de sello'}"
+                 onchange="guardarSello(${r.id}, 'fecha_sello', this)"/>
+          ${MODO_AREA ? '<i></i><i></i><i></i><i></i>' : ''}
+        </span>
       </td>
       ${MODO_AREA ? `
       <td>${formatearFecha(r.fecha_firma) || '<span class="td-vacio">—</span>'}</td>
@@ -347,6 +351,10 @@ async function guardarSello(id, campo, input) {
 
     if (campo === 'fecha_firma') {
       input.classList.toggle('sello-lleno', !!input.value);
+    }
+    // En la vista de área, el sello vacío brilla para pedir que se capture; al llenarlo se apaga
+    if (campo === 'fecha_sello' && MODO_AREA) {
+      input.closest('.sello-campo')?.classList.toggle('sello-pendiente', !input.value);
     }
   } catch (err) {
     await sbisAlert({ titulo: 'No se pudo guardar', mensaje: err.message, tipo: 'error' });

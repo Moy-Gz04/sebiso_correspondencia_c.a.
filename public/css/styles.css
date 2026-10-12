@@ -1882,3 +1882,39 @@ body::before {
 /* En la vista de área (Firma y Nota son solo texto) el Asunto tiene espacio y no parte palabras */
 body.minutario-area .td-asunto { min-width: 240px; word-break: normal; overflow-wrap: break-word; }
 body.minutario-area .td-dirige { min-width: 190px; }
+
+/* ── Minutario por área: Fecha de Sello pendiente (guinda por fuera, dorado por dentro, con brillitos) ── */
+.sello-campo { position: relative; display: inline-block; }
+.sello-campo > i { display: none; }
+.sello-pendiente .input-sello {
+  border: 2px solid #7A1E35 !important;
+  background: linear-gradient(135deg, #FBEFD0 0%, #F2D995 55%, #E6C36E 100%) !important;
+  color: #4A0A1D; font-weight: 700;
+  box-shadow: 0 0 0 3px rgba(122, 30, 53, .12), 0 3px 10px rgba(156, 122, 46, .35);
+  animation: selloLatido 2.2s ease-in-out infinite;
+}
+@keyframes selloLatido {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(122, 30, 53, .12), 0 3px 10px rgba(156, 122, 46, .35); }
+  50% { box-shadow: 0 0 0 5px rgba(216, 184, 102, .35), 0 3px 14px rgba(156, 122, 46, .5); }
+}
+.sello-pendiente > i {
+  display: block; position: absolute; z-index: 2; width: 18px; height: 18px; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle, #FFF6C2 0 10%, #F5B81C 38%, #C47E0C 72%, #7A1E35 100%);
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  filter: drop-shadow(0 0 1px #7A1E35) drop-shadow(0 0 5px rgba(245, 184, 28, .95));
+  animation: selloBrillo 2.4s ease-in-out infinite;
+}
+.sello-pendiente > i:nth-of-type(1) { left: -9px;  top: -9px; }
+.sello-pendiente > i:nth-of-type(2) { right: 22%;  top: -11px; animation-delay: .6s; width: 14px; height: 14px; }
+.sello-pendiente > i:nth-of-type(3) { right: -9px; bottom: -8px; animation-delay: 1.2s; }
+.sello-pendiente > i:nth-of-type(4) { left: 30%;   bottom: -11px; animation-delay: 1.8s; width: 13px; height: 13px; background: radial-gradient(circle, #fff 0 14%, #F2B8C6 38%, #B0475F 75%, #7A1E35 100%); }
+@keyframes selloBrillo {
+  0%   { opacity: 0; transform: scale(.5) rotate(0deg); }
+  25%  { opacity: 1; transform: scale(1.15) rotate(45deg); }
+  60%  { opacity: .85; transform: translateY(-4px) scale(.9) rotate(90deg); }
+  100% { opacity: 0; transform: translateY(-10px) scale(.5) rotate(135deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sello-pendiente .input-sello, .sello-pendiente > i { animation: none; }
+  .sello-pendiente > i { opacity: .8; }
+}
