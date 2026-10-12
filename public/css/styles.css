@@ -1918,3 +1918,8 @@ body.minutario-area .td-dirige { min-width: 190px; }
   .sello-pendiente .input-sello, .sello-pendiente > i { animation: none; }
   .sello-pendiente > i { opacity: .8; }
 }
+
+/* ── Área solicitante / Solicitante como listas (catalogo-solicitantes.js) ── */
+#nof-area-lista, #nof-solicitante-lista { width: 100%; }
+#nof-area.campo-otro, #nof-solicitante.campo-otro { margin-top: 8px; }
+#nof-solicitante-lista:disabled { opacity: .7; cursor: not-allowed; }
