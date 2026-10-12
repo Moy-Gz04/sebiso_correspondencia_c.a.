@@ -1878,6 +1878,17 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
       RETURNING *`;
 
     console.log(`✅  Oficio creado por ${areaOrigen}: N. Control ${n_control} → ${estatusInicial}${turnado_a ? ' → ' + turnado_a : ''}`);
+
+    // Si el registro salió de una foto de «Fotos por procesar», esa foto ya se usó: sale de la lista
+    // aquí mismo (antes dependía solo de que la pantalla lo pidiera después de guardar).
+    const idFoto = Number(req.body.pendiente_ia_id);
+    if (Number.isInteger(idFoto) && idFoto > 0) {
+      try {
+        await sqlFotos`DELETE FROM oficios_pendientes_ia WHERE id = ${idFoto}`;
+        CACHE_MINIATURAS.delete(idFoto);
+        CACHE_FOTOS.delete(idFoto);
+      } catch (err) { console.error('No se pudo quitar la foto usada', idFoto, err.message); }
+    }
     res.status(201).json(sanitizarOficio(nuevo));
 
     // Ya se respondió: ahora se suben los documentos a Drive en segundo plano.

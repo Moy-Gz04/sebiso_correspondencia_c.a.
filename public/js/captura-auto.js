@@ -681,7 +681,9 @@ function sincronizarNumeroConReferencia() {
 const CAMPOS_BORRADOR = [
   'f_oficio', 'f_sello', 'dias_entrega', 'numero', 'n_referencia',
   'remitente', 'dependencia', 'folio_despacho',
-  'descripcion', 'turnado_a'
+  'descripcion', 'turnado_a',
+  // La foto de la que salió el registro: si la página se recarga, se sigue sabiendo cuál quitar al guardar
+  'pendiente_ia_id'
 ];
 
 /* Clave por usuario: si dos cuentas usan el mismo navegador, cada
@@ -718,6 +720,13 @@ function restaurarBorrador() {
     const el = document.getElementById(id);
     if (el && valor != null && valor !== '') el.value = valor;
   });
+  // Si el borrador venía de una foto, se vuelve a marcar como la que se está usando
+  const idFoto = Number(document.getElementById('pendiente_ia_id')?.value) || null;
+  if (idFoto) {
+    PENDIENTE_SELECCIONADO_ID = idFoto;
+    const aviso = document.getElementById('aviso-pendiente-usado');
+    if (aviso) aviso.style.display = 'flex';
+  }
   // Reaplica el aviso "🔴 Urgente" según los días restaurados.
   onDiasChange();
 }
@@ -924,6 +933,7 @@ function seleccionarPendiente(id) {
   document.getElementById('pendiente_ia_id').value = id;
   document.getElementById('aviso-pendiente-usado').style.display = 'flex';
   pintarPendientesIA();
+  guardarBorrador();   // los datos de la foto se pusieron sin teclear: se guardan ya
 
   // Se dispara ya (no hasta Guardar) para que esté lista, o casi, para
   // cuando la persona termine de revisar el formulario.
@@ -1211,6 +1221,9 @@ async function descartarPendiente(id) {
 async function limpiarPendienteUsado() {
   const id = document.getElementById('pendiente_ia_id')?.value;
   if (!id) return;
+  // Sale de la lista al instante (el servidor ya la marcó como usada al registrar el oficio)
+  PENDIENTES_IA = PENDIENTES_IA.filter(p => String(p.id) !== String(id));
+  pintarPendientesIA();
   try {
     await fetch(`${API}/oficios/pendientes/${id}`, {
       method: 'DELETE',
