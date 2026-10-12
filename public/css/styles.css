@@ -1807,7 +1807,15 @@ body::before {
 }
 .disp-breve:empty { display: none; }
 .disp-breve.hay-ocupadas { background: #F6E3E8; color: #7A1E35; }
-.disp-flecha { margin-left: auto; font-size: 18px; color: #9C7A2E; transition: transform .2s ease; }
+.disp-flecha { font-size: 18px; color: #9C7A2E; transition: transform .2s ease; }
+.disp-como {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px;
+  border: 1px solid #E3D6C4; background: #fff; color: #4A0A1D; cursor: pointer; white-space: nowrap;
+  font: 700 .8rem 'Montserrat', sans-serif; transition: background .15s ease, border-color .15s ease;
+}
+.disp-como:hover { background: #F7EFE3; border-color: #D8C29A; }
+.disp-como:focus-visible { outline: 2px solid #BC955C; outline-offset: 2px; }
+.disp-como .ti { font-size: 16px; color: #9C7A2E; }
 .disp-panel[open] .disp-flecha { transform: rotate(180deg); }
 .disp-panel[open] .disp-cab { border-radius: 16px 16px 0 0; }
 .disp-panel > :not(summary) { margin-left: 20px; margin-right: 20px; }
@@ -1858,3 +1866,6 @@ body::before {
 }
 .disp-apartar:hover { filter: brightness(1.05); }
 @media (max-width: 600px) { .disp-cab { padding: 12px 14px; flex-wrap: wrap; } .disp-panel > :not(summary) { margin-left: 14px; margin-right: 14px; } .disp-campo { flex: 1 1 120px; } .disp-campo input { width: 100%; } }
+
+/* Campo que la mascota está explicando en «¿Cómo se usa?» */
+.disp-campo input.disp-campo-guia { outline: 3px solid #D8B866; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(216, 184, 102, .25); }

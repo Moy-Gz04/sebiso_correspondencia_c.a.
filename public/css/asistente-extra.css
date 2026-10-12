@@ -317,3 +317,13 @@ html #header-usuario {
 @media print { html #header-usuario { display: none; } }
 /* Los conectados, ahora al final: su lista se abre hacia la izquierda sin salirse */
 .header-derecha > .badge-usuarios-activos { margin-left: 4px; }
+
+/* ---- Guías paso a paso: botón «Listo…» dentro del globo de la mascota ---- */
+.ms-presentador.ms-con-listo .ms-burbuja { pointer-events: auto; }
+.ms-burbuja-listo {
+  display: block; margin: 8px 0 0 auto; padding: 6px 14px; border-radius: 999px; border: 0; cursor: pointer;
+  background: linear-gradient(135deg, #D8B866, #9C7A2E); color: #3A0818; font: 800 12px 'Montserrat', 'Poppins', sans-serif;
+  box-shadow: 0 4px 10px rgba(156, 122, 46, .3); transition: transform .12s ease, filter .15s ease;
+}
+.ms-burbuja-listo:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.ms-burbuja-listo:focus-visible { outline: 2px solid #6B0F2B; outline-offset: 2px; }

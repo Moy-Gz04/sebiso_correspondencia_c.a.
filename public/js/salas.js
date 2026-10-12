@@ -475,6 +475,92 @@ function buscarDisponibilidad() {
       ${!ocupan.length ? `<button type="button" class="disp-apartar" onclick="apartarDesdeDisponibilidad(${s.id})"><i class="ti ti-calendar-plus"></i> Apartar esta sala</button>` : ''}
     </article>`).join('');
 }
+/* «¿Cómo se usa?»: la mascota explica paso a paso, saltando a cada campo.
+   En cada paso su globo trae «Listo…» para seguir; elegir la fecha avanza solo.
+   Esc la detiene. Con el asistente apagado, los pasos salen en un aviso normal. */
+let GUIA_DISP = 0;
+const esperarMs = (ms) => new Promise(r => setTimeout(r, ms));
+function pasosGuiaDisponibilidad() {
+  // Cada paso busca su elemento al momento (las tarjetas de salas se vuelven a pintar al cambiar la fecha).
+  // En los campos, la mascota se pone junto a la fila completa para no tapar el campo de al lado.
+  const fila = () => document.querySelector('.disp-filtros');
+  return [
+    { campo: () => document.getElementById('disp-fecha'), ancla: fila, texto: 'Primero elige el día que quieres revisar (el campo «Fecha» marcado). En cuanto lo cambies, sigo.', cambio: true },
+    { campo: () => document.getElementById('disp-desde'), ancla: fila, texto: 'Si te importa un horario, pon en «Desde» la hora de inicio…' },
+    { campo: () => document.getElementById('disp-hasta'), ancla: fila, texto: '…y en «Hasta» la hora de fin. Si dejas las horas vacías, reviso el día completo.' },
+    { ancla: () => document.querySelector('.disp-sala.ocupada') || document.querySelector('.disp-sala'), texto: 'Aquí te marco cada sala: en guinda las ocupadas (toca el apartado para verlo) y en verde las libres.' },
+    { ancla: () => document.querySelector('.disp-apartar'), texto: 'Si una sala libre te sirve, toca «Apartar esta sala» y te lleno el formulario con la sala, el día y el horario.' },
+  ];
+}
+async function ponerListoGuia(turno, el, ultimo) {
+  const M = window.MiniSEBISO;
+  for (let i = 0; i < 40 && turno === GUIA_DISP; i++) {
+    const globo = M.presentando && M.presentando() === el ? [...document.querySelectorAll('.ms-presentador .ms-burbuja')].pop() : null;
+    if (globo) {
+      if (!globo.querySelector('.ms-burbuja-listo')) {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'ms-burbuja-listo';
+        btn.textContent = ultimo ? '¡Entendido!' : 'Listo…';
+        btn.addEventListener('click', (e) => { e.stopPropagation(); M.retirar(); });
+        globo.appendChild(btn);
+        globo.closest('.ms-presentador').classList.add('ms-con-listo');
+      }
+      return;
+    }
+    await esperarMs(150);
+  }
+}
+function esperarPasoGuia(paso, turno) {
+  const M = window.MiniSEBISO;
+  return new Promise(resolve => {
+    const inicial = paso.campoEl ? paso.campoEl.value : null;
+    const t0 = Date.now();
+    const tic = setInterval(() => {
+      if (turno !== GUIA_DISP) { clearInterval(tic); resolve(false); return; }
+      if (paso.cambio && paso.campoEl && paso.campoEl.value !== inicial) { clearInterval(tic); setTimeout(() => { M.retirar(); resolve(true); }, 600); return; }
+      // Tocar a la mascota o «Listo…» la retira: eso es «seguir»
+      if (Date.now() - t0 > 1600 && !M.presentando()) { clearInterval(tic); resolve(true); }
+    }, 300);
+  });
+}
+async function guiaDisponibilidad() {
+  const panel = document.getElementById('disp-panel');
+  if (panel && !panel.open) panel.open = true;
+  buscarDisponibilidad();
+  const M = window.MiniSEBISO;
+  const pasos = pasosGuiaDisponibilidad();
+  if (!M || !M.presentar || M.apagado) {
+    sbisAlert({ titulo: '¿Cómo se usa?', mensaje: pasos.map((p, i) => `${i + 1}. ${p.texto}`).join('\n'), tipo: 'info' });
+    return;
+  }
+  const turno = ++GUIA_DISP;
+  await esperarMs(250);
+  for (let i = 0; i < pasos.length; i++) {
+    if (turno !== GUIA_DISP) return;
+    const paso = pasos[i];
+    await M.retirar();
+    paso.el = paso.ancla();
+    paso.campoEl = paso.campo ? paso.campo() : null;
+    if (!paso.el) continue;
+    paso.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await esperarMs(500);   // que termine de desplazarse antes de que la mascota mida dónde ponerse
+    document.querySelectorAll('.disp-campo-guia').forEach(c => c.classList.remove('disp-campo-guia'));
+    if (paso.campoEl) { paso.campoEl.classList.add('disp-campo-guia'); paso.campoEl.focus({ preventScroll: true }); }
+    M.presentar(paso.el, paso.texto);
+    ponerListoGuia(turno, paso.el, i === pasos.length - 1);
+    const sigue = await esperarPasoGuia(paso, turno);
+    if (paso.campoEl) paso.campoEl.classList.remove('disp-campo-guia');
+    if (!sigue) return;
+  }
+  if (turno === GUIA_DISP) { await M.retirar(); GUIA_DISP++; }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && GUIA_DISP && window.MiniSEBISO?.presentando?.()) {
+    GUIA_DISP++; window.MiniSEBISO.retirar();
+    document.querySelectorAll('.disp-campo-guia').forEach(c => c.classList.remove('disp-campo-guia'));
+  }
+});
+
 /* El panel se recuerda abierto o cerrado (por defecto, cerrado para no estorbar) */
 (function () {
   const p = document.getElementById('disp-panel');
