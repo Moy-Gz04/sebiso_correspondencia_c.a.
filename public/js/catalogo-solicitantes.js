@@ -25,7 +25,7 @@
     'Seguimiento de Auditorías': /(auditor|audiria)/,
     'Informática': /informatica/,
     'R. Materiales': /(materiales|recursos m\.?$|^rm$)/,
-    'Archivo': /archivo/,
+    'Archivo': /(archivo|^sici$)/,   // SICI es Archivo
   };
   const OTRA = '__otra__';
   const norm = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();

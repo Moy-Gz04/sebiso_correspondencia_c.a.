@@ -327,3 +327,8 @@ html #header-usuario {
 }
 .ms-burbuja-listo:hover { filter: brightness(1.06); transform: translateY(-1px); }
 .ms-burbuja-listo:focus-visible { outline: 2px solid #6B0F2B; outline-offset: 2px; }
+
+/* ---- La mascota siempre por encima de las ventanas de la página (p. ej. «Atender Oficio», capa 9999) ---- */
+html .ms-dlg-overlay { z-index: 11000; }
+html .ms-trabajo { z-index: 12000; }
+html .ms-perso { z-index: 11500; }

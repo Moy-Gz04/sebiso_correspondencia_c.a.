@@ -15,7 +15,7 @@
   window.__asistenteExtra = true;
 
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/asistente-extra.css?v=3';
+  css.rel = 'stylesheet'; css.href = 'css/asistente-extra.css?v=4';
   document.head.appendChild(css);
 
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -195,7 +195,7 @@
     const m = { 'Subiendo': 'Documento guardado', 'Eliminando el contrato': 'Contrato eliminado', 'Eliminando la factura': 'Factura eliminada',
       'Creando el contrato': 'Contrato creado', 'Turnando la factura a contabilidad': 'Factura turnada a contabilidad', 'Iniciando el proceso de pago': 'Proceso de pago iniciado',
       'Omitiendo el paso': 'Paso omitido',
-      'Registrando el oficio': 'Oficio registrado', 'Guardando el oficio': 'Oficio guardado', 'Enviando la foto': 'Foto enviada', 'Descartando la foto': 'Foto descartada',
+      'Registrando el oficio': 'Oficio registrado', 'Enviando la atención del oficio': 'Oficio atendido', 'Guardando el oficio': 'Oficio guardado', 'Enviando la foto': 'Foto enviada', 'Descartando la foto': 'Foto descartada',
       'Eliminando el oficio': 'Oficio eliminado', 'Generando el PDF': 'PDF generado', 'Subiendo el documento': 'Documento guardado', 'Volviendo a leer la foto': 'Foto enviada otra vez a leer',
       'Guardando el apartado': 'Apartado guardado', 'Cancelando el apartado': 'Apartado cancelado', 'Guardando la circular': 'Circular guardada', 'Guardando la tarjeta informativa': 'Tarjeta guardada',
       'Guardando el número de oficio': 'Número de oficio guardado', 'Liberando el número de oficio': 'Número liberado', 'Apartando el número del día': 'Número apartado', 'Generando la nota': 'Nota generada' };
@@ -220,7 +220,7 @@
     else if (/pendientes\/\d+\/reintentar/.test(ruta)) texto = 'Volviendo a leer la foto';
     else if (/pendientes$/.test(ruta)) texto = 'Enviando la foto';
     else if (/^\/oficios$/.test(ruta)) texto = 'Registrando el oficio';
-    else if (/^\/oficios\/\d+$/.test(ruta)) texto = 'Guardando el oficio';
+    else if (/^\/oficios\/\d+$/.test(ruta)) texto = (cuerpo instanceof FormData && cuerpo.get('estatus') === 'atendido') ? 'Enviando la atención del oficio' : 'Guardando el oficio';
     else if (/libre-del-dia/.test(ruta)) texto = 'Apartando el número del día';
     else if (/no-oficio/.test(ruta)) texto = 'Guardando el número de oficio';
     else if (/circular/.test(ruta)) texto = 'Guardando la circular';

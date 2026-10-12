@@ -993,7 +993,7 @@ const PATRON_AREA_MINUTARIO = {
   'Seguimiento de Auditorías': '(auditor|audiria)',
   'Informática':               'informatica',
   'Transparencia':             'transparencia',
-  'Archivo':                   'archivo',
+  'Archivo':                   '(archivo|^sici$)',
 };
 const normalizarArea = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 function coincideAreaMinutario(areaSolicitante, patron) {
