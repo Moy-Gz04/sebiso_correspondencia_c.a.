@@ -145,8 +145,9 @@
     .tab-leyenda{ gap:3px; } .tab-leyenda div{ font-size:11.5px; } .tab-leyenda i{ width:10px; height:10px; }
     .tab-areas-sel{ grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:6px; margin:-2px 0 10px; }
     .tab-chip{ padding:5px 10px; border-radius:10px; font-size:11px; }
-    .tab-col{ height:150px; gap:12px; padding-top:18px; }
+    .tab-col{ height:160px; gap:12px; padding-top:30px; }
     .tab-col b{ font-size:12.5px; }
+    .tab-col-pct{ font-style:normal; font-size:10.5px; font-weight:700; color:#9A8A90; margin-top:-4px; font-variant-numeric:tabular-nums; }
     .tab-col-et{ gap:12px; padding-top:6px; } .tab-col-et span{ font-size:10.5px; }
     @media (max-height:720px){ .tab-col{ height:120px; } .tab-dona svg{ width:120px; height:120px; } .tab-kpi b{ font-size:19px; } }
 `;
@@ -195,10 +196,21 @@
     const leyenda = [...ESTADOS.map(e => ({ t: e.t, c: e.c, c2: e.c2, v: t[e.k] })), ...(otros > 0 ? [{ t: OTROS.t, c: OTROS.c, v: otros }] : [])];
 
     // Derecha: gráfica de barras por estatus. C.A. elige el área (o todas); cada área ve la suya
+    // Porcentajes exactos (2 decimales que suman 100.00) de una lista de cantidades
+    const repartir = (lista, total) => {
+      if (!total) return lista.map(() => 0);
+      const crudos = lista.map(v => v / total * 10000), base = crudos.map(Math.floor);
+      let faltan = 10000 - base.reduce((a, b) => a + b, 0);
+      crudos.map((c, i) => [c - base[i], i]).sort((x, y) => y[0] - x[0]).forEach(([, i]) => { if (faltan > 0) { base[i]++; faltan--; } });
+      return base.map(v => v / 100);
+    };
+    const fmtPct = (p) => p.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
     const barras = (o) => {
       const vals = ESTADOS.map(e => ({ t: e.t, c: e.c, c2: e.c2, v: o[e.k] }));
+      const restoO = o.total - vals.reduce((a, l) => a + l.v, 0);
+      const pcts = repartir([...vals.map(l => l.v), ...(restoO > 0 ? [restoO] : [])], o.total);
       const max = Math.max(...vals.map(l => l.v), 1);
-      return `<div class="tab-col">${vals.map(l => `<div><b data-n="${l.v}">0</b><i style="--c:${l.c}; --c2:${l.c2}" data-h="${l.v / max * 85}%" title="${esc(l.t)}: ${num(l.v)}"></i></div>`).join('')}</div>
+      return `<div class="tab-col">${vals.map((l, k) => `<div><b data-n="${l.v}">0</b><em class="tab-col-pct">${fmtPct(pcts[k])}</em><i style="--c:${l.c}; --c2:${l.c2}" data-h="${l.v / max * 85}%" title="${esc(l.t)}: ${num(l.v)}"></i></div>`).join('')}</div>
         <div class="tab-col-et">${vals.map(l => `<span>${esc(l.t)}</span>`).join('')}</div>`;
     };
     const derecha = d.general && d.areas.length
