@@ -39,7 +39,7 @@
     .tab-icono{ display:inline-grid; place-items:center; width:42px; height:42px; padding:0; margin:0 8px 0 0; border-radius:50%;
       border:1.5px solid rgba(188,149,92,.55); background:#fff; color:#3D1420; cursor:pointer;
       box-shadow:0 2px 8px rgba(61,20,32,.12); transition:transform .15s ease, box-shadow .2s ease; }
-    .tab-icono svg{ width:24px; height:24px; }
+    .tab-icono svg{ width:21px; height:21px; }
     .tab-icono:hover{ transform:translateY(-1px); box-shadow:0 4px 14px rgba(61,20,32,.2); }
     .tab-icono:focus-visible{ outline:2px solid #D8B866; outline-offset:2px; }
 
@@ -316,8 +316,8 @@
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'tab-icono';
     b.setAttribute('aria-label', 'Tablero de oficios'); b.title = 'Tablero de oficios';
-    b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx=".6"/><rect x="12" y="8" width="3" height="10" rx=".6"/><rect x="17" y="5" width="3" height="13" rx=".6"/></svg>`;
+    b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round">
+      <path d="M5.5 19V13M10.5 19V8.5M15.5 19V11M20.5 19V5" stroke-width="2.6"/><path d="M3 21.2h20" stroke-width="1.3" opacity=".45"/></svg>`;
     // A la izquierda del botón de asistencia (o de «Cerrar sesión» si no está)
     const ancla = document.querySelector('.nav-asis-caja') || salir;
     ancla.parentNode.insertBefore(b, ancla);
