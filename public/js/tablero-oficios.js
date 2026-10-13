@@ -68,7 +68,7 @@
     .tab-kpi::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:5px; background:linear-gradient(180deg, var(--c2), var(--c)); }
     .tab-kpi::after{ content:''; position:absolute; right:-28px; top:-28px; width:90px; height:90px; border-radius:50%; background:radial-gradient(circle, color-mix(in srgb, var(--c) 16%, transparent), transparent 70%); }
     .tab-kpi i{ display:inline-grid; place-items:center; width:34px; height:34px; border-radius:10px; font-size:19px; color:#fff; background:linear-gradient(135deg, var(--c2), var(--c)); box-shadow:0 4px 10px color-mix(in srgb, var(--c) 35%, transparent); }
-    .tab-kpi span{ display:block; margin-top:6px; font-size:12px; font-weight:600; color:#6B5563; }
+    .tab-kpi span{ display:block; margin-top:0; font-size:12px; font-weight:600; color:#6B5563; }
     .tab-kpi b{ display:block; margin-top:2px; font-size:30px; font-weight:800; color:#3D1420; font-variant-numeric:tabular-nums; line-height:1.1; }
     .tab-kpi small{ font-size:12px; font-weight:700; color:var(--c); }
     .tab-kpi.total{ grid-row:span 2; display:flex; flex-direction:column; justify-content:center; border-color:transparent; color:#fff;
@@ -103,13 +103,21 @@
     .tab-ley-h div{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:#6B5563; }
     .tab-ley-h i{ width:10px; height:10px; border-radius:3px; background:var(--c); }
 
-    .tab-col{ display:flex; align-items:flex-end; justify-content:space-around; gap:18px; height:230px; padding:10px 6px 0; border-bottom:2px solid #EFE4D6; }
+    .tab-col{ display:flex; align-items:flex-end; justify-content:space-around; gap:18px; height:260px; padding:10px 6px 0; border-bottom:2px solid #EFE4D6; }
     .tab-col div{ flex:1; max-width:90px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:6px; }
     .tab-col b{ font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; }
     .tab-col i{ display:block; width:100%; height:0; border-radius:10px 10px 0 0; background:linear-gradient(180deg, var(--c2, var(--c)), var(--c)); min-height:3px; transition:height .9s cubic-bezier(.2,.9,.3,1); }
     .tab-col-et{ display:flex; justify-content:space-around; gap:18px; padding:8px 6px 0; }
     .tab-col-et span{ flex:1; max-width:90px; text-align:center; font-size:11.5px; font-weight:600; color:#6B5563; }
 
+    .tab-areas-sel{ display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 16px; }
+    .tab-chip{ display:inline-flex; align-items:center; gap:6px; width:auto; margin:0; padding:6px 12px; border-radius:999px; cursor:pointer;
+      border:1px solid #E4D6C8; background:#fff; color:#4A0A1D; font:600 12px 'Montserrat',sans-serif; transition:background .15s, transform .12s, box-shadow .15s; }
+    .tab-chip b{ font-weight:800; color:#A9824C; font-variant-numeric:tabular-nums; }
+    .tab-chip:hover{ background:#F6EEDD; transform:translateY(-1px); }
+    .tab-chip.activo{ background:linear-gradient(135deg,#5F2132,#3D1420); color:#fff; border-color:transparent; box-shadow:0 4px 12px rgba(61,20,32,.25); }
+    .tab-chip.activo b{ color:#E9C873; }
+    .tab-chip:focus-visible{ outline:2px solid #D8B866; outline-offset:2px; }
     .tab-msg{ padding:60px 20px; text-align:center; color:#6B5563; font-size:14px; }
     @media (max-width:900px){ .tab-kpis{ grid-template-columns:repeat(2,1fr); } .tab-kpi.total{ grid-column:1 / -1; grid-row:auto; } .tab-graficas{ grid-template-columns:1fr; } }
     @media (max-width:560px){ .tab-cab, .tab-cuerpo{ padding-left:18px; padding-right:18px; } .tab-fila{ grid-template-columns:96px 1fr 44px; } }
@@ -141,29 +149,26 @@
     const otros = t.total - ESTADOS.reduce((s, e) => s + t[e.k], 0);
     const leyenda = [...ESTADOS.map(e => ({ t: e.t, c: e.c, c2: e.c2, v: t[e.k] })), ...(otros > 0 ? [{ t: OTROS.t, c: OTROS.c, v: otros }] : [])];
 
-    // Derecha: por área (C.A.) o el avance del área
-    let derecha;
-    if (d.general && d.areas.length) {
-      const max = Math.max(...d.areas.map(a => a.total), 1);
-      derecha = `<div class="tab-tarjeta"><h3>Oficios por área<small>barras apiladas por estatus</small></h3>
-        <div class="tab-barras">${d.areas.map(a => {
-          const otrosA = a.total - ESTADOS.reduce((s, e) => s + a[e.k], 0);
-          const segs = ESTADOS.map(e => a[e.k] ? `<i style="--c:${e.c}; --c2:${e.c2}" data-w="${a[e.k] / max * 100}%" title="${esc(e.t)}: ${num(a[e.k])}"></i>` : '').join('')
-            + (otrosA > 0 ? `<i style="--c:${OTROS.c}" data-w="${otrosA / max * 100}%" title="${OTROS.t}: ${num(otrosA)}"></i>` : '');
-          return `<div class="tab-fila"><span class="nom" title="${esc(a.nombre)}">${esc(a.nombre)}</span><span class="pista">${segs}</span><span class="tot">${num(a.total)}</span></div>`;
-        }).join('')}</div>
-        <div class="tab-ley-h">${leyenda.map(l => `<div><i style="--c:${l.c}"></i>${esc(l.t)}</div>`).join('')}</div></div>`;
-    } else {
-      const max = Math.max(...leyenda.map(l => l.v), 1);
-      derecha = `<div class="tab-tarjeta"><h3>Avance del área<small>oficios por estatus</small></h3>
-        <div class="tab-col">${leyenda.map(l => `<div><b>${num(l.v)}</b><i style="--c:${l.c}; --c2:${l.c2 || l.c}" data-h="${l.v / max * 85}%"></i></div>`).join('')}</div>
-        <div class="tab-col-et">${leyenda.map(l => `<span>${esc(l.t)}</span>`).join('')}</div></div>`;
-    }
+    // Derecha: gráfica de barras por estatus. C.A. elige el área (o todas); cada área ve la suya
+    const barras = (o) => {
+      const vals = ESTADOS.map(e => ({ t: e.t, c: e.c, c2: e.c2, v: o[e.k] }));
+      const max = Math.max(...vals.map(l => l.v), 1);
+      return `<div class="tab-col">${vals.map(l => `<div><b data-n="${l.v}">0</b><i style="--c:${l.c}; --c2:${l.c2}" data-h="${l.v / max * 85}%" title="${esc(l.t)}: ${num(l.v)}"></i></div>`).join('')}</div>
+        <div class="tab-col-et">${vals.map(l => `<span>${esc(l.t)}</span>`).join('')}</div>`;
+    };
+    const derecha = d.general && d.areas.length
+      ? `<div class="tab-tarjeta"><h3>Oficios por área<small>elige un área para ver su gráfica</small></h3>
+          <div class="tab-areas-sel" role="tablist" aria-label="Área">
+            <button type="button" class="tab-chip activo" data-area="" role="tab" aria-selected="true">Todas <b>${num(t.total)}</b></button>
+            ${d.areas.map(a => `<button type="button" class="tab-chip" data-area="${esc(a.nombre)}" role="tab" aria-selected="false">${esc(a.nombre)} <b>${num(a.total)}</b></button>`).join('')}
+          </div>
+          <div class="tab-area-graf">${barras(t)}</div></div>`
+      : `<div class="tab-tarjeta"><h3>Avance del área<small>oficios por estatus</small></h3><div class="tab-area-graf">${barras(t)}</div></div>`;
 
     cuerpo.innerHTML = `
       <div class="tab-kpis">
-        <div class="tab-kpi total" style="--i:0"><i class="ti ti-files"></i><span>Oficios totales</span><b data-n="${t.total}">0</b><small>${d.general ? 'en todas las áreas' : 'turnados a tu área'}</small></div>
-        ${ESTADOS.map((e, i) => `<div class="tab-kpi" style="--c:${e.c}; --c2:${e.c2}; --i:${i + 1}"><i class="ti ${e.ic}"></i><span>${e.t}</span><b data-n="${t[e.k]}">0</b><small>${pct(t[e.k])}% del total</small></div>`).join('')}
+        <div class="tab-kpi total" style="--i:0"><span>Oficios totales</span><b data-n="${t.total}">0</b><small>${d.general ? 'en todas las áreas' : 'turnados a tu área'}</small></div>
+        ${ESTADOS.map((e, i) => `<div class="tab-kpi" style="--c:${e.c}; --c2:${e.c2}; --i:${i + 1}"><span>${e.t}</span><b data-n="${t[e.k]}">0</b><small>${pct(t[e.k])}% del total</small></div>`).join('')}
       </div>
       <div class="tab-graficas">
         <div class="tab-tarjeta"><h3>Distribución<small>por estatus</small></h3>
@@ -174,6 +179,13 @@
         ${derecha}
       </div>`;
     animar(cuerpo);
+    cuerpo.querySelectorAll('.tab-chip').forEach(b => b.addEventListener('click', () => {
+      cuerpo.querySelectorAll('.tab-chip').forEach(x => { x.classList.toggle('activo', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+      const a = b.dataset.area ? d.areas.find(x => x.nombre === b.dataset.area) : t;
+      const graf = cuerpo.querySelector('.tab-area-graf');
+      graf.innerHTML = barras(a);
+      animar(graf);
+    }));
   }
 
   /* Animaciones: cifras que cuentan, dona que se dibuja y barras que crecen */
