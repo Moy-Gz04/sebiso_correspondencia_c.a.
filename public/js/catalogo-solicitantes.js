@@ -11,6 +11,7 @@
    ═══════════════════════════════════════════════════ */
 (function () {
   const CATALOGO = {
+    'C.A.': ['Sara', 'Elizabeth'],
     'R. Humanos': ['Abril', 'Lizeth', 'Carlos', 'Vianney Cristina', 'Susana', 'Francisco'],
     'R. Financieros': ['Ariana', 'Martha Patricia', 'Lizbeth', 'María Fernanda', 'Oscar Adrián', 'María Pilar', 'Gabriela Leticia', 'Laura Trinidad'],
     'Seguimiento de Auditorías': ['Ana Brisna', 'Mary Carmen', 'Raúl Uriel', 'Julio Giezi', 'Eirene', 'Juanita'],
@@ -20,6 +21,7 @@
   };
   // Cómo se reconoce cada área en registros escritos a mano («Humanos», «Recursos M.», «RM»…)
   const PATRON = {
+    'C.A.': /(^c\.?\s?a\.?$|coordinacion administrativa)/,
     'R. Humanos': /(humanos|^rh$)/,
     'R. Financieros': /(financier|^rf$)/,
     'Seguimiento de Auditorías': /(auditor|audiria)/,
