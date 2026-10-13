@@ -20,12 +20,15 @@
 
   // Colores por estatus (mismo orden en tarjetas, dona, barras y leyenda)
   const ESTADOS = [
-    { k: 'sub_turnado', t: 'Subturnados',  c: '#C08A2E', ic: 'ti-arrows-split-2' },
-    { k: 'atendido',    t: 'Atendidos',    c: '#2F6FB0', ic: 'ti-checks' },
-    { k: 'completado',  t: 'Completados',  c: '#2E7D4F', ic: 'ti-circle-check' },
-    { k: 'rechazado',   t: 'Por corregir', c: '#8A2440', ic: 'ti-alert-triangle' },
+    { k: 'por_turnar',  t: 'Por turnar',   c: '#7B61C9', c2: '#A08BE8', ic: 'ti-inbox' },
+    { k: 'turnado',     t: 'Turnados',     c: '#2C8FC9', c2: '#62B6E6', ic: 'ti-send' },
+    { k: 'sub_turnado', t: 'Subturnados',  c: '#E39A2D', c2: '#F5C26B', ic: 'ti-arrows-split-2' },
+    { k: 'atendido',    t: 'Atendidos',    c: '#14A39A', c2: '#4CD1C6', ic: 'ti-checks' },
+    { k: 'completado',  t: 'Completados',  c: '#2E9D5B', c2: '#5FCB8A', ic: 'ti-circle-check' },
+    { k: 'rechazado',   t: 'Por corregir', c: '#D1405E', c2: '#EE7F95', ic: 'ti-alert-triangle' },
   ];
-  const OTROS = { t: 'Por turnar / turnados', c: '#CDBFB0' };
+  const OTROS = { t: 'Otros', c: '#CDBFB0' };
+  const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const css = document.createElement('style');
   css.textContent = `
@@ -55,16 +58,25 @@
     .tab-btn:hover{ background:#F6EEDD; }
     .tab-cuerpo{ padding:24px 30px 30px; display:flex; flex-direction:column; gap:24px; }
 
-    .tab-kpis{ display:grid; grid-template-columns:1.25fr repeat(4,1fr); gap:14px; }
-    .tab-kpi{ position:relative; padding:16px 18px; border-radius:16px; background:#fff; border:1px solid #EFE4D6; overflow:hidden; }
-    .tab-kpi::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:5px; background:var(--c); }
-    .tab-kpi i{ font-size:20px; color:var(--c); }
+    .tab-kpis{ display:grid; grid-template-columns:1.3fr repeat(3,1fr); gap:14px; }
+    .tab-kpi{ position:relative; padding:16px 18px; border-radius:16px; overflow:hidden; border:1px solid color-mix(in srgb, var(--c) 22%, #fff);
+      background:linear-gradient(145deg, color-mix(in srgb, var(--c) 9%, #fff) 0%, #fff 70%);
+      box-shadow:0 2px 8px color-mix(in srgb, var(--c) 10%, transparent); transition:transform .2s ease, box-shadow .2s ease;
+      opacity:0; transform:translateY(10px); animation:tabSube .5s cubic-bezier(.2,.9,.3,1) forwards; animation-delay:calc(var(--i) * 60ms); }
+    .tab-kpi:hover{ transform:translateY(-3px); box-shadow:0 10px 22px color-mix(in srgb, var(--c) 22%, transparent); }
+    @keyframes tabSube{ to{ opacity:1; transform:none; } }
+    .tab-kpi::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:5px; background:linear-gradient(180deg, var(--c2), var(--c)); }
+    .tab-kpi::after{ content:''; position:absolute; right:-28px; top:-28px; width:90px; height:90px; border-radius:50%; background:radial-gradient(circle, color-mix(in srgb, var(--c) 16%, transparent), transparent 70%); }
+    .tab-kpi i{ display:inline-grid; place-items:center; width:34px; height:34px; border-radius:10px; font-size:19px; color:#fff; background:linear-gradient(135deg, var(--c2), var(--c)); box-shadow:0 4px 10px color-mix(in srgb, var(--c) 35%, transparent); }
     .tab-kpi span{ display:block; margin-top:6px; font-size:12px; font-weight:600; color:#6B5563; }
     .tab-kpi b{ display:block; margin-top:2px; font-size:30px; font-weight:800; color:#3D1420; font-variant-numeric:tabular-nums; line-height:1.1; }
     .tab-kpi small{ font-size:12px; font-weight:700; color:var(--c); }
-    .tab-kpi.total{ background:linear-gradient(135deg,#5F2132,#3D1420); border-color:transparent; color:#fff; }
-    .tab-kpi.total::before{ display:none; }
-    .tab-kpi.total i{ color:#E9C873; } .tab-kpi.total span{ color:rgba(255,255,255,.8); } .tab-kpi.total b{ color:#fff; font-size:38px; }
+    .tab-kpi.total{ grid-row:span 2; display:flex; flex-direction:column; justify-content:center; border-color:transparent; color:#fff;
+      background:radial-gradient(circle at 85% 15%, rgba(233,200,115,.35), transparent 45%), linear-gradient(135deg,#7A2A40,#3D1420); }
+    .tab-kpi.total::before, .tab-kpi.total::after{ display:none; }
+    .tab-kpi.total i{ background:rgba(255,255,255,.14); color:#E9C873; box-shadow:none; width:44px; height:44px; font-size:24px; }
+    .tab-kpi.total span{ color:rgba(255,255,255,.85); font-size:13px; } .tab-kpi.total b{ color:#fff; font-size:46px; }
+    .tab-kpi.total small{ color:#E9C873; }
 
     .tab-graficas{ display:grid; grid-template-columns:minmax(260px,340px) 1fr; gap:20px; align-items:stretch; }
     .tab-tarjeta{ padding:20px 22px; border-radius:18px; background:#fff; border:1px solid #EFE4D6; min-width:0; }
@@ -72,7 +84,7 @@
     .tab-tarjeta h3 small{ font-weight:500; color:#9A8A90; font-size:12px; margin-left:6px; }
     .tab-dona{ display:flex; flex-direction:column; align-items:center; gap:16px; }
     .tab-dona svg{ width:200px; height:200px; }
-    .tab-dona .seg{ transition:opacity .15s; }
+    .tab-dona .seg{ transition:opacity .15s, stroke-dasharray 1s cubic-bezier(.2,.9,.3,1); }
     .tab-dona svg:hover .seg{ opacity:.45; } .tab-dona svg .seg:hover{ opacity:1; }
     .tab-leyenda{ display:grid; grid-template-columns:1fr; gap:6px; width:100%; }
     .tab-leyenda div{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:#3D1420; }
@@ -84,7 +96,7 @@
     .tab-fila{ display:grid; grid-template-columns:minmax(120px,190px) 1fr 52px; align-items:center; gap:12px; }
     .tab-fila .nom{ font-size:12.5px; font-weight:600; color:#3D1420; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .tab-fila .pista{ display:flex; height:18px; border-radius:999px; background:#F3ECE4; overflow:hidden; }
-    .tab-fila .pista i{ display:block; height:100%; background:var(--c); transition:filter .15s; }
+    .tab-fila .pista i{ display:block; height:100%; width:0; background:linear-gradient(90deg, var(--c), var(--c2, var(--c))); transition:width .9s cubic-bezier(.2,.9,.3,1), filter .15s; }
     .tab-fila .pista i:hover{ filter:brightness(1.12); }
     .tab-fila .tot{ font-size:13px; font-weight:800; text-align:right; font-variant-numeric:tabular-nums; }
     .tab-ley-h{ display:flex; flex-wrap:wrap; gap:14px; margin-top:16px; padding-top:12px; border-top:1px solid #F3ECE4; }
@@ -94,14 +106,14 @@
     .tab-col{ display:flex; align-items:flex-end; justify-content:space-around; gap:18px; height:230px; padding:10px 6px 0; border-bottom:2px solid #EFE4D6; }
     .tab-col div{ flex:1; max-width:90px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:6px; }
     .tab-col b{ font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; }
-    .tab-col i{ display:block; width:100%; border-radius:10px 10px 0 0; background:var(--c); min-height:3px; }
+    .tab-col i{ display:block; width:100%; height:0; border-radius:10px 10px 0 0; background:linear-gradient(180deg, var(--c2, var(--c)), var(--c)); min-height:3px; transition:height .9s cubic-bezier(.2,.9,.3,1); }
     .tab-col-et{ display:flex; justify-content:space-around; gap:18px; padding:8px 6px 0; }
     .tab-col-et span{ flex:1; max-width:90px; text-align:center; font-size:11.5px; font-weight:600; color:#6B5563; }
 
     .tab-msg{ padding:60px 20px; text-align:center; color:#6B5563; font-size:14px; }
-    @media (max-width:900px){ .tab-kpis{ grid-template-columns:repeat(2,1fr); } .tab-kpi.total{ grid-column:1 / -1; } .tab-graficas{ grid-template-columns:1fr; } }
+    @media (max-width:900px){ .tab-kpis{ grid-template-columns:repeat(2,1fr); } .tab-kpi.total{ grid-column:1 / -1; grid-row:auto; } .tab-graficas{ grid-template-columns:1fr; } }
     @media (max-width:560px){ .tab-cab, .tab-cuerpo{ padding-left:18px; padding-right:18px; } .tab-fila{ grid-template-columns:96px 1fr 44px; } }
-    @media (prefers-reduced-motion:reduce){ .tab-fondo, .tab-ventana{ animation:none; } }`;
+    @media (prefers-reduced-motion:reduce){ .tab-fondo, .tab-ventana, .tab-kpi{ animation:none; opacity:1; transform:none; } .tab-fila .pista i, .tab-col i, .tab-dona .seg{ transition:none; } }`;
   document.head.appendChild(css);
 
   /* Dona en SVG: un arco por estatus (y «otros» en gris) */
@@ -114,7 +126,7 @@
     const arcos = partes.filter(p => p.v > 0).map(p => {
       const largo = p.v / t.total * C, sep = partes.filter(x => x.v > 0).length > 1 ? 2 : 0;
       const a = `<circle class="seg" cx="100" cy="100" r="${R}" fill="none" stroke="${p.c}" stroke-width="30"
-        stroke-dasharray="${Math.max(largo - sep, 0)} ${C}" stroke-dashoffset="${-acum}" transform="rotate(-90 100 100)"><title>${esc(p.t)}: ${num(p.v)}</title></circle>`;
+        stroke-dasharray="0 ${C}" data-largo="${Math.max(largo - sep, 0)}" data-c="${C}" stroke-dashoffset="${-acum}" transform="rotate(-90 100 100)"><title>${esc(p.t)}: ${num(p.v)}</title></circle>`;
       acum += largo; return a;
     }).join('');
     return `<svg viewBox="0 0 200 200" role="img" aria-label="Proporción de oficios por estatus">
@@ -127,7 +139,7 @@
   function pintar(cuerpo, d) {
     const t = d.totales, pct = (n) => t.total ? Math.round(n / t.total * 100) : 0;
     const otros = t.total - ESTADOS.reduce((s, e) => s + t[e.k], 0);
-    const leyenda = [...ESTADOS.map(e => ({ t: e.t, c: e.c, v: t[e.k] })), ...(otros > 0 ? [{ t: OTROS.t, c: OTROS.c, v: otros }] : [])];
+    const leyenda = [...ESTADOS.map(e => ({ t: e.t, c: e.c, c2: e.c2, v: t[e.k] })), ...(otros > 0 ? [{ t: OTROS.t, c: OTROS.c, v: otros }] : [])];
 
     // Derecha: por área (C.A.) o el avance del área
     let derecha;
@@ -136,22 +148,22 @@
       derecha = `<div class="tab-tarjeta"><h3>Oficios por área<small>barras apiladas por estatus</small></h3>
         <div class="tab-barras">${d.areas.map(a => {
           const otrosA = a.total - ESTADOS.reduce((s, e) => s + a[e.k], 0);
-          const segs = ESTADOS.map(e => a[e.k] ? `<i style="--c:${e.c}; width:${a[e.k] / max * 100}%" title="${esc(e.t)}: ${num(a[e.k])}"></i>` : '').join('')
-            + (otrosA > 0 ? `<i style="--c:${OTROS.c}; width:${otrosA / max * 100}%" title="${OTROS.t}: ${num(otrosA)}"></i>` : '');
+          const segs = ESTADOS.map(e => a[e.k] ? `<i style="--c:${e.c}; --c2:${e.c2}" data-w="${a[e.k] / max * 100}%" title="${esc(e.t)}: ${num(a[e.k])}"></i>` : '').join('')
+            + (otrosA > 0 ? `<i style="--c:${OTROS.c}" data-w="${otrosA / max * 100}%" title="${OTROS.t}: ${num(otrosA)}"></i>` : '');
           return `<div class="tab-fila"><span class="nom" title="${esc(a.nombre)}">${esc(a.nombre)}</span><span class="pista">${segs}</span><span class="tot">${num(a.total)}</span></div>`;
         }).join('')}</div>
         <div class="tab-ley-h">${leyenda.map(l => `<div><i style="--c:${l.c}"></i>${esc(l.t)}</div>`).join('')}</div></div>`;
     } else {
       const max = Math.max(...leyenda.map(l => l.v), 1);
       derecha = `<div class="tab-tarjeta"><h3>Avance del área<small>oficios por estatus</small></h3>
-        <div class="tab-col">${leyenda.map(l => `<div><b>${num(l.v)}</b><i style="--c:${l.c}; height:${l.v / max * 85}%"></i></div>`).join('')}</div>
+        <div class="tab-col">${leyenda.map(l => `<div><b>${num(l.v)}</b><i style="--c:${l.c}; --c2:${l.c2 || l.c}" data-h="${l.v / max * 85}%"></i></div>`).join('')}</div>
         <div class="tab-col-et">${leyenda.map(l => `<span>${esc(l.t)}</span>`).join('')}</div></div>`;
     }
 
     cuerpo.innerHTML = `
       <div class="tab-kpis">
-        <div class="tab-kpi total"><i class="ti ti-files"></i><span>Oficios totales</span><b>${num(t.total)}</b></div>
-        ${ESTADOS.map(e => `<div class="tab-kpi" style="--c:${e.c}"><i class="ti ${e.ic}"></i><span>${e.t}</span><b>${num(t[e.k])}</b><small>${pct(t[e.k])}% del total</small></div>`).join('')}
+        <div class="tab-kpi total" style="--i:0"><i class="ti ti-files"></i><span>Oficios totales</span><b data-n="${t.total}">0</b><small>${d.general ? 'en todas las áreas' : 'turnados a tu área'}</small></div>
+        ${ESTADOS.map((e, i) => `<div class="tab-kpi" style="--c:${e.c}; --c2:${e.c2}; --i:${i + 1}"><i class="ti ${e.ic}"></i><span>${e.t}</span><b data-n="${t[e.k]}">0</b><small>${pct(t[e.k])}% del total</small></div>`).join('')}
       </div>
       <div class="tab-graficas">
         <div class="tab-tarjeta"><h3>Distribución<small>por estatus</small></h3>
@@ -161,6 +173,31 @@
         </div>
         ${derecha}
       </div>`;
+    animar(cuerpo);
+  }
+
+  /* Animaciones: cifras que cuentan, dona que se dibuja y barras que crecen */
+  function animar(cuerpo) {
+    const fin = () => {
+      cuerpo.querySelectorAll('[data-n]').forEach(b => b.textContent = num(b.dataset.n));
+      cuerpo.querySelectorAll('.seg').forEach(c => c.setAttribute('stroke-dasharray', `${c.dataset.largo} ${c.dataset.c}`));
+      cuerpo.querySelectorAll('[data-w]').forEach(i => i.style.width = i.dataset.w);
+      cuerpo.querySelectorAll('[data-h]').forEach(i => i.style.height = i.dataset.h);
+    };
+    if (quieto) return fin();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      cuerpo.querySelectorAll('.seg').forEach(c => c.setAttribute('stroke-dasharray', `${c.dataset.largo} ${c.dataset.c}`));
+      cuerpo.querySelectorAll('.tab-fila').forEach((f, k) => f.querySelectorAll('[data-w]').forEach(i => { i.style.transitionDelay = (k * 70) + 'ms'; i.style.width = i.dataset.w; }));
+      cuerpo.querySelectorAll('[data-h]').forEach((i, k) => { i.style.transitionDelay = (k * 80) + 'ms'; i.style.height = i.dataset.h; });
+    }));
+    const inicio = performance.now(), dur = 1100;
+    const cifras = [...cuerpo.querySelectorAll('[data-n]')];
+    const paso = (ahora) => {
+      const p = Math.min(1, (ahora - inicio) / dur), suave = 1 - Math.pow(1 - p, 3);
+      cifras.forEach(b => b.textContent = num(Math.round(Number(b.dataset.n) * suave)));
+      if (p < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
   }
 
   let fondo = null;
