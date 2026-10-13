@@ -717,16 +717,9 @@ Reglas estrictas:
 - Las fechas SIEMPRE en formato YYYY-MM-DD. Si el año no es visible pero el resto sí, no adivines el año.
 - NUNCA extraigas ni inventes un campo de "instrucción" o nota manuscrita añadida al margen — eso no se pide aquí y no debe aparecer en ningún campo.
 - Devuelve ÚNICAMENTE el objeto JSON, sin explicaciones ni texto adicional.`;
-  const promptTurno = `Te voy a dar la foto de un documento oficial con un sello de recibido. Junto al sello (o muy cerca de él) aparece escrito, normalmente a mano, un número de Turno con el formato "T-" seguido de un número (ej. "T-6026", "T 6026", "T6026").
-
-Devuelve SOLO este JSON:
-{
-  "turno": "el número que sigue a la T, solo los dígitos (ej. '6026'), o cadena vacía si no se alcanza a leer",
-  "texto_turno": "el texto tal como aparece escrito (ej. 'T-6026'), o cadena vacía",
-  "numero_oficio": "el número/folio del oficio impreso en el documento si se ve (ej. 'DGA/112/2026'), o cadena vacía"
-}
-
-Reglas: no inventes ni adivines números; si dudas entre dígitos, escribe tu mejor lectura pero nunca agregues dígitos que no estén. Devuelve ÚNICAMENTE el objeto JSON.`;
+  const promptTurno = promptOficio.replace(
+    '  "descripcion":',
+    '  "turno": "junto al sello de recibido (o muy cerca) viene escrito, normalmente a mano, un número de Turno con formato T- seguido de dígitos (ej. T-6026). Escribe SOLO los dígitos (ej. 6026), o cadena vacía si no se alcanza a leer. No inventes dígitos",\n  "descripcion":');
   const prompt = tipo === 'sala' ? construirPromptSala() : tipo === 'turno' ? promptTurno : promptOficio;
 
   // Varios modelos en rotación, no solo dos: cada uno tiene su propia
@@ -793,8 +786,10 @@ Reglas: no inventes ni adivines números; si dudas entre dígitos, escribe tu me
       const parseado = JSON.parse(texto);
       if (tipo === 'sala') return normalizarExtraccionSala(parseado);
       if (tipo === 'turno') {
-        const solo = (v) => (typeof v === 'string' ? v : '').trim();
-        return { turno: solo(parseado.turno).replace(/\D/g, ''), texto_turno: solo(parseado.texto_turno), numero_oficio: solo(parseado.numero_oficio) };
+        const limpioT = {};
+        for (const campo of CAMPOS_EXTRAIBLES) limpioT[campo] = typeof parseado[campo] === 'string' ? parseado[campo] : '';
+        limpioT.turno = (typeof parseado.turno === 'string' ? parseado.turno : String(parseado.turno ?? '')).replace(/\D/g, '');
+        return limpioT;
       }
       // Solo nos quedamos con los campos que conocemos, y como string.
       const limpio = {};
@@ -1565,52 +1560,61 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
    Coordinación Administrativa y admin ven el total general con el desglose
    por área; cada área ve solo los oficios que le turnaron. */
 /* ══ CAPTURA DE TURNOS ══
-   Se fotografía el Turno de un oficio (junto al sello viene escrito
-   «T-número», que es el N. de control). La IA lee ese número, se busca el
-   oficio y, al confirmar, la foto se guarda como su documento de Turno
-   (doc3) y el oficio pasa directo a «completado». Solo C.A. / admin. */
-const resumenOficioTurno = (o) => o && ({
-  id: o.id, n_control: o.n_control, numero: o.numero, remitente: o.remitente, dependencia: o.dependencia,
-  turnado_a: o.turnado_a, estatus: o.estatus, f_oficio: o.f_oficio, tiene_turno: !!o.ruta_doc3, descripcion: o.descripcion,
-});
-app.post('/api/turnos/identificar', verifyToken, onlyCoordOrAdmin, upload.single('imagen'), async (req, res) => {
+   Cada foto de Turno es un oficio que se registra con todos sus datos
+   (como el Registro Automático). Junto al sello viene escrito «T-número»:
+   ese número es su N. de control. El registro se guarda directo en
+   «completado», con la foto como su documento de Turno. Solo C.A. / admin. */
+const soloDigitos = (v) => String(v ?? '').replace(/\D/g, '');
+async function oficioConControl(numero) {
+  if (!numero) return null;
+  const [o] = await sql`SELECT id, n_control, numero, remitente, estatus FROM oficios
+    WHERE regexp_replace(n_control, '[^0-9]', '', 'g') = ${numero} ORDER BY id DESC LIMIT 1`;
+  return o || null;
+}
+app.post('/api/turnos/leer', verifyToken, onlyCoordOrAdmin, upload.single('imagen'), async (req, res) => {
   try {
     const img = req.file;
     if (!img) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
-    let lectura = { turno: '', texto_turno: '', numero_oficio: '' };
-    try { lectura = await extraerDatosOficioDeImagen(img.buffer.toString('base64'), img.mimetype, 'turno'); }
-    catch (e) { return res.json({ lectura, oficio: null, mensaje: 'No se pudo leer la foto con IA. Escribe el número de Turno a mano.' }); }
-    const [oficio] = lectura.turno
-      ? await sql`SELECT * FROM oficios WHERE regexp_replace(n_control, '\D', '', 'g') = ${lectura.turno} ORDER BY id DESC LIMIT 1`
-      : [];
-    res.json({ lectura, oficio: resumenOficioTurno(oficio) || null });
+    let datos = null, mensaje = null;
+    try { datos = await extraerDatosOficioDeImagen(img.buffer.toString('base64'), img.mimetype, 'turno'); }
+    catch (e) { mensaje = 'No se pudo leer la foto con IA. Llena los datos a mano.'; }
+    const existente = await oficioConControl(datos?.turno);
+    res.json({ datos: datos || {}, existente, mensaje });
   } catch (err) {
-    manejarError(res, err, 'Error al identificar el Turno.');
+    manejarError(res, err, 'Error al leer el Turno.');
   }
 });
-app.get('/api/turnos/buscar/:numero', verifyToken, onlyCoordOrAdmin, async (req, res) => {
-  try {
-    const numero = String(req.params.numero || '').replace(/\D/g, '');
-    if (!numero) return res.json({ oficio: null });
-    const [oficio] = await sql`SELECT * FROM oficios WHERE regexp_replace(n_control, '\D', '', 'g') = ${numero} ORDER BY id DESC LIMIT 1`;
-    res.json({ oficio: resumenOficioTurno(oficio) || null });
-  } catch (err) {
-    manejarError(res, err, 'Error al buscar el oficio.');
-  }
+app.get('/api/turnos/existe/:numero', verifyToken, onlyCoordOrAdmin, async (req, res) => {
+  try { res.json({ existente: await oficioConControl(soloDigitos(req.params.numero)) }); }
+  catch (err) { manejarError(res, err, 'Error al revisar el número.'); }
 });
-app.post('/api/turnos/:id/asignar', verifyToken, onlyCoordOrAdmin, upload.single('doc3'), async (req, res) => {
+app.post('/api/turnos/registrar', verifyToken, onlyCoordOrAdmin, upload.single('doc3'), async (req, res) => {
   try {
-    const [oficio] = await sql`SELECT * FROM oficios WHERE id = ${req.params.id}`;
-    if (!oficio) return res.status(404).json({ mensaje: 'No se encontró el oficio.' });
+    const { f_sello, f_oficio, numero, remitente, dependencia, descripcion, turnado_a } = req.body;
+    const n_control = soloDigitos(req.body.n_control);
+    if (!n_control) return res.status(400).json({ mensaje: 'Falta el número de Turno (T-…).' });
+    if (!f_oficio || !remitente?.trim()) return res.status(400).json({ mensaje: 'F. Oficio y Remitente son obligatorios.' });
     if (!req.file) return res.status(400).json({ mensaje: 'Falta la foto del Turno.' });
-    const ruta = await subirArchivoADrive(req.file, areaDeOficio(oficio, req.user.area));
-    const [actualizado] = await sql`
-      UPDATE oficios SET ruta_doc3 = ${ruta}, doc3_subido_por = ${req.user.username},
-        estatus = 'completado', updated_at = NOW()
-      WHERE id = ${oficio.id} RETURNING *`;
-    res.json({ ok: true, oficio: resumenOficioTurno(actualizado) });
+    const ya = await oficioConControl(n_control);
+    if (ya) return res.status(409).json({ mensaje: `Ya existe un oficio con el N. de control ${ya.n_control}.`, existente: ya });
+
+    const areaOrigen = req.user.area || 'Coordinación Administrativa';
+    const marca = marcaPendiente();
+    const [nuevo] = await sql`
+      INSERT INTO oficios (
+        n_control, f_sello, f_oficio, dias_entrega, numero, n_referencia, remitente, dependencia,
+        f_registro, turnado_a, turnado_por, estatus, descripcion, ruta_doc3, doc3_subido_por, area_origen
+      ) VALUES (
+        ${n_control}, ${f_sello || null}, ${f_oficio}, 0, ${truncar(numero, 60) || null}, ${truncar(numero, 80) || null},
+        ${truncar(remitente.trim(), 300)}, ${truncar(dependencia, 120) || null},
+        ${new Date().toISOString().split('T')[0]}, ${truncar(turnado_a, 120) || null}, ${turnado_a ? req.user.username : null},
+        'completado', ${descripcion || null}, ${marca}, ${req.user.username}, ${areaOrigen}
+      ) RETURNING *`;
+    console.log(`✅  Turno registrado por ${req.user.username}: N. Control ${n_control} → completado`);
+    res.status(201).json(sanitizarOficio(nuevo));
+    encolarSubidaDoc({ id: nuevo.id, slot: 'doc3', file: req.file, marca, carpeta: areaDeOficio(nuevo) });
   } catch (err) {
-    manejarError(res, err, 'No se pudo asignar el Turno.');
+    manejarError(res, err, 'No se pudo registrar el Turno.');
   }
 });
 

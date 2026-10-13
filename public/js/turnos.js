@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════
    SBIS — Captura de Turnos
-   Se fotografía el Turno de un oficio (junto al sello viene escrito
-   «T-número», que es su N. de control). Por cada foto:
-     1) la IA lee el número y se busca el oficio;
-     2) se muestra el oficio encontrado (el número se puede corregir);
-     3) al confirmar, la foto se guarda como documento de Turno y el
-        oficio pasa directo a «Completado».
+   Cada foto de un Turno es un oficio que se REGISTRA:
+     1) la IA extrae todos sus datos (como el Registro Automático) y el
+        número escrito junto al sello, «T-número», que es su N. de control;
+     2) se muestran en un formulario para revisarlos o corregirlos;
+     3) al confirmar, se registra directo en «Completado», con la foto
+        como su documento de Turno.
    Exclusivo de Coordinación Administrativa (y admin).
    ═══════════════════════════════════════════════════ */
 const API = window.location.origin + '/api';
@@ -14,6 +14,7 @@ let USUARIO = JSON.parse(localStorage.getItem('sbis_usuario') || 'null');
 const AREA_CON_GESTION_COMPLETA = 'Coordinación Administrativa';
 const tieneGestionCompleta = (u) => u?.rol === 'admin' || (u?.rol === 'area' && u?.area === AREA_CON_GESTION_COMPLETA);
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const AREAS = ['R. Humanos', 'R. Financieros', 'R. Materiales', 'Informática', 'Seguimiento de Auditorías', 'Archivo', 'Coordinación Administrativa'];
 
 function verificarAcceso() {
   TOKEN = localStorage.getItem('sbis_token');
@@ -28,11 +29,6 @@ function cerrarSesion() {
   window.location.href = '/login';
 }
 window.cerrarSesion = cerrarSesion;
-
-const ESTATUS = {
-  por_turnar: 'Por turnar', turnado: 'Turnado', sub_turnado: 'Subturnado',
-  atendido: 'Atendido', rechazado: 'Por corregir', completado: 'Completado',
-};
 
 /* Reduce la foto en el navegador antes de subirla (más rápida y ligera) */
 function reducirImagen(archivo, max = 1800, calidad = 0.85) {
@@ -55,90 +51,77 @@ async function api(ruta, opciones = {}) {
   const r = await fetch(API + ruta, { ...opciones, headers: { Authorization: 'Bearer ' + TOKEN, ...(opciones.headers || {}) } });
   let d = {}; try { d = await r.json(); } catch (e) { /* sin cuerpo */ }
   if (r.status === 401) { cerrarSesion(); throw new Error('Tu sesión venció.'); }
-  if (!r.ok) throw new Error(d.mensaje || 'Error del servidor.');
+  if (!r.ok) { const e = new Error(d.mensaje || 'Error del servidor.'); e.datos = d; throw e; }
   return d;
 }
 
-/* ── Cada foto es una tarjeta con su propio estado ── */
 const lista = () => document.getElementById('turnos-lista');
-function actualizarVacio() {
-  document.getElementById('turnos-vacio').hidden = !!lista().querySelector('.turno-tarjeta');
-}
+function actualizarVacio() { document.getElementById('turnos-vacio').hidden = !!lista().querySelector('.turno-tarjeta'); }
+const campo = (t, n) => t.querySelector(`[name="${n}"]`);
 
-function pintarOficio(tarjeta, oficio, lectura) {
-  const caja = tarjeta.querySelector('.turno-oficio');
-  const btn = tarjeta.querySelector('.turno-asignar');
-  tarjeta._oficio = oficio;
-  if (!oficio) {
-    caja.innerHTML = `<div class="turno-sin"><i class="ti ti-search-off"></i> No se encontró ningún oficio con ese número de control. Revisa el número y presiona <b>Buscar</b>.</div>`;
-    btn.disabled = true;
-    return;
-  }
-  const ya = oficio.estatus === 'completado';
-  caja.innerHTML = `
-    <div class="turno-oficio-cab">
-      <span class="turno-control">N. control <b>${esc(oficio.n_control)}</b></span>
-      <span class="turno-estatus e-${esc(oficio.estatus)}">${esc(ESTATUS[oficio.estatus] || oficio.estatus)}</span>
-    </div>
-    <dl>
-      <dt>Número de oficio</dt><dd>${esc(oficio.numero || '—')}</dd>
-      <dt>Remitente</dt><dd>${esc(oficio.remitente || '—')}</dd>
-      <dt>Turnado a</dt><dd>${esc(oficio.turnado_a || 'Sin turnar')}</dd>
-      ${oficio.descripcion ? `<dt>Asunto</dt><dd class="turno-asunto">${esc(oficio.descripcion)}</dd>` : ''}
-    </dl>
-    ${oficio.tiene_turno ? '<p class="turno-aviso"><i class="ti ti-info-circle"></i> Este oficio ya tiene un documento de Turno; se reemplazará por esta foto.</p>' : ''}
-    ${ya ? '<p class="turno-aviso"><i class="ti ti-circle-check"></i> Este oficio ya está completado.</p>' : ''}
-    ${lectura?.numero_oficio && oficio.numero && !mismoNumero(lectura.numero_oficio, oficio.numero)
-      ? `<p class="turno-aviso alerta"><i class="ti ti-alert-triangle"></i> En la foto se lee el oficio «${esc(lectura.numero_oficio)}», que no coincide con el de este registro. Verifica el número de Turno.</p>` : ''}`;
-  btn.disabled = false;
-}
-const mismoNumero = (a, b) => String(a).replace(/\W/g, '').toUpperCase() === String(b).replace(/\W/g, '').toUpperCase();
-
-async function identificar(tarjeta) {
-  const estado = tarjeta.querySelector('.turno-leyendo');
-  estado.hidden = false;
-  tarjeta.querySelector('.turno-oficio').innerHTML = '';
+/* Aviso bajo el número si ese N. de control ya está registrado */
+async function revisarDuplicado(t) {
+  const n = campo(t, 'n_control').value.replace(/\D/g, '');
+  const aviso = t.querySelector('.turno-duplicado');
+  if (!n) { aviso.hidden = true; return; }
   try {
-    const fd = new FormData(); fd.append('imagen', tarjeta._archivo);
-    const d = await api('/turnos/identificar', { method: 'POST', body: fd });
-    tarjeta.querySelector('.turno-numero').value = d.lectura?.turno || '';
-    if (!d.lectura?.turno) {
-      tarjeta.querySelector('.turno-oficio').innerHTML = `<div class="turno-sin"><i class="ti ti-eye-off"></i> ${esc(d.mensaje || 'No se alcanzó a leer el número de Turno (T-…). Escríbelo y presiona Buscar.')}</div>`;
-      tarjeta.querySelector('.turno-numero').focus();
-    } else pintarOficio(tarjeta, d.oficio, d.lectura);
-    tarjeta._lectura = d.lectura;
+    const { existente } = await api('/turnos/existe/' + n);
+    aviso.hidden = !existente;
+    if (existente) aviso.innerHTML = `<i class="ti ti-alert-triangle"></i> Ya existe un oficio con el N. de control ${esc(existente.n_control)} (${esc(existente.numero || 'sin número')}). Revisa el número de Turno.`;
+  } catch (e) { aviso.hidden = true; }
+  validar(t);
+}
+function validar(t) {
+  const listo = campo(t, 'n_control').value.replace(/\D/g, '') && campo(t, 'f_oficio').value && campo(t, 'remitente').value.trim()
+    && t.querySelector('.turno-duplicado').hidden && !t.classList.contains('leyendo');
+  t.querySelector('.turno-registrar').disabled = !listo;
+  ['n_control', 'f_oficio', 'remitente'].forEach(n => campo(t, n).classList.toggle('falta', !campo(t, n).value.trim()));
+}
+
+async function leer(t) {
+  t.classList.add('leyendo');
+  t.querySelector('.turno-leyendo').hidden = false;
+  validar(t);
+  try {
+    const fd = new FormData(); fd.append('imagen', t._archivo);
+    const { datos, mensaje } = await api('/turnos/leer', { method: 'POST', body: fd });
+    if (datos.turno) campo(t, 'n_control').value = datos.turno;
+    ['f_oficio', 'f_sello', 'numero', 'remitente', 'dependencia', 'descripcion'].forEach(n => { if (datos[n]) campo(t, n).value = datos[n]; });
+    if (mensaje) t.querySelector('.turno-nota').innerHTML = `<i class="ti ti-eye-off"></i> ${esc(mensaje)}`;
+    else if (!datos.turno) t.querySelector('.turno-nota').innerHTML = '<i class="ti ti-eye-off"></i> No se alcanzó a leer el número de Turno (T-…). Escríbelo.';
+    else t.querySelector('.turno-nota').innerHTML = '<i class="ti ti-sparkles"></i> Datos leídos de la foto. Revísalos antes de registrar.';
   } catch (e) {
-    tarjeta.querySelector('.turno-oficio').innerHTML = `<div class="turno-sin"><i class="ti ti-alert-circle"></i> ${esc(e.message)}</div>`;
-  } finally { estado.hidden = true; }
+    t.querySelector('.turno-nota').innerHTML = `<i class="ti ti-alert-circle"></i> ${esc(e.message)}`;
+  } finally {
+    t.classList.remove('leyendo');
+    t.querySelector('.turno-leyendo').hidden = true;
+    revisarDuplicado(t);
+  }
 }
 
-async function buscar(tarjeta) {
-  const n = tarjeta.querySelector('.turno-numero').value.replace(/\D/g, '');
-  if (!n) { tarjeta.querySelector('.turno-numero').focus(); return; }
-  try { const d = await api('/turnos/buscar/' + n); pintarOficio(tarjeta, d.oficio, tarjeta._lectura); }
-  catch (e) { tarjeta.querySelector('.turno-oficio').innerHTML = `<div class="turno-sin">${esc(e.message)}</div>`; }
-}
-
-async function asignar(tarjeta) {
-  const o = tarjeta._oficio; if (!o) return;
+async function registrar(t) {
+  const n = campo(t, 'n_control').value.replace(/\D/g, '');
   const M = window.MiniSEBISO;
-  const pregunta = `¿Asignar este Turno al oficio con N. de control ${o.n_control} y marcarlo como Completado?`;
+  const pregunta = `¿Registrar el Turno T-${n} como oficio Completado?`;
   const ok = M?.preguntar && !M.apagado
-    ? await M.preguntar({ titulo: '¡Hola!', pregunta, detalle: o.numero ? `Oficio ${o.numero}` : '', btnOk: 'Asignar y completar', iconoOk: 'ti-circle-check', estiloOk: 'dorado', saludoOk: '¡Va!', textoOk: 'Lo asigno ahora mismo…' })
+    ? await M.preguntar({ titulo: '¡Hola!', pregunta, detalle: campo(t, 'numero').value ? `Oficio ${campo(t, 'numero').value}` : '', btnOk: 'Registrar', iconoOk: 'ti-circle-check', estiloOk: 'dorado', saludoOk: '¡Va!', textoOk: 'Lo registro ahora mismo…' })
     : window.confirm(pregunta);
   if (!ok) return;
-  const btn = tarjeta.querySelector('.turno-asignar');
-  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 girando"></i> Guardando…';
+  const btn = t.querySelector('.turno-registrar');
+  btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 girando"></i> Registrando…';
   try {
-    const fd = new FormData(); fd.append('doc3', tarjeta._archivo, `Turno_${o.n_control}.jpg`);
-    await api(`/turnos/${o.id}/asignar`, { method: 'POST', body: fd });
-    tarjeta.classList.add('hecha');
-    tarjeta.querySelector('.turno-acciones').innerHTML = `<span class="turno-listo"><i class="ti ti-circle-check"></i> Turno asignado · oficio ${esc(o.n_control)} completado</span>
+    const fd = new FormData();
+    ['n_control', 'f_oficio', 'f_sello', 'numero', 'remitente', 'dependencia', 'descripcion', 'turnado_a'].forEach(k => fd.append(k, campo(t, k).value.trim()));
+    fd.append('doc3', t._archivo, `Turno_T-${n}.jpg`);
+    await api('/turnos/registrar', { method: 'POST', body: fd });
+    t.classList.add('hecha');
+    t.querySelectorAll('input, select, textarea').forEach(el => el.disabled = true);
+    t.querySelector('.turno-acciones').innerHTML = `<span class="turno-listo"><i class="ti ti-circle-check"></i> Registrado: N. de control ${esc(n)} · Completado</span>
       <button type="button" class="turno-quitar-btn">Quitar de la lista</button>`;
-    tarjeta.querySelector('.turno-quitar-btn').onclick = () => { tarjeta.remove(); actualizarVacio(); };
-    tarjeta.querySelector('.turno-numero').disabled = true;
+    t.querySelector('.turno-quitar-btn').onclick = () => { t.remove(); actualizarVacio(); };
   } catch (e) {
-    btn.disabled = false; btn.innerHTML = '<i class="ti ti-circle-check"></i> Asignar y completar';
+    btn.innerHTML = '<i class="ti ti-circle-check"></i> Registrar como completado';
+    if (e.datos?.existente) revisarDuplicado(t); else validar(t);
     window.alert(e.message);
   }
 }
@@ -147,34 +130,39 @@ async function agregarFotos(archivos) {
   for (const original of archivos) {
     if (!original.type.startsWith('image/')) continue;
     const archivo = await reducirImagen(original);
+    const url = URL.createObjectURL(archivo);
     const t = document.createElement('article');
     t.className = 'turno-tarjeta';
-    const url = URL.createObjectURL(archivo);
     t.innerHTML = `
       <div class="turno-foto"><img src="${url}" alt="Foto del Turno"><button type="button" class="turno-quitar" title="Quitar foto" aria-label="Quitar foto"><i class="ti ti-x"></i></button></div>
       <div class="turno-datos">
-        <label class="turno-campo">
-          <span>Número de Turno (T-…)</span>
-          <span class="turno-num-fila">
-            <span class="turno-t">T-</span>
-            <input type="text" inputmode="numeric" class="turno-numero" autocomplete="off" placeholder="Ej. 6026">
-            <button type="button" class="turno-buscar"><i class="ti ti-search"></i> Buscar</button>
-          </span>
-        </label>
-        <div class="turno-leyendo" hidden><i class="ti ti-loader-2 girando"></i> Leyendo el número de Turno…</div>
-        <div class="turno-oficio"></div>
+        <div class="turno-leyendo" hidden><i class="ti ti-loader-2 girando"></i> Leyendo los datos de la foto…</div>
+        <div class="turno-nota"></div>
+        <div class="turno-form">
+          <label class="tf tf-control"><span>Número de Turno (N. de control)</span>
+            <span class="turno-num-fila"><span class="turno-t">T-</span><input name="n_control" inputmode="numeric" autocomplete="off" placeholder="Ej. 6026"></span></label>
+          <label class="tf"><span>F. Oficio *</span><input name="f_oficio" type="date"></label>
+          <label class="tf"><span>F. Sello</span><input name="f_sello" type="date"></label>
+          <label class="tf"><span># Número de oficio</span><input name="numero" autocomplete="off" placeholder="Ej. DGA/112/2026"></label>
+          <label class="tf tf-ancho"><span>Remitente *</span><input name="remitente" autocomplete="off" placeholder="Nombre y cargo de quien firma"></label>
+          <label class="tf tf-ancho"><span>Dependencia</span><input name="dependencia" autocomplete="off" placeholder="Dependencia de origen"></label>
+          <label class="tf"><span>Turnado a</span><select name="turnado_a"><option value="">— Sin área —</option>${AREAS.map(a => `<option>${esc(a)}</option>`).join('')}</select></label>
+          <label class="tf tf-todo"><span>Descripción</span><textarea name="descripcion" rows="2" placeholder="Asunto del oficio"></textarea></label>
+        </div>
+        <div class="turno-duplicado turno-aviso alerta" hidden></div>
         <div class="turno-acciones">
-          <button type="button" class="turno-asignar" disabled><i class="ti ti-circle-check"></i> Asignar y completar</button>
+          <button type="button" class="turno-registrar" disabled><i class="ti ti-circle-check"></i> Registrar como completado</button>
         </div>
       </div>`;
     t._archivo = archivo;
     lista().prepend(t);
     t.querySelector('.turno-quitar').onclick = () => { URL.revokeObjectURL(url); t.remove(); actualizarVacio(); };
-    t.querySelector('.turno-buscar').onclick = () => buscar(t);
-    t.querySelector('.turno-numero').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscar(t); } });
-    t.querySelector('.turno-asignar').onclick = () => asignar(t);
+    t.querySelector('.turno-registrar').onclick = () => registrar(t);
+    t.querySelectorAll('input, select, textarea').forEach(el => el.addEventListener('input', () => validar(t)));
+    let espera;
+    campo(t, 'n_control').addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(() => revisarDuplicado(t), 400); });
     actualizarVacio();
-    identificar(t);
+    leer(t);
   }
 }
 
@@ -190,8 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-turnos-camara').onclick = () => camara.click();
   document.getElementById('btn-turnos-galeria').onclick = () => galeria.click();
   [camara, galeria].forEach(inp => inp.addEventListener('change', () => { agregarFotos([...inp.files]); inp.value = ''; }));
-
-  // También se pueden arrastrar fotos a la zona
   const zona = document.getElementById('turnos-zona');
   zona.addEventListener('dragover', (e) => { e.preventDefault(); zona.classList.add('arrastrando'); });
   zona.addEventListener('dragleave', () => zona.classList.remove('arrastrando'));

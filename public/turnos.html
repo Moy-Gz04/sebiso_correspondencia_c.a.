@@ -77,6 +77,30 @@
     .turno-quitar-btn { border: 0; background: none; color: #8a7a80; text-decoration: none; cursor: pointer; font: 600 12.5px 'Montserrat', sans-serif; padding: 6px 10px; border-radius: 8px; }
     .turno-quitar-btn:hover { background: #F3ECE4; color: #5F2132; }
     @media (max-width: 720px) { .turno-tarjeta { grid-template-columns: 1fr; } .turno-foto img { height: 220px; } .turno-oficio dl { grid-template-columns: 1fr; } }
+    .turno-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 14px; }
+    .tf { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .tf > span:first-child { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7C5D31; }
+    .tf input, .tf select, .tf textarea { width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 10px; border: 1px solid #E4D6C8; background: #fff;
+      font: 600 13px 'Montserrat', sans-serif; color: #3D1420; }
+    .tf textarea { resize: vertical; font-weight: 500; }
+    .tf input:focus, .tf select:focus, .tf textarea:focus { outline: none; border-color: #A9824C; box-shadow: 0 0 0 3px rgba(169,130,76,.22); }
+    .tf .falta { border: 2px solid #C9A24E; background: #FFFDF6; box-shadow: 0 0 10px rgba(233,200,115,.5); }
+    .tf-ancho { grid-column: span 2; } .tf-todo { grid-column: 1 / -1; }
+    .tf-control input { font: 800 17px 'JetBrains Mono', monospace; }
+    .turno-nota { font-size: 12.5px; color: #6B5563; display: flex; gap: 6px; align-items: center; min-height: 18px; }
+    .turno-nota i { color: #A9824C; }
+    .turno-tarjeta.leyendo .turno-form { opacity: .5; pointer-events: none; }
+    .turno-tarjeta.hecha .tf input, .turno-tarjeta.hecha .tf select, .turno-tarjeta.hecha .tf textarea { background: #F7FBF8; }
+    .turno-registrar {
+      display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 999px; cursor: pointer; border: 1px solid rgba(255,255,255,.35);
+      font: 700 13px 'Montserrat', sans-serif; color: #3A0818; background: linear-gradient(135deg, #D8B866, #A9824C 55%, #8C6A34);
+      box-shadow: 0 6px 16px rgba(124,93,49,.3); transition: transform .15s, filter .15s;
+    }
+    .turno-registrar:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+    .turno-registrar:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    .turno-foto img { height: 100%; min-height: 300px; max-height: 420px; }
+    @media (max-width: 900px) { .turno-form { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 720px) { .turno-form { grid-template-columns: 1fr; } .tf-ancho { grid-column: auto; } .turno-foto img { min-height: 0; height: 220px; } }
   </style>
 </head>
 <body>
@@ -147,7 +171,7 @@
           <h1 class="seccion-titulo-h1">Captura de Turnos</h1>
         </div>
       </div>
-      <p class="turnos-intro">Toma una foto del Turno de cada oficio. Se lee el número escrito junto al sello (<b>T-…</b>, el número de control), se busca su oficio y, al confirmar, la foto queda como su documento de Turno y el oficio pasa a <b>Completado</b>.</p>
+      <p class="turnos-intro">Toma una foto de cada Turno. Se extraen todos sus datos y el número escrito junto al sello (<b>T-…</b>), que será su número de control. Revísalos y al registrarlo queda directo en <b>Completado</b>, con la foto como su documento de Turno.</p>
 
       <div class="turnos-zona" id="turnos-zona">
         <div class="turnos-zona-txt"><b>Agrega las fotos de los Turnos</b><span>Puedes tomar varias seguidas o arrastrarlas aquí.</span></div>
@@ -177,7 +201,7 @@
     </div>
   </footer>
 
-  <script src="js/turnos.js?v=1"></script>
+  <script src="js/turnos.js?v=2"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>
