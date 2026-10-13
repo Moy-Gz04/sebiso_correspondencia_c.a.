@@ -15,7 +15,7 @@
   window.__asistenteExtra = true;
 
   const css = document.createElement('link');
-  css.rel = 'stylesheet'; css.href = 'css/asistente-extra.css?v=6';
+  css.rel = 'stylesheet'; css.href = 'css/asistente-extra.css?v=7';
   document.head.appendChild(css);
 
   const quieto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -453,7 +453,6 @@
             <span class="nav-asis-switch" aria-hidden="true"><span></span></span>
             <span class="nav-asis-texto">Encendido</span>
           </button>
-          <button type="button" class="nav-asis-color" aria-label="Personalizar el asistente" title="Personalizar el asistente"><i class="ti ti-pencil" aria-hidden="true"></i></button>
         </div>
         <button type="button" class="nav-asis-perso"><i class="ti ti-palette" aria-hidden="true"></i> Personalizar apariencia</button>
       </div>`;
@@ -471,7 +470,6 @@
       if (prender) setTimeout(() => M.decir('¡Aquí estoy de nuevo! Tócame cuando necesites ayuda.', { duracion: 4500 }), 150);
       else avisoOriginal('Asistente apagado. Puedes encenderlo cuando quieras.');
     });
-    grupo.querySelector('.nav-asis-color').addEventListener('click', () => { abrirPanel(false); abrirPersonalizar(); });
     aplicarPref();
   }
 

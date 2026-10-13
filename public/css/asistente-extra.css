@@ -369,3 +369,6 @@ html .ms-perso { z-index: 11500; }
 .nav-asis-perso:hover { background: #F6EEDD; }
 .nav-asis-perso i { color: #A9824C; font-size: 16px; }
 @media (prefers-reduced-motion: reduce) { .nav-asis-panel { animation: none; } }
+/* En la ventana flotante el interruptor ocupa todo el ancho (sin lápiz) */
+.nav-asis-panel .nav-asis-grupo { padding: 3px; }
+.nav-asis-panel .nav-asistente { flex: 1; justify-content: flex-start; }
