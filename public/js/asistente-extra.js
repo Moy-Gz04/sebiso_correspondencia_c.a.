@@ -198,7 +198,7 @@
       'Registrando el oficio': 'Oficio registrado', 'Enviando la atención del oficio': 'Oficio atendido', 'Guardando el oficio': 'Oficio guardado', 'Enviando la foto': 'Foto enviada', 'Descartando la foto': 'Foto descartada',
       'Eliminando el oficio': 'Oficio eliminado', 'Generando el PDF': 'PDF generado', 'Subiendo el documento': 'Documento guardado', 'Volviendo a leer la foto': 'Foto enviada otra vez a leer',
       'Guardando el apartado': 'Apartado guardado', 'Cancelando el apartado': 'Apartado cancelado', 'Guardando la circular': 'Circular guardada', 'Guardando la tarjeta informativa': 'Tarjeta guardada',
-      'Guardando el número de oficio': 'Número de oficio guardado', 'Liberando el número de oficio': 'Número liberado', 'Apartando el número del día': 'Número apartado', 'Generando la nota': 'Nota generada' };
+      'Guardando el número de oficio': 'Número de oficio guardado', 'Liberando el número de oficio': 'Número liberado', 'Apartando el número del día': 'Número apartado', 'Generando la nota': 'Nota generada', 'Registrando el Turno': 'Turno registrado como completado' };
     const k = Object.keys(m).find(k => t.startsWith(k));
     return k ? m[k] : 'Cambios guardados';
   }
@@ -228,13 +228,14 @@
     else if (/regenerar-nota/.test(ruta)) texto = 'Generando la nota';
     else if (/apartados/.test(ruta)) texto = 'Guardando el apartado';
     else if (/salas/.test(ruta)) texto = 'Guardando la sala';
+    else if (/turnos\/registrar/.test(ruta)) texto = 'Registrando el Turno';
     if (conArchivos) return { texto: texto + (nombreArchivo ? ' con «' + nombreArchivo + '»' : ' con sus documentos'), subida: true };
     return { texto };
   }
   // Sin ventana: consultas, entrar, enlaces de documentos, el minutario (se guarda celda por celda)
   // y lo que ya tiene su propia ventana de carga (salas)
   const esApi = (url) => /\/api\//.test(url) && (url.startsWith('/') || url.startsWith(location.origin));
-  const sinVentana = (url, metodo) => metodo === 'GET' || /\/api\/(login|heartbeat|me)\b|token|\/minutario/.test(url)
+  const sinVentana = (url, metodo) => metodo === 'GET' || /\/api\/(login|heartbeat|me)\b|token|\/minutario|\/turnos\/(leer|existe)/.test(url)
     || !!document.querySelector('#cargando-overlay.visible');
 
   const mb = (b) => (b / 1048576).toFixed(b < 10485760 ? 1 : 0) + ' MB';
