@@ -174,7 +174,23 @@
   }
 
   function pintar(cuerpo, d) {
-    const t = d.totales, pct = (n) => t.total ? Math.round(n / t.total * 100) : 0;
+    const t = d.totales;
+    // Porcentajes con 2 decimales que suman exactamente 100.00 (método del mayor residuo:
+    // se reparten las centésimas que faltan a los que más se redondearon hacia abajo)
+    const exactos = (() => {
+      const vals = ESTADOS.map(e => t[e.k]);
+      const resto = t.total - vals.reduce((a, b) => a + b, 0);
+      if (resto > 0) vals.push(resto);
+      if (!t.total) return new Map();
+      const crudos = vals.map(v => v / t.total * 10000);
+      const base = crudos.map(Math.floor);
+      let faltan = 10000 - base.reduce((a, b) => a + b, 0);
+      crudos.map((c, i) => [c - base[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (faltan > 0) { base[i]++; faltan--; } });
+      const m = new Map();
+      vals.forEach((v, i) => m.set(i, base[i] / 100));
+      return m;
+    })();
+    const pct = (n, i) => (exactos.get(i) ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const otros = t.total - ESTADOS.reduce((s, e) => s + t[e.k], 0);
     const leyenda = [...ESTADOS.map(e => ({ t: e.t, c: e.c, c2: e.c2, v: t[e.k] })), ...(otros > 0 ? [{ t: OTROS.t, c: OTROS.c, v: otros }] : [])];
 
@@ -197,12 +213,12 @@
     cuerpo.innerHTML = `
       <div class="tab-kpis">
         <div class="tab-kpi total" style="--i:0"><span>Oficios totales</span><b data-n="${t.total}">0</b><small>${d.general ? 'en todas las áreas' : 'turnados a tu área'}</small></div>
-        ${ESTADOS.map((e, i) => `<div class="tab-kpi" style="--c:${e.c}; --c2:${e.c2}; --i:${i + 1}"><span>${e.t}</span><b data-n="${t[e.k]}">0</b><small>${pct(t[e.k])}% del total</small></div>`).join('')}
+        ${ESTADOS.map((e, i) => `<div class="tab-kpi" style="--c:${e.c}; --c2:${e.c2}; --i:${i + 1}"><span>${e.t}</span><b data-n="${t[e.k]}">0</b><small>${pct(t[e.k], i)}% del total</small></div>`).join('')}
       </div>
       <div class="tab-graficas">
         <div class="tab-tarjeta"><h3>Distribución<small>por estatus</small></h3>
           <div class="tab-dona">${dona(t)}
-            <div class="tab-leyenda">${leyenda.map(l => `<div><i style="--c:${l.c}"></i>${esc(l.t)}<b>${num(l.v)}</b><em>${pct(l.v)}%</em></div>`).join('')}</div>
+            <div class="tab-leyenda">${leyenda.map((l, i) => `<div><i style="--c:${l.c}"></i>${esc(l.t)}<b>${num(l.v)}</b><em>${pct(l.v, i)}%</em></div>`).join('')}</div>
           </div>
         </div>
         ${derecha}
