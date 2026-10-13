@@ -17,6 +17,10 @@
   const token = () => localStorage.getItem('sbis_token') || sessionStorage.getItem('sbis_token') || '';
   const esc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const num = (n) => Number(n || 0).toLocaleString('es-MX');
+  // Nombres largos en las píldoras del tablero (el nombre completo va en el título)
+  const corto = (n) => String(n)
+    .replace(/^Coordinación Administrativa$/i, 'Coord. Administrativa')
+    .replace(/^Seguimiento de Auditorías$/i, 'Seg. de Auditorías');
 
   // Colores por estatus (mismo orden en tarjetas, dona, barras y leyenda)
   const ESTADOS = [
@@ -110,10 +114,11 @@
     .tab-col-et{ display:flex; justify-content:space-around; gap:18px; padding:8px 6px 0; }
     .tab-col-et span{ flex:1; max-width:90px; text-align:center; font-size:11.5px; font-weight:600; color:#6B5563; }
 
-    .tab-areas-sel{ display:flex; flex-wrap:wrap; gap:6px; margin:-4px 0 16px; }
-    .tab-chip{ display:inline-flex; align-items:center; gap:6px; width:auto; margin:0; padding:6px 12px; border-radius:999px; cursor:pointer;
+    .tab-areas-sel{ display:grid; grid-template-columns:repeat(auto-fill, minmax(165px, 1fr)); gap:8px; margin:-4px 0 18px; }
+    .tab-chip{ display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; min-width:0; margin:0; padding:8px 12px; border-radius:12px; cursor:pointer; text-align:left;
       border:1px solid #E4D6C8; background:#fff; color:#4A0A1D; font:600 12px 'Montserrat',sans-serif; transition:background .15s, transform .12s, box-shadow .15s; }
-    .tab-chip b{ font-weight:800; color:#A9824C; font-variant-numeric:tabular-nums; }
+    .tab-chip b{ flex-shrink:0; font-weight:800; color:#A9824C; font-variant-numeric:tabular-nums; }
+    .tab-chip span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .tab-chip:hover{ background:#F6EEDD; transform:translateY(-1px); }
     .tab-chip.activo{ background:linear-gradient(135deg,#5F2132,#3D1420); color:#fff; border-color:transparent; box-shadow:0 4px 12px rgba(61,20,32,.25); }
     .tab-chip.activo b{ color:#E9C873; }
@@ -159,8 +164,8 @@
     const derecha = d.general && d.areas.length
       ? `<div class="tab-tarjeta"><h3>Oficios por área<small>elige un área para ver su gráfica</small></h3>
           <div class="tab-areas-sel" role="tablist" aria-label="Área">
-            <button type="button" class="tab-chip activo" data-area="" role="tab" aria-selected="true">Todas <b>${num(t.total)}</b></button>
-            ${d.areas.map(a => `<button type="button" class="tab-chip" data-area="${esc(a.nombre)}" role="tab" aria-selected="false">${esc(a.nombre)} <b>${num(a.total)}</b></button>`).join('')}
+            <button type="button" class="tab-chip activo" data-area="" role="tab" aria-selected="true"><span>Todas</span><b>${num(t.total)}</b></button>
+            ${d.areas.map(a => `<button type="button" class="tab-chip" data-area="${esc(a.nombre)}" role="tab" aria-selected="false" title="${esc(a.nombre)}"><span>${esc(corto(a.nombre))}</span><b>${num(a.total)}</b></button>`).join('')}
           </div>
           <div class="tab-area-graf">${barras(t)}</div></div>`
       : `<div class="tab-tarjeta"><h3>Avance del área<small>oficios por estatus</small></h3><div class="tab-area-graf">${barras(t)}</div></div>`;
