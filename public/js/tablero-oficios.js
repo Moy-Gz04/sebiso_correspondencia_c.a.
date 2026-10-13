@@ -19,7 +19,7 @@
   const num = (n) => Number(n || 0).toLocaleString('es-MX');
   // Nombres largos en las píldoras del tablero (el nombre completo va en el título)
   const corto = (n) => String(n)
-    .replace(/^Coordinación Administrativa$/i, 'Coord. Administrativa')
+    .replace(/^Coordinación Administrativa$/i, 'Coord. Admva.')
     .replace(/^Seguimiento de Auditorías$/i, 'Seg. de Auditorías');
 
   // Colores por estatus (mismo orden en tarjetas, dona, barras y leyenda)
@@ -126,7 +126,31 @@
     .tab-msg{ padding:60px 20px; text-align:center; color:#6B5563; font-size:14px; }
     @media (max-width:900px){ .tab-kpis{ grid-template-columns:repeat(2,1fr); } .tab-kpi.total{ grid-column:1 / -1; grid-row:auto; } .tab-graficas{ grid-template-columns:1fr; } }
     @media (max-width:560px){ .tab-cab, .tab-cuerpo{ padding-left:18px; padding-right:18px; } .tab-fila{ grid-template-columns:96px 1fr 44px; } }
-    @media (prefers-reduced-motion:reduce){ .tab-fondo, .tab-ventana, .tab-kpi{ animation:none; opacity:1; transform:none; } .tab-fila .pista i, .tab-col i, .tab-dona .seg{ transition:none; } }`;
+    @media (prefers-reduced-motion:reduce){ .tab-fondo, .tab-ventana, .tab-kpi{ animation:none; opacity:1; transform:none; } .tab-fila .pista i, .tab-col i, .tab-dona .seg{ transition:none; } }    /* Versión compacta: todo cabe en la ventana sin barra de desplazamiento */
+    .tab-ventana{ width:min(1040px,100%); max-height:calc(100vh - 32px); border-radius:20px; }
+    .tab-cab{ padding:14px 22px 12px; }
+    .tab-tit{ font-size:10px; } .tab-area{ font-size:18px; }
+    .tab-btn{ width:32px; height:32px; font-size:16px; }
+    .tab-cuerpo{ padding:14px 22px 18px; gap:14px; }
+    .tab-kpis{ gap:10px; }
+    .tab-kpi{ padding:10px 14px; border-radius:13px; }
+    .tab-kpi span{ font-size:11px; }
+    .tab-kpi b{ font-size:22px; }
+    .tab-kpi small{ font-size:10.5px; }
+    .tab-kpi.total span{ font-size:12px; } .tab-kpi.total b{ font-size:36px; }
+    .tab-graficas{ grid-template-columns:minmax(230px,280px) 1fr; gap:14px; }
+    .tab-tarjeta{ padding:14px 16px; border-radius:15px; }
+    .tab-tarjeta h3{ margin:0 0 10px; font-size:13px; } .tab-tarjeta h3 small{ font-size:11px; }
+    .tab-dona{ gap:10px; } .tab-dona svg{ width:140px; height:140px; }
+    .tab-leyenda{ gap:3px; } .tab-leyenda div{ font-size:11.5px; } .tab-leyenda i{ width:10px; height:10px; }
+    .tab-areas-sel{ grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:6px; margin:-2px 0 10px; }
+    .tab-chip{ padding:5px 10px; border-radius:10px; font-size:11px; }
+    .tab-col{ height:150px; gap:12px; padding-top:18px; }
+    .tab-col b{ font-size:12.5px; }
+    .tab-col-et{ gap:12px; padding-top:6px; } .tab-col-et span{ font-size:10.5px; }
+    @media (max-height:720px){ .tab-col{ height:120px; } .tab-dona svg{ width:120px; height:120px; } .tab-kpi b{ font-size:19px; } }
+`;
+
   document.head.appendChild(css);
 
   /* Dona en SVG: un arco por estatus (y «otros» en gris) */
