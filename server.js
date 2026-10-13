@@ -1547,6 +1547,36 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
   }
 });
 
+/* Tablero de oficios (botón de gráfica del encabezado).
+   Coordinación Administrativa y admin ven el total general con el desglose
+   por área; cada área ve solo los oficios que le turnaron. */
+app.get('/api/oficios/resumen', verifyToken, async (req, res) => {
+  try {
+    const { rol, area } = req.user;
+    const general = rol === 'admin' || area === AREA_CON_GESTION_COMPLETA;
+    if (!general && !area) return res.status(403).json({ mensaje: 'Sin área asignada.' });
+    const filas = general
+      ? await sql`SELECT COALESCE(NULLIF(turnado_a, ''), 'Sin turnar') AS area, estatus, count(*)::int AS n FROM oficios GROUP BY 1, 2`
+      : await sql`SELECT turnado_a AS area, estatus, count(*)::int AS n FROM oficios WHERE turnado_a = ${area} GROUP BY 1, 2`;
+    const vacio = () => ({ total: 0, por_turnar: 0, turnado: 0, sub_turnado: 0, atendido: 0, completado: 0, rechazado: 0 });
+    const totales = vacio();
+    const porArea = {};
+    for (const f of filas) {
+      const a = (porArea[f.area] ||= vacio());
+      for (const o of [totales, a]) { o.total += f.n; if (f.estatus in o) o[f.estatus] += f.n; }
+    }
+    res.json({
+      general,
+      area: general ? 'Todas las áreas' : area,
+      totales,
+      areas: general ? Object.entries(porArea).map(([nombre, v]) => ({ nombre, ...v })).sort((x, y) => y.total - x.total) : [],
+      actualizado: new Date().toISOString(),
+    });
+  } catch (err) {
+    manejarError(res, err, 'Error al obtener el resumen de oficios.');
+  }
+});
+
 app.get('/api/oficios', verifyToken, async (req, res) => {
   try {
     const { estatus, origen } = req.query;
