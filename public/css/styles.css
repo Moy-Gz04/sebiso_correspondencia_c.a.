@@ -1923,3 +1923,16 @@ body.minutario-area .td-dirige { min-width: 190px; }
 #nof-area-lista, #nof-solicitante-lista { width: 100%; }
 #nof-area.campo-otro, #nof-solicitante.campo-otro { margin-top: 8px; }
 #nof-solicitante-lista:disabled { opacity: .7; cursor: not-allowed; }
+
+/* ── Menús cortos (Mi Bandeja de usuario de área, Minutario por área): nunca
+   se ocultan tras la hamburguesa; son pocas opciones y siempre caben ── */
+@media (max-width: 1400px) {
+  .menu-container:not(:has(.menu-toggle-check)) .menu-lista,
+  body.minutario-area .menu-lista {
+    display: flex !important; flex-direction: row; flex-wrap: wrap; width: auto; padding: 0; gap: 4px;
+  }
+  .menu-container:not(:has(.menu-toggle-check)) .menu-item,
+  body.minutario-area .menu-lista .menu-item { width: auto; padding: 8px 18px; }
+  body.minutario-area .menu-toggle-btn { display: none; }
+  .menu-container:not(:has(.menu-toggle-check)) { flex-wrap: nowrap; }
+}
