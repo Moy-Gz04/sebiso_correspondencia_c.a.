@@ -149,6 +149,29 @@
     .tab-col b{ font-size:12.5px; }
     .tab-col-pct{ font-style:normal; font-size:10.5px; font-weight:700; color:#9A8A90; margin-top:-4px; font-variant-numeric:tabular-nums; }
     .tab-col-et{ gap:12px; padding-top:6px; } .tab-col-et span{ font-size:10.5px; }
+    .flj{ padding:2px 0 0; }
+    .flj-montos, .flj-grid, .flj-riel, .flj-et{ display:grid; }
+    .flj-montos b{ text-align:center; font:800 14px 'Montserrat',sans-serif; color:var(--c); font-variant-numeric:tabular-nums; }
+    .flj-montos b.flj-cero{ color:#B9ADB2; font-weight:600; }
+    .flj-barras{ position:relative; height:150px; margin-top:8px; border-bottom:2px solid #E4D6C8; }
+    .flj-barras svg{ position:absolute; inset:0; width:100%; height:100%; }
+    .flj-grid{ position:absolute; inset:0; }
+    .flj-col{ display:flex; align-items:flex-end; justify-content:center; height:100%; }
+    .flj-col i{ display:block; width:56%; height:var(--h); background:var(--c); border-radius:8px 8px 0 0; transform-origin:bottom; animation:fljCrece .9s cubic-bezier(.2,.9,.3,1) var(--d) both; transition:filter .15s; }
+    .flj-col i:hover{ filter:brightness(1.15); }
+    .flj-col i.vacia{ height:20px; background:none; border:2px dashed #CDB79A; border-bottom:0; animation:none; }
+    @keyframes fljCrece{ from{ transform:scaleY(0); } to{ transform:scaleY(1); } }
+    .flj-riel{ position:relative; margin-top:10px; }
+    .flj-riel::before{ content:''; position:absolute; left:8.33%; right:8.33%; top:50%; height:2px; background:#E4D6C8; }
+    .flj-riel div{ display:flex; justify-content:center; position:relative; }
+    .flj-riel span{ display:grid; place-items:center; width:20px; height:20px; border-radius:50%; font:800 10px 'Montserrat',sans-serif; color:#fff; background:var(--c); border:2px solid var(--c); }
+    .flj-riel span[data-activo="false"]{ background:#fff; color:var(--c); }
+    .flj-et{ margin-top:8px; text-align:center; }
+    .flj-et div{ display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; }
+    .flj-et strong{ font:700 11px 'Montserrat',sans-serif; color:#2A1018; }
+    .flj-et em{ padding:1px 7px; border-radius:999px; border:1.5px solid var(--c); color:var(--c); font:700 10px 'Montserrat',sans-serif; font-style:normal; font-variant-numeric:tabular-nums; }
+    @media (max-height:720px){ .flj-barras{ height:110px; } }
+    @media (prefers-reduced-motion:reduce){ .flj-col i{ animation:none; } }
     @media (max-height:720px){ .tab-col{ height:120px; } .tab-dona svg{ width:120px; height:120px; } .tab-kpi b{ font-size:19px; } }
 `;
 
@@ -205,13 +228,31 @@
       return base.map(v => v / 100);
     };
     const fmtPct = (p) => p.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '%';
+    // Flujo de oficios por estatus (mismo estilo que Programas y Contratos)
     const barras = (o) => {
-      const vals = ESTADOS.map(e => ({ t: e.t, c: e.c, c2: e.c2, v: o[e.k] }));
+      const vals = ESTADOS.map(e => ({ t: e.t, c: e.c, v: o[e.k] }));
       const restoO = o.total - vals.reduce((a, l) => a + l.v, 0);
       const pcts = repartir([...vals.map(l => l.v), ...(restoO > 0 ? [restoO] : [])], o.total);
+      const N = vals.length, H = 100, slot = 100, medio = slot * 0.28;
       const max = Math.max(...vals.map(l => l.v), 1);
-      return `<div class="tab-col">${vals.map((l, k) => `<div><b data-n="${l.v}">0</b><em class="tab-col-pct">${fmtPct(pcts[k])}</em><i style="--c:${l.c}; --c2:${l.c2}" data-h="${l.v / max * 85}%" title="${esc(l.t)}: ${num(l.v)}"></i></div>`).join('')}</div>
-        <div class="tab-col-et">${vals.map(l => `<span>${esc(l.t)}</span>`).join('')}</div>`;
+      const alt = vals.map(l => l.v > 0 ? Math.max(l.v / max * H, 3) : 0);
+      let listones = '';
+      for (let i = 0; i < N - 1; i++) {
+        if (!alt[i] && !alt[i + 1]) continue;
+        const x1 = i * slot + slot / 2 + medio, x2 = (i + 1) * slot + slot / 2 - medio, xm = (x1 + x2) / 2;
+        const y1 = H - alt[i], y2 = H - alt[i + 1];
+        listones += `<path d="M ${x1} ${y1} C ${xm} ${y1}, ${xm} ${y2}, ${x2} ${y2} L ${x2} ${H} L ${x1} ${H} Z" fill="${vals[i].c}" opacity=".16"/>`;
+      }
+      const cols = `grid-template-columns:repeat(${N},1fr)`;
+      return `<div class="flj">
+        <div class="flj-montos" style="${cols}">${vals.map(l => l.v > 0 ? `<b style="--c:${l.c}" data-n="${l.v}">0</b>` : '<b class="flj-cero">0</b>').join('')}</div>
+        <div class="flj-barras">
+          <svg viewBox="0 0 ${N * slot} ${H}" preserveAspectRatio="none" aria-hidden="true">${listones}</svg>
+          <div class="flj-grid" style="${cols}">${vals.map((l, i) => `<div class="flj-col">${alt[i] ? `<i style="--c:${l.c}; --h:${alt[i]}%; --d:${i * 80}ms" title="${esc(l.t)}: ${num(l.v)}"></i>` : '<i class="vacia"></i>'}</div>`).join('')}</div>
+        </div>
+        <div class="flj-riel" style="${cols}">${vals.map((l, i) => `<div><span style="--c:${l.c}" data-activo="${l.v > 0}">${i + 1}</span></div>`).join('')}</div>
+        <div class="flj-et" style="${cols}">${vals.map((l, k) => `<div><strong>${esc(l.t)}</strong><em style="--c:${l.c}">${fmtPct(pcts[k])}</em></div>`).join('')}</div>
+      </div>`;
     };
     const derecha = d.general && d.areas.length
       ? `<div class="tab-tarjeta"><h3>Oficios por área<small>elige un área para ver su gráfica</small></h3>
