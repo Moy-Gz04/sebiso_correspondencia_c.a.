@@ -1936,3 +1936,17 @@ body.minutario-area .td-dirige { min-width: 190px; }
   body.minutario-area .menu-toggle-btn { display: none; }
   .menu-container:not(:has(.menu-toggle-check)) { flex-wrap: nowrap; }
 }
+
+/* ── Minutario por área: la tabla se acomoda al ancho y no se corta ── */
+body.minutario-area .contenido-wrapper { max-width: none; width: min(1700px, 96%); }
+body.minutario-area .tabla-simple { min-width: 0; table-layout: auto; }
+body.minutario-area .tabla-simple thead th { padding: 11px 10px; font-size: 10px; white-space: normal; line-height: 1.25; }
+body.minutario-area .tabla-simple tbody td { padding: 10px 10px; font-size: 12.5px; }
+body.minutario-area .td-asunto { min-width: 170px; }
+body.minutario-area .td-dirige { min-width: 150px; }
+body.minutario-area .td-sello { min-width: 0; width: 140px; }
+body.minutario-area .input-sello { min-width: 0; width: 132px; padding: 6px 7px; font-size: 12px; }
+body.minutario-area .td-nota-lectura { max-width: 170px; }
+/* Las áreas no ven la columna «Nota» */
+body.minutario-area .tabla-simple thead th:nth-child(10),
+body.minutario-area .tabla-simple tbody td:nth-child(10) { display: none; }
