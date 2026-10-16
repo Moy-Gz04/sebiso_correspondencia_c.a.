@@ -1658,6 +1658,23 @@ function sanitizarRubrica(r) {
   return { ...resto, doc };
 }
 
+/* No se permiten dos rúbricas con el mismo No. de Oficio. Se compara sin
+   espacios y sin distinguir mayúsculas; "SN" (sin número) o vacío no cuentan. */
+const claveNumero = (n) => String(n ?? '').replace(/\s+/g, '').toUpperCase();
+async function rubricaConNumero(numero) {
+  const clave = claveNumero(numero);
+  if (!clave || clave === 'SN' || clave === 'S/N') return null;
+  await RUBRICAS_LISTA;
+  const [r] = await sql`SELECT id, numero, remitente, created_at, creado_por FROM rubricas
+    WHERE upper(regexp_replace(coalesce(numero, ''), '\\s+', '', 'g')) = ${clave} ORDER BY id LIMIT 1`;
+  return r || null;
+}
+
+app.get('/api/rubricas/existe', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try { res.json({ existente: await rubricaConNumero(req.query.numero) }); }
+  catch (err) { manejarError(res, err, 'Error al revisar el número.'); }
+});
+
 app.post('/api/rubricas/leer', verifyToken, onlyGestionCompleta, upload.single('imagen'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
@@ -1676,6 +1693,8 @@ app.post('/api/rubricas', verifyToken, onlyGestionCompleta, upload.single('docum
     const { f_oficio, f_sello, numero, remitente, dependencia, descripcion } = req.body;
     if (!f_oficio || !remitente?.trim()) return res.status(400).json({ mensaje: 'F. Oficio y Remitente son obligatorios.' });
     if (!req.file) return res.status(400).json({ mensaje: 'Falta la foto del documento.' });
+    const ya = await rubricaConNumero(numero);
+    if (ya) return res.status(409).json({ mensaje: `Ya existe una rúbrica con el No. de Oficio ${ya.numero}.`, existente: ya });
     const marca = marcaPendiente();
     const area = req.user.area || AREA_CON_GESTION_COMPLETA;
     const [nueva] = await sql`

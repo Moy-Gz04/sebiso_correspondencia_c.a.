@@ -62,8 +62,37 @@ const lista = () => document.getElementById('turnos-lista');
 function actualizarVacio() { document.getElementById('turnos-vacio').hidden = !!lista().querySelector('.turno-tarjeta'); }
 const campo = (t, n) => t.querySelector(`[name="${n}"]`);
 
+/* No se permiten dos rúbricas con el mismo No. de Oficio: se revisa al leer
+   la foto y mientras se escribe; si ya existe, avisa en la tarjeta y con
+   MiniSEBISO, y no deja guardar (el servidor también lo bloquea). */
+const sinNumero = (n) => { const c = String(n || '').replace(/\s+/g, '').toUpperCase(); return !c || c === 'SN' || c === 'S/N'; };
+function avisarDuplicado(existente) {
+  const M = window.MiniSEBISO;
+  if (M?.decir && !M.apagado) M.decir(`¡Ojo! El oficio ${existente.numero} ya está registrado en Rúbrica. No se puede guardar dos veces.`, { duracion: 9000 });
+}
+async function revisarDuplicado(t, { avisar = true } = {}) {
+  const numero = campo(t, 'numero').value.trim();
+  const aviso = t.querySelector('.turno-duplicado');
+  t._duplicado = null;
+  if (!sinNumero(numero)) {
+    try {
+      const { existente } = await api('/rubricas/existe?numero=' + encodeURIComponent(numero));
+      // Para no cruzar respuestas: solo cuenta si el número no cambió mientras tanto
+      if (existente && campo(t, 'numero').value.trim() === numero) t._duplicado = existente;
+    } catch (e) { /* si falla la revisión, el servidor igual lo bloquea al guardar */ }
+  }
+  aviso.hidden = !t._duplicado;
+  if (t._duplicado) {
+    const d = t._duplicado;
+    aviso.innerHTML = `<i class="ti ti-alert-triangle"></i> Ya existe una rúbrica con el No. de Oficio <b>${esc(d.numero)}</b> (${esc(d.remitente || 'sin remitente')}, registrada el ${new Date(d.created_at).toLocaleDateString('es-MX')}). Revisa el número.`;
+    if (avisar && t._avisado !== numero) { t._avisado = numero; avisarDuplicado(d); }
+  }
+  validar(t);
+}
+
 function validar(t) {
-  const listo = campo(t, 'f_oficio').value && campo(t, 'remitente').value.trim() && !t.classList.contains('leyendo');
+  const listo = campo(t, 'f_oficio').value && campo(t, 'remitente').value.trim() && !t.classList.contains('leyendo') && !t._duplicado;
+  campo(t, 'numero').classList.toggle('falta', !!t._duplicado);
   t.querySelector('.turno-registrar').disabled = !listo;
   ['f_oficio', 'remitente'].forEach(n => campo(t, n).classList.toggle('falta', !campo(t, n).value.trim()));
 }
@@ -84,7 +113,7 @@ async function leer(t) {
   } finally {
     t.classList.remove('leyendo');
     t.querySelector('.turno-leyendo').hidden = true;
-    validar(t);
+    revisarDuplicado(t);
   }
 }
 
@@ -113,6 +142,7 @@ async function guardar(t) {
     setTimeout(cargarHistorial, 8000); // para ver el documento ya subido a Drive
   } catch (e) {
     btn.innerHTML = '<i class="ti ti-circle-check"></i> Guardar en Rúbrica';
+    if (e.datos?.existente) { t._avisado = null; await revisarDuplicado(t); return; }
     validar(t);
     window.alert(e.message);
   }
@@ -138,6 +168,7 @@ async function agregarFotos(archivos) {
           <label class="tf"><span>Dependencia</span><input name="dependencia" autocomplete="off" placeholder="Dependencia de origen"></label>
           <label class="tf tf-todo"><span>Descripción</span><textarea name="descripcion" rows="2" placeholder="Asunto del documento"></textarea></label>
         </div>
+        <div class="turno-duplicado turno-aviso alerta" hidden></div>
         <div class="turno-acciones">
           <button type="button" class="turno-registrar" disabled><i class="ti ti-circle-check"></i> Guardar en Rúbrica</button>
         </div>
@@ -147,6 +178,8 @@ async function agregarFotos(archivos) {
     t.querySelector('.turno-quitar').onclick = () => { URL.revokeObjectURL(url); t.remove(); actualizarVacio(); };
     t.querySelector('.turno-registrar').onclick = () => guardar(t);
     t.querySelectorAll('input, textarea').forEach(el => el.addEventListener('input', () => validar(t)));
+    let espera;
+    campo(t, 'numero').addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(() => revisarDuplicado(t), 450); });
     actualizarVacio();
     leer(t);
   }
