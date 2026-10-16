@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<link rel="icon" type="image/png" href="/img/favicon-hidalgo.png?v=2">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Correspondencia C.A. SEBISO</title>
+  <link rel="stylesheet" href="css/styles.css?v=10"/>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
+  <style>
+    .turnos-intro { margin: -6px 0 18px; color: #6B5563; font-size: 13.5px; line-height: 1.55; max-width: 760px; }
+    .turnos-zona {
+      display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+      padding: 20px 22px; margin-bottom: 22px; border-radius: 16px; background: #fff;
+      border: 2px dashed #D9C6AE; transition: border-color .15s, background .15s;
+    }
+    .turnos-zona.arrastrando { border-color: #A9824C; background: #FBF6EE; }
+    .turnos-zona-txt b { display: block; font-size: 15px; color: #3D1420; }
+    .turnos-zona-txt span { font-size: 12.5px; color: #8a7a80; }
+    .turnos-botones { display: flex; gap: 10px; flex-wrap: wrap; }
+    .turnos-btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 999px; cursor: pointer;
+      font: 700 13px 'Montserrat', sans-serif; border: 1px solid #E4D6C8; background: #fff; color: #5F2132;
+      transition: transform .15s, box-shadow .2s, background .15s;
+    }
+    .turnos-btn:hover { transform: translateY(-1px); background: #F6EEDD; }
+    .turnos-btn.principal { background: linear-gradient(135deg, #5F2132, #3D1420); color: #fff; border-color: rgba(200,169,81,.45); box-shadow: 0 4px 12px rgba(95,33,50,.22); }
+    .turnos-btn.principal:hover { filter: brightness(1.08); background: linear-gradient(135deg, #5F2132, #3D1420); }
+    .turnos-btn i { font-size: 17px; }
+    .turnos-vacio { padding: 40px 20px; text-align: center; color: #9A8A90; font-size: 13.5px; border-radius: 16px; background: #fff; border: 1px solid #EFE4D6; }
+    .turnos-vacio i { display: block; font-size: 34px; color: #D9C6AE; margin-bottom: 8px; }
+    .turnos-lista { display: flex; flex-direction: column; gap: 16px; }
+    .turno-tarjeta {
+      display: grid; grid-template-columns: 220px 1fr; gap: 20px; padding: 16px; border-radius: 16px;
+      background: #fff; border: 1px solid #EFE4D6; box-shadow: 0 2px 10px rgba(61,20,32,.05); animation: turnoEntra .25s ease-out;
+    }
+    @keyframes turnoEntra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .turno-tarjeta.hecha { border-color: #9fd3b0; background: linear-gradient(135deg, #F2FBF5, #fff 60%); }
+    .turno-foto { position: relative; }
+    .turno-foto img { width: 100%; height: 260px; object-fit: cover; border-radius: 12px; display: block; background: #f3ece4; }
+    .turno-quitar { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer; background: rgba(0,0,0,.55); color: #fff; display: grid; place-items: center; }
+    .turno-datos { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .turno-campo > span:first-child { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7C5D31; margin-bottom: 6px; }
+    .turno-num-fila { display: flex; align-items: center; gap: 8px; }
+    .turno-t { font: 800 18px 'Montserrat', sans-serif; color: #5F2132; }
+    .turno-numero { width: 140px; padding: 10px 12px; border-radius: 10px; border: 1px solid #E4D6C8; font: 700 16px 'JetBrains Mono', monospace; color: #3D1420; }
+    .turno-numero:focus { outline: none; border-color: #A9824C; box-shadow: 0 0 0 3px rgba(169,130,76,.22); }
+    .turno-buscar { display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 10px; border: 1px solid #E4D6C8; background: #FBF6EE; color: #5F2132; font: 600 12.5px 'Montserrat', sans-serif; cursor: pointer; }
+    .turno-buscar:hover { background: #F6EEDD; }
+    .turno-leyendo { color: #7C5D31; font-size: 13px; font-weight: 600; }
+    .girando { display: inline-block; animation: girarT 1s linear infinite; }
+    @keyframes girarT { to { transform: rotate(360deg); } }
+    .turno-oficio { min-height: 20px; }
+    .turno-oficio-cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .turno-control { font-size: 13px; color: #6B5563; } .turno-control b { font: 800 18px 'Montserrat', sans-serif; color: #3D1420; }
+    .turno-estatus { padding: 4px 12px; border-radius: 999px; font-size: 11.5px; font-weight: 700; background: #F3ECE4; color: #5F2132; }
+    .turno-estatus.e-completado { background: #E3F4E9; color: #2E7D4F; }
+    .turno-estatus.e-sub_turnado { background: #FCF0DC; color: #A86A12; }
+    .turno-estatus.e-turnado { background: #E3F0F9; color: #2C6F99; }
+    .turno-estatus.e-rechazado { background: #FBE6EA; color: #B0324E; }
+    .turno-oficio dl { display: grid; grid-template-columns: 140px 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+    .turno-oficio dt { color: #8a7a80; font-weight: 600; } .turno-oficio dd { margin: 0; color: #3D1420; font-weight: 600; overflow-wrap: anywhere; }
+    .turno-asunto { font-weight: 500 !important; color: #5a4a50 !important; }
+    .turno-aviso { margin: 8px 0 0; font-size: 12.5px; color: #6B5563; display: flex; gap: 6px; align-items: flex-start; }
+    .turno-aviso.alerta { color: #A3501A; }
+    .turno-sin { padding: 12px 14px; border-radius: 10px; background: #FBF6EE; color: #6B5563; font-size: 13px; }
+    .turno-acciones { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: auto; }
+    .turno-asignar {
+      display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 999px; cursor: pointer; border: 1px solid rgba(255,255,255,.35);
+      font: 700 13px 'Montserrat', sans-serif; color: #3A0818; background: linear-gradient(135deg, #D8B866, #A9824C 55%, #8C6A34);
+      box-shadow: 0 6px 16px rgba(124,93,49,.3); transition: transform .15s, filter .15s;
+    }
+    .turno-asignar:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+    .turno-asignar:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    .turno-listo { color: #2E7D4F; font-weight: 700; font-size: 13.5px; display: inline-flex; gap: 6px; align-items: center; }
+    .turno-quitar-btn { border: 0; background: none; color: #8a7a80; text-decoration: none; cursor: pointer; font: 600 12.5px 'Montserrat', sans-serif; padding: 6px 10px; border-radius: 8px; }
+    .turno-quitar-btn:hover { background: #F3ECE4; color: #5F2132; }
+    @media (max-width: 720px) { .turno-tarjeta { grid-template-columns: 1fr; } .turno-foto img { height: 220px; } .turno-oficio dl { grid-template-columns: 1fr; } }
+    .turno-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 14px; }
+    .tf { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .tf > span:first-child { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7C5D31; }
+    .tf input, .tf select, .tf textarea { width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 10px; border: 1px solid #E4D6C8; background: #fff;
+      font: 600 13px 'Montserrat', sans-serif; color: #3D1420; }
+    .tf textarea { resize: vertical; font-weight: 500; }
+    .tf input:focus, .tf select:focus, .tf textarea:focus { outline: none; border-color: #A9824C; box-shadow: 0 0 0 3px rgba(169,130,76,.22); }
+    .tf .falta { border: 2px solid #C9A24E; background: #FFFDF6; box-shadow: 0 0 10px rgba(233,200,115,.5); }
+    .tf-ancho { grid-column: span 2; } .tf-todo { grid-column: 1 / -1; }
+    .tf-control input { font: 800 17px 'JetBrains Mono', monospace; }
+    .turno-nota { font-size: 12.5px; color: #6B5563; display: flex; gap: 6px; align-items: center; min-height: 18px; }
+    .turno-nota i { color: #A9824C; }
+    .turno-tarjeta.leyendo .turno-form { opacity: .5; pointer-events: none; }
+    .turno-tarjeta.hecha .tf input, .turno-tarjeta.hecha .tf select, .turno-tarjeta.hecha .tf textarea { background: #F7FBF8; }
+    .turno-registrar {
+      display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 999px; cursor: pointer; border: 1px solid rgba(255,255,255,.35);
+      font: 700 13px 'Montserrat', sans-serif; color: #3A0818; background: linear-gradient(135deg, #D8B866, #A9824C 55%, #8C6A34);
+      box-shadow: 0 6px 16px rgba(124,93,49,.3); transition: transform .15s, filter .15s;
+    }
+    .turno-registrar:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+    .turno-registrar:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+    .turno-foto img { height: 100%; min-height: 300px; max-height: 420px; }
+    @media (max-width: 900px) { .turno-form { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 720px) { .turno-form { grid-template-columns: 1fr; } .tf-ancho { grid-column: auto; } .turno-foto img { min-height: 0; height: 220px; } }
+
+    .tendedero-header { display: flex; align-items: baseline; justify-content: space-between; margin: 30px 0 14px; flex-wrap: wrap; gap: 10px; }
+    .tendedero-titulo { font-size: 15px; font-weight: 700; color: var(--guinda, #6B0F2B); }
+    .tendedero-sub { font-size: 12px; color: #918a8d; }
+    .rub-buscar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; border: 1px solid #E4D6C8; background: #fff; min-width: 260px; }
+    .rub-buscar input { border: 0; outline: 0; font: 500 13px 'Montserrat', sans-serif; color: #3D1420; width: 100%; background: transparent; }
+    .rub-buscar i { color: #A9824C; }
+    .historial-wrap { background: #fff; border: 1px solid #e6dde1; border-radius: 12px; overflow-x: auto; }
+    table.tabla-historial { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    table.tabla-historial th { background: #f4eef0; padding: 8px 10px; text-align: left; font-size: 11.5px; color: #5c2233; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; white-space: nowrap; }
+    table.tabla-historial td { padding: 8px 10px; border-top: 1px solid #f0e9eb; color: #444; vertical-align: top; }
+    table.tabla-historial td.desc { min-width: 240px; max-width: 420px; }
+    .hist-tarjeta { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; padding: 4px 9px; border-radius: 7px; font-size: 12px; font-weight: 600;
+      background: #F3E9EC; color: var(--guinda, #5F2132); border: 1px solid #E4CFD5; cursor: pointer; font-family: 'Montserrat', sans-serif; }
+    button.hist-tarjeta:hover { background: var(--guinda, #5F2132); color: #fff; border-color: var(--guinda, #5F2132); }
+    button.hist-tarjeta:focus-visible { outline: 2px solid var(--guinda, #5F2132); outline-offset: 2px; }
+    .hist-tarjeta.apagada { background: #f4f1f2; color: #9a8f93; border-color: #e6dde1; cursor: default; }
+    .hist-tarjeta.error { background: #fce4ec; color: #c62828; border-color: #f5c2cf; cursor: default; }
+    .btn-historial-borrar { background: #fce4ec; border: none; border-radius: 6px; color: #c62828; width: 26px; height: 26px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background .15s; }
+    .btn-historial-borrar:hover { background: #c62828; color: #fff; }
+    .rub-num { font: 700 12px 'JetBrains Mono', monospace; color: #3D1420; white-space: nowrap; }
+  </style>
+</head>
+<body>
+
+  <!-- Lluvia de flores de cempasúchil: capa de fondo decorativa, ver css/styles.css y js/lluvia.js -->
+  <div class="lluvia-flores" id="lluvia-flores"></div>
+
+  <!-- ══ HEADER ══ -->
+  <header class="header-institucional">
+    <div class="header-banda-superior">
+      <!-- Logo institucional: reemplaza img/logo.svg por tu escudo oficial (PNG o SVG) -->
+      <div class="header-emblema">
+        <img src="img/logo-hidalgo.png" alt="Escudo Secretaría de Bienestar e Inclusión Social"
+             onerror="this.replaceWith(Object.assign(document.createElement('i'),{className:'ti ti-building-bank'}))"/>
+      </div>
+      <div class="header-texto">
+        <span class="header-gobierno">GOBIERNO DEL ESTADO DE HIDALGO</span>
+        <span class="header-secretaria">Secretaría de Bienestar e Inclusión Social</span>
+      </div>
+      <div class="header-spacer"></div>
+      <div class="header-derecha">
+        <span id="header-usuario"></span>
+        <div class="header-fecha" id="header-fecha"></div>
+        <button onclick="cerrarSesion()" class="btn-cerrar-sesion">
+          <i class="ti ti-logout"></i> Cerrar sesión
+        </button>
+      </div>
+    </div>
+    <div class="header-banda-tricolor">
+      <div class="banda guinda"></div>
+      <div class="banda dorada"></div>
+      <div class="banda guinda-oscuro"></div>
+    </div>
+  </header>
+
+  <!-- ══ MENÚ ══ -->
+  <nav class="barra-menu">
+    <div class="menu-container">
+      <span class="menu-label">MENÚ</span>
+      <input type="checkbox" id="menu-toggle" class="menu-toggle-check"/>
+      <label for="menu-toggle" class="menu-toggle-btn" title="Menú"><i class="ti ti-menu-2"></i></label>
+      <ul class="menu-lista">
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/historial'">Historial</a></li>
+        <li class="menu-solo-gestion menu-submenu" id="menu-registro">
+          <a style="cursor:pointer" class="menu-item menu-item-submenu-trigger">Registro <i class="ti ti-chevron-down"></i></a>
+          <ul class="submenu-lista">
+            <li><a style="cursor:pointer" class="submenu-item" onclick="location.href='/captura-auto'">Registro Automático</a></li>
+            <li><a style="cursor:pointer" class="submenu-item" onclick="location.href='/captura'">Nuevo Registro</a></li>
+            <li><a style="cursor:pointer" class="submenu-item" onclick="location.href='/turnos'">Captura de Turnos</a></li>
+          </ul>
+        </li>
+        <li><a style="cursor:pointer" class="menu-item" onclick="location.href='/area'">Bandeja de Oficios</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/no-oficio'">No. de Oficio</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/circular'">No. Circular</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/tarjeta-informativa'">No. Tarjeta Inf.</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/minutario'">Minutario</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item" onclick="location.href='/salas'">Salas</a></li>
+        <li class="menu-solo-gestion"><a style="cursor:pointer" class="menu-item active" onclick="location.href='/rubrica'">Rúbrica</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ══ CONTENIDO ══ -->
+  <main class="main-contenido">
+    <div class="contenido-wrapper">
+      <div class="seccion-titulo-bloque">
+        <div class="seccion-titulo-txt">
+          <span class="seccion-titulo-eyebrow">Control de documentos</span>
+          <h1 class="seccion-titulo-h1">Rúbrica</h1>
+        </div>
+      </div>
+      <p class="turnos-intro">Toma una foto de cada documento. Se leen sus datos como en el Registro Automático; revísalos y al guardarlo queda en el historial de abajo, con la foto como su documento.</p>
+
+      <div class="turnos-zona" id="turnos-zona">
+        <div class="turnos-zona-txt"><b>Agrega las fotos de los documentos</b><span>Puedes tomar varias seguidas o arrastrarlas aquí.</span></div>
+        <div class="turnos-botones">
+          <button type="button" class="turnos-btn principal" id="btn-turnos-camara"><i class="ti ti-camera"></i> Tomar foto</button>
+          <button type="button" class="turnos-btn" id="btn-turnos-galeria"><i class="ti ti-photo"></i> Elegir fotos</button>
+        </div>
+        <input type="file" id="turnos-camara" accept="image/*" capture="environment" hidden>
+        <input type="file" id="turnos-galeria" accept="image/*" multiple hidden>
+      </div>
+
+      <div class="turnos-vacio" id="turnos-vacio"><i class="ti ti-photo-scan"></i>Aún no hay fotos. Toma o elige la foto de un documento para empezar.</div>
+      <div class="turnos-lista" id="turnos-lista"></div>
+
+      <div class="tendedero-header">
+        <div>
+          <span class="tendedero-titulo"><i class="ti ti-history"></i> Historial de rúbricas</span>
+          <span class="tendedero-sub" id="rub-total"></span>
+        </div>
+        <label class="rub-buscar"><i class="ti ti-search"></i><input id="rub-buscar" type="search" placeholder="Buscar por número, remitente, asunto…" aria-label="Buscar en el historial"></label>
+      </div>
+      <div class="historial-wrap">
+        <table class="tabla-historial">
+          <thead>
+            <tr>
+              <th>F. Oficio</th><th>F. Sello</th><th>Número</th><th>Remitente</th><th>Dependencia</th><th>Descripción</th>
+              <th>Documento</th><th>Registrado por</th><th>Cuándo</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="rub-tbody">
+            <tr><td colspan="10" style="text-align:center; color:#b7aeb2;">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- ══ FOOTER ══ -->
+  <footer class="footer-institucional">
+    <div class="footer-banda-tricolor">
+      <div class="banda guinda"></div>
+      <div class="banda dorada"></div>
+      <div class="banda guinda-oscuro"></div>
+    </div>
+    <div class="footer-contenido">
+      <span>© 2026 Gobierno del Estado de Hidalgo — Secretaría de Bienestar e Inclusión Social</span>
+      <span>Sistema de Correspondencia.</span>
+    </div>
+  </footer>
+
+  <script src="js/rubrica.js?v=1"></script>
+  <script src="js/lluvia.js"></script>
+  <script src="js/menu-registro.js"></script>
+  <script src="js/minisebiso-flotante.js?v=20"></script>
+  <script src="js/minisebiso-asistente.js?v=3"></script>
+  <script src="js/asistente-extra.js?v=9"></script>
+  <script src="js/tablero-oficios.js?v=12"></script>
+</body>
+</html>

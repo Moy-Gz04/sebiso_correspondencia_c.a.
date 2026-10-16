@@ -187,7 +187,7 @@ app.use('/api', limitadorApi);
    usuario.js, captura.js, no-oficio.js, minutario.js): así, después de
    Cerrar Sesión, la tecla Atrás no puede dejar visible una versión
    cacheada de una pantalla que ya no debería ser accesible. */
-const PAGINAS = ['login', 'historial', 'area', 'captura', 'captura-auto', 'captura-movil', 'usuario', 'no-oficio', 'circular', 'tarjeta-informativa', 'minutario', 'salas', 'turnos'];
+const PAGINAS = ['login', 'historial', 'area', 'captura', 'captura-auto', 'captura-movil', 'usuario', 'no-oficio', 'circular', 'tarjeta-informativa', 'minutario', 'salas', 'turnos', 'rubrica'];
 
 function sinCache(res) {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -347,13 +347,20 @@ async function procesarSubidaDoc({ id, slot, file, marca, carpeta = null, ronda 
   let url = null;
   // Hasta 3 rondas (cada una ya reintenta 3 veces dentro de llamarAppsScript).
   try { url = await subirArchivoADrive(file, carpeta); }
-  catch (err) { console.error(`⚠️  Subida de ${slot} (oficio ${id}), ronda ${ronda}/3: ${err.message}`); }
+  catch (err) { console.error(`⚠️  Subida de ${slot} (registro ${id}), ronda ${ronda}/3: ${err.message}`); }
   if (!url && ronda < 3) {
     // Se reprograma SIN ocupar la cola: los demás documentos siguen saliendo mientras tanto.
     setTimeout(() => encolarSubidaDoc({ id, slot, file, marca, carpeta, ronda: ronda + 1 }), ronda * 20000);
     return;
   }
   const valor = url || `error:${Date.now()}`;
+  // Documento de Rúbrica: vive en su propia tabla, no en oficios.
+  if (slot === 'rubrica') {
+    const filasR = await sql`UPDATE rubricas SET ruta_doc = ${valor} WHERE id = ${id} AND ruta_doc = ${marca} RETURNING id`;
+    if (filasR.length && url) console.log(`📎  Documento de la rúbrica ${id} listo en Drive.`);
+    else if (filasR.length) console.error(`❌  Documento de la rúbrica ${id} no se pudo subir a Drive (marcado como error).`);
+    return;
+  }
   // Solo si la columna sigue con NUESTRO marcador: si mientras tanto alguien subió otro
   // documento a mano (p. ej. el área), ese es el que manda y esta subida se descarta.
   let filas;
@@ -1615,6 +1622,137 @@ app.post('/api/turnos/registrar', verifyToken, onlyCoordOrAdmin, upload.single('
     encolarSubidaDoc({ id: nuevo.id, slot: 'doc3', file: req.file, marca, carpeta: areaDeOficio(nuevo) });
   } catch (err) {
     manejarError(res, err, 'No se pudo registrar el Turno.');
+  }
+});
+
+/* ══ RÚBRICA ══
+   Historial de documentos para rúbrica. Se captura igual que el Registro
+   Automático: foto → la IA lee los mismos datos de un oficio → la persona
+   revisa → se guarda en la tabla «rubricas» con la foto como documento.
+   La foto se sube a Drive en segundo plano (misma cola que los oficios) y
+   se abre como los demás documentos: con un enlace de un solo uso, porque
+   los archivos de Drive son privados. Solo C.A. / admin. */
+const RUBRICAS_LISTA = sql`
+  CREATE TABLE IF NOT EXISTS rubricas (
+    id           SERIAL PRIMARY KEY,
+    f_oficio     DATE,
+    f_sello      DATE,
+    numero       VARCHAR(60),
+    remitente    VARCHAR(300) NOT NULL,
+    dependencia  VARCHAR(120),
+    descripcion  TEXT,
+    ruta_doc     TEXT,
+    creado_por   VARCHAR(80),
+    area_origen  VARCHAR(120),
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`.catch(err => console.error('⚠️  No se pudo asegurar la tabla rubricas:', err.message));
+
+/* Estado del documento para la tabla, sin exponer la URL real de Drive */
+function sanitizarRubrica(r) {
+  const { ruta_doc, ...resto } = r;
+  const pendiente = RE_PENDIENTE.exec(ruta_doc || '');
+  let doc = 'sin';
+  if (pendiente) doc = Date.now() - Number(pendiente[1]) > PENDIENTE_VIGENCIA_MS ? 'error' : 'subiendo';
+  else if (RE_ERROR.test(ruta_doc || '')) doc = 'error';
+  else if (ruta_doc) doc = 'listo';
+  return { ...resto, doc };
+}
+
+app.post('/api/rubricas/leer', verifyToken, onlyGestionCompleta, upload.single('imagen'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
+    let datos = null, mensaje = null;
+    try { datos = await extraerDatosOficioDeImagen(req.file.buffer.toString('base64'), req.file.mimetype, 'oficio'); }
+    catch (e) { mensaje = 'No se pudo leer la foto con IA. Llena los datos a mano.'; }
+    res.json({ datos: datos || {}, mensaje });
+  } catch (err) {
+    manejarError(res, err, 'Error al leer el documento.');
+  }
+});
+
+app.post('/api/rubricas', verifyToken, onlyGestionCompleta, upload.single('documento'), async (req, res) => {
+  try {
+    await RUBRICAS_LISTA;
+    const { f_oficio, f_sello, numero, remitente, dependencia, descripcion } = req.body;
+    if (!f_oficio || !remitente?.trim()) return res.status(400).json({ mensaje: 'F. Oficio y Remitente son obligatorios.' });
+    if (!req.file) return res.status(400).json({ mensaje: 'Falta la foto del documento.' });
+    const marca = marcaPendiente();
+    const area = req.user.area || AREA_CON_GESTION_COMPLETA;
+    const [nueva] = await sql`
+      INSERT INTO rubricas (f_oficio, f_sello, numero, remitente, dependencia, descripcion, ruta_doc, creado_por, area_origen)
+      VALUES (${f_oficio}, ${f_sello || null}, ${truncar(numero, 60) || null}, ${truncar(remitente.trim(), 300)},
+              ${truncar(dependencia, 120) || null}, ${descripcion || null}, ${marca}, ${req.user.username}, ${area})
+      RETURNING *`;
+    console.log(`✅  Rúbrica ${nueva.id} registrada por ${req.user.username}`);
+    res.status(201).json(sanitizarRubrica(nueva));
+    encolarSubidaDoc({ id: nueva.id, slot: 'rubrica', file: req.file, marca, carpeta: area });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo guardar la rúbrica.');
+  }
+});
+
+app.get('/api/rubricas', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    await RUBRICAS_LISTA;
+    const filas = await sql`SELECT * FROM rubricas ORDER BY created_at DESC, id DESC LIMIT 1000`;
+    res.json(filas.map(sanitizarRubrica));
+  } catch (err) {
+    manejarError(res, err, 'No se pudo cargar el historial de rúbricas.');
+  }
+});
+
+app.delete('/api/rubricas/:id', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [borrada] = await sql`DELETE FROM rubricas WHERE id = ${req.params.id} RETURNING id`;
+    if (!borrada) return res.status(404).json({ mensaje: 'No encontrado.' });
+    console.log(`🗑️  Rúbrica ${borrada.id} eliminada por ${req.user.username}`);
+    res.json({ ok: true });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo eliminar la rúbrica.');
+  }
+});
+
+/* Enlace de un solo uso (3 min) para abrir el documento de una rúbrica */
+app.get('/api/rubricas/:id/doc-token', verifyToken, onlyGestionCompleta, async (req, res) => {
+  try {
+    const [r] = await sql`SELECT id, ruta_doc FROM rubricas WHERE id = ${req.params.id}`;
+    if (!r) return res.status(404).json({ mensaje: 'No encontrado.' });
+    const estado = sanitizarRubrica(r).doc;
+    if (estado === 'subiendo') return res.status(409).json({ mensaje: 'El documento todavía se está subiendo. Vuelve a intentarlo en unos segundos.' });
+    if (estado !== 'listo') return res.status(409).json({ mensaje: 'Este registro no tiene documento disponible.' });
+    const token = jwt.sign({ propósito: 'rubrica', id: r.id }, process.env.JWT_SECRET, { expiresIn: '3m' });
+    res.json({ url: `/api/rubricas-doc/${token}` });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo generar el enlace del documento.');
+  }
+});
+
+app.get('/api/rubricas-doc/:token', async (req, res) => {
+  try {
+    let payload;
+    try { payload = jwt.verify(req.params.token, process.env.JWT_SECRET); }
+    catch { return res.status(401).send('Enlace inválido o expirado.'); }
+    if (payload?.propósito !== 'rubrica') return res.status(401).send('Enlace inválido.');
+    const [r] = await sql`SELECT ruta_doc FROM rubricas WHERE id = ${payload.id}`;
+    const ruta = r?.ruta_doc;
+    if (!ruta || RE_PENDIENTE.test(ruta) || RE_ERROR.test(ruta)) return res.status(404).send('Documento no disponible.');
+    const fileId = idArchivoDrive(ruta);
+    if (fileId && await enviarDesdeDrive(res, fileId)) return;
+    if (fileId) {
+      try {
+        const doc = await llamarAppsScript({ action: 'obtenerDocumento', fileId }, { intentos: 2, timeoutMs: 45000 });
+        const nombre = String(doc.nombre || 'rubrica').replace(/["\r\n]/g, '');
+        res.set('Content-Type', doc.mimeType || 'application/octet-stream');
+        res.set('Content-Disposition', `inline; filename="${nombre.replace(/[^\x20-\x7E]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`);
+        res.set('Cache-Control', 'private, no-store');
+        return res.send(Buffer.from(doc.contenidoBase64, 'base64'));
+      } catch (errDrive) {
+        console.warn(`⚠️  No se pudo entregar la rúbrica desde Drive (${errDrive.message}); se redirige al enlace.`);
+      }
+    }
+    return res.redirect(302, ruta);
+  } catch (err) {
+    manejarError(res, err, 'No se pudo abrir el documento.');
   }
 });
 
