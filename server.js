@@ -1467,7 +1467,9 @@ app.get('/api/oficios/historial', verifyToken, async (req, res) => {
 
     const limite  = Math.min(50, Math.max(1, parseInt(req.query.limite, 10) || 15));
     const desde   = Math.max(0, parseInt(req.query.desde, 10) || 0);
-    const estatus = req.query.estatus && req.query.estatus !== 'todos' ? String(req.query.estatus) : null;
+    const estatusQ = req.query.estatus && req.query.estatus !== 'todos' ? String(req.query.estatus) : null;
+    const porVencer = estatusQ === 'por_vencer';   // pendientes, del más vencido al que menos días le quedan; sin plazo al final
+    const estatus = porVencer ? null : estatusQ;
     const areaF   = req.query.area && req.query.area !== 'todas' ? String(req.query.area) : null;
     const q       = String(req.query.q || '').trim().slice(0, 100);
     const patron  = q ? `%${q.replace(/[\\%_]/g, m => '\\' + m)}%` : null;
@@ -1482,11 +1484,15 @@ app.get('/api/oficios/historial', verifyToken, async (req, res) => {
       FROM oficios
       WHERE (${origen}::text  IS NULL OR area_origen = ${origen})
         AND (${estatus}::text IS NULL OR estatus = ${estatus})
+        AND (NOT ${porVencer} OR estatus IN ('por_turnar','turnado','sub_turnado'))
         AND (${areaF}::text   IS NULL OR turnado_a = ${areaF})
         AND (${patron}::text  IS NULL OR
              n_control ILIKE ${patron} OR n_referencia ILIKE ${patron} OR turnado_a ILIKE ${patron} OR
              remitente ILIKE ${patron} OR dependencia ILIKE ${patron} OR descripcion ILIKE ${patron})
-      ORDER BY created_at DESC, id DESC
+      ORDER BY
+        CASE WHEN ${porVencer} AND COALESCE(dias_entrega, 0) > 0
+          THEN dias_entrega - GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int) END ASC NULLS LAST,
+        created_at DESC, id DESC
       LIMIT ${limite} OFFSET ${desde}`;
 
     const total = filas.length ? Number(filas[0].total_filtrado) : 0;
@@ -1526,7 +1532,7 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
     const filtro  = String(req.query.filtro || 'todos');
     const estatus = !['todos', 'asignados_mi', 'por_vencer'].includes(filtro) ? filtro : null;
     const soloMios = filtro === 'asignados_mi';
-    // 'por_vencer': solo oficios con plazo corriendo, del más vencido al que menos días le quedan
+    // 'por_vencer': oficios pendientes, del más vencido al que menos días le quedan; los "No aplica" (sin plazo) van al final
     const porVencer = filtro === 'por_vencer';
     const deArea  = rol === 'area' ? area : null;   // bandeja del área
     const deUser  = rol === 'usuario_area' ? id : null; // bandeja del usuario
@@ -1543,12 +1549,12 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
           AND (${deUser}::int  IS NULL OR usuario_asignado_id = ${deUser})
           AND (${estatus}::text IS NULL OR estatus = ${estatus})
           AND (NOT ${soloMios} OR (usuario_asignado_id = ${id} AND estatus IN ('sub_turnado','rechazado')))
-          AND (NOT ${porVencer} OR (estatus IN ('turnado','sub_turnado') AND COALESCE(dias_entrega, 0) > 0))
+          AND (NOT ${porVencer} OR estatus IN ('turnado','sub_turnado'))
           AND (${patron}::text IS NULL OR
                n_control ILIKE ${patron} OR n_referencia ILIKE ${patron} OR
                remitente ILIKE ${patron} OR descripcion ILIKE ${patron})
         ORDER BY
-          CASE WHEN ${porVencer}
+          CASE WHEN ${porVencer} AND COALESCE(dias_entrega, 0) > 0
             THEN dias_entrega - GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int) END ASC NULLS LAST,
           created_at DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
