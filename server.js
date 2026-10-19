@@ -1524,8 +1524,10 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
     if (rol !== 'area' && rol !== 'usuario_area') return res.status(403).json({ mensaje: 'Sin acceso a la bandeja.' });
     const { limite, desde, patron } = leerPaginado(req.query);
     const filtro  = String(req.query.filtro || 'todos');
-    const estatus = !['todos', 'asignados_mi'].includes(filtro) ? filtro : null;
+    const estatus = !['todos', 'asignados_mi', 'por_vencer'].includes(filtro) ? filtro : null;
     const soloMios = filtro === 'asignados_mi';
+    // 'por_vencer': solo oficios con plazo corriendo, del más vencido al que menos días le quedan
+    const porVencer = filtro === 'por_vencer';
     const deArea  = rol === 'area' ? area : null;   // bandeja del área
     const deUser  = rol === 'usuario_area' ? id : null; // bandeja del usuario
 
@@ -1541,10 +1543,14 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
           AND (${deUser}::int  IS NULL OR usuario_asignado_id = ${deUser})
           AND (${estatus}::text IS NULL OR estatus = ${estatus})
           AND (NOT ${soloMios} OR (usuario_asignado_id = ${id} AND estatus IN ('sub_turnado','rechazado')))
+          AND (NOT ${porVencer} OR (estatus IN ('turnado','sub_turnado') AND COALESCE(dias_entrega, 0) > 0))
           AND (${patron}::text IS NULL OR
                n_control ILIKE ${patron} OR n_referencia ILIKE ${patron} OR
                remitente ILIKE ${patron} OR descripcion ILIKE ${patron})
-        ORDER BY created_at DESC, id DESC
+        ORDER BY
+          CASE WHEN ${porVencer}
+            THEN dias_entrega - GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int) END ASC NULLS LAST,
+          created_at DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
       sql`
         SELECT
