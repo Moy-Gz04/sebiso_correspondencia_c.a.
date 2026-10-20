@@ -1471,6 +1471,7 @@ app.get('/api/oficios/historial', verifyToken, async (req, res) => {
     const porVencer = estatusQ === 'por_vencer';   // pendientes, del más vencido al que menos días le quedan; sin plazo al final
     const estatus = porVencer ? null : estatusQ;
     const areaF   = req.query.area && req.query.area !== 'todas' ? String(req.query.area) : null;
+    const personaF = parseInt(req.query.persona, 10) || null;   // usuario al que se sub-turnó
     const q       = String(req.query.q || '').trim().slice(0, 100);
     const patron  = q ? `%${q.replace(/[\\%_]/g, m => '\\' + m)}%` : null;
     const origen  = rol === 'admin' ? null : area;
@@ -1486,6 +1487,7 @@ app.get('/api/oficios/historial', verifyToken, async (req, res) => {
         AND (${estatus}::text IS NULL OR estatus = ${estatus})
         AND (NOT ${porVencer} OR estatus IN ('por_turnar','turnado','sub_turnado'))
         AND (${areaF}::text   IS NULL OR turnado_a = ${areaF})
+        AND (${personaF}::int IS NULL OR usuario_asignado_id = ${personaF})
         AND (${patron}::text  IS NULL OR
              n_control ILIKE ${patron} OR n_referencia ILIKE ${patron} OR turnado_a ILIKE ${patron} OR
              remitente ILIKE ${patron} OR dependencia ILIKE ${patron} OR descripcion ILIKE ${patron})
@@ -1500,6 +1502,34 @@ app.get('/api/oficios/historial', verifyToken, async (req, res) => {
     res.json({ items, total, siguiente: desde + items.length < total ? desde + items.length : null });
   } catch (err) {
     manejarError(res, err, 'No se pudo cargar el historial.');
+  }
+});
+
+/* ══ GET /api/oficios/subturnados/personas — Personas de un área y cuántos
+   oficios sub-turnados tiene cada una (para el filtro "Sub-turnado" del
+   Historial). `area` = 'todas' o el nombre de un área. Mismas reglas de
+   acceso que el Historial. ══ */
+app.get('/api/oficios/subturnados/personas', verifyToken, async (req, res) => {
+  try {
+    const { rol, area } = req.user;
+    if (rol !== 'admin' && !(rol === 'area' && area === AREA_CON_GESTION_COMPLETA))
+      return res.status(403).json({ mensaje: 'Sin acceso al Historial.' });
+    const areaF  = req.query.area && req.query.area !== 'todas' ? String(req.query.area) : null;
+    const origen = rol === 'admin' ? null : area;
+    const filas = await sql`
+      SELECT u.id, u.username AS nombre, u.area,
+             COUNT(o.id) FILTER (WHERE o.estatus = 'sub_turnado'
+               AND (${origen}::text IS NULL OR o.area_origen = ${origen})
+               AND (${areaF}::text  IS NULL OR o.turnado_a = ${areaF}))::int AS subturnados
+      FROM usuarios u
+      LEFT JOIN oficios o ON o.usuario_asignado_id = u.id
+      WHERE u.rol = 'usuario_area' AND u.activo
+        AND (${areaF}::text IS NULL OR u.area = ${areaF})
+      GROUP BY u.id, u.username, u.area
+      ORDER BY u.area, u.username`;
+    res.json({ personas: filas });
+  } catch (err) {
+    manejarError(res, err, 'No se pudieron cargar las personas del área.');
   }
 });
 

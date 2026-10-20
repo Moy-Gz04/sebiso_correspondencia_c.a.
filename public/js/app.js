@@ -37,6 +37,8 @@ function tieneGestionCompleta(usuario) {
 
 let DATOS        = [];
 let filtroActual = 'todos';
+let filtroPersona = null;    // id del usuario al que se sub-turnó (solo con el chip Sub-turnado)
+let filtroPersonaNombre = '';
 let filtroArea   = 'todas'; // 'todas' o el nombre exacto de un área (columna turnado_a)
 let TOKEN        = null;
 let USUARIO      = null;
@@ -431,6 +433,7 @@ function urlHistorial(desde, limite = POR_PAGINA) {
   const params = new URLSearchParams({ desde, limite });
   if (filtroActual !== 'todos') params.set('estatus', filtroActual);
   if (filtroArea !== 'todas') params.set('area', filtroArea);
+  if (filtroPersona && filtroActual === 'sub_turnado') params.set('persona', filtroPersona);
   const q = (document.getElementById('buscador')?.value || '').trim();
   if (q) params.set('q', q);
   return `${API}/oficios/historial?${params}`;
@@ -790,11 +793,14 @@ function filtrar(btn, estatus) {
   document.querySelectorAll('.chip').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
   filtroActual = estatus;
+  if (estatus !== 'sub_turnado') { filtroPersona = null; filtroPersonaNombre = ''; }
+  pintarFiltroPersona();
   const buscador = document.getElementById('buscador');
   if (buscador) buscador.value = '';
   const btnLimpiar = document.getElementById('btn-limpiar-busqueda');
   if (btnLimpiar) btnLimpiar.style.display = 'none';
   cargarOficios(estatus);
+  if (estatus === 'sub_turnado') abrirVentanaSubturnado();
 }
 
 /* ── Búsqueda en tiempo real (filtra sobre DATOS ya cargados, junto
@@ -1493,3 +1499,103 @@ window.addEventListener('pageshow', (evento) => {
     cargarPdfsGenerados();
   }
 });
+
+/* ── Ventanita de Sub-turnado: «Selecciona área» → personas del área ──
+   Al abrir el chip Sub-turnado se elige un área y, de su desplegable,
+   una persona para ver solo lo que tiene sub-turnado. */
+function abrirVentanaSubturnado() {
+  document.getElementById('vsub')?.remove();
+  if (!document.getElementById('vsub-css')) {
+    const st = document.createElement('style');
+    st.id = 'vsub-css';
+    st.textContent = `
+      .vsub-fondo { position:fixed; inset:0; background:rgba(32,16,23,.42); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; }
+      .vsub-caja { background:#fff; border:1px solid var(--borde,#E4D6C8); border-radius:16px; width:100%; max-width:380px; padding:22px 22px 18px; box-shadow:0 18px 50px rgba(61,20,32,.28); font-family:'Montserrat',sans-serif; }
+      .vsub-caja h3 { margin:0 0 4px; font-size:15px; color:var(--guinda,#5F2132); }
+      .vsub-caja p { margin:0 0 14px; font-size:12px; color:var(--txt2,#6B5563); }
+      .vsub-caja label { display:block; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--dorado-oscuro,#7C5D31); margin:12px 0 5px; }
+      .vsub-caja select { width:100%; border:1px solid #d8ccd0; border-radius:10px; padding:9px 12px; font:600 13px 'Montserrat',sans-serif; color:#333; background:#fff; }
+      .vsub-caja select:focus { outline:none; border-color:var(--guinda,#6B0F2B); box-shadow:0 0 0 3px rgba(107,15,43,.09); }
+      .vsub-caja select:disabled { background:#f6f3f2; color:#999; }
+      .vsub-acc { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+      .vsub-acc button { border-radius:999px; padding:8px 18px; font:700 12px 'Montserrat',sans-serif; cursor:pointer; border:1px solid #d8ccd0; background:#fff; color:#444; }
+      .vsub-acc .vsub-ver { background:var(--guinda,#5F2132); border-color:var(--guinda,#5F2132); color:#fff; }
+      .vsub-acc .vsub-ver:disabled { opacity:.5; cursor:default; }
+      .filtro-persona-pill { display:inline-flex; align-items:center; gap:6px; background:var(--dorado-claro,#F6EEDD); color:#8A5F1E; border:1px solid #E3C98A; border-radius:999px; padding:6px 8px 6px 12px; font:700 12px 'Montserrat',sans-serif; }
+      .filtro-persona-pill button { border:0; background:transparent; color:inherit; cursor:pointer; font-size:14px; line-height:1; padding:0 4px; }`;
+    document.head.appendChild(st);
+  }
+  const areas = AREAS_TURNADO.map(a => `<option value="${a}">${a}</option>`).join('');
+  const fondo = document.createElement('div');
+  fondo.id = 'vsub';
+  fondo.className = 'vsub-fondo';
+  fondo.innerHTML = `
+    <div class="vsub-caja" role="dialog" aria-modal="true" aria-labelledby="vsub-t">
+      <h3 id="vsub-t">Sub-turnado</h3>
+      <p>Elige un área y después una persona para ver lo que tiene sub-turnado.</p>
+      <label for="vsub-area">Selecciona área</label>
+      <select id="vsub-area">
+        <option value="">— Selecciona área —</option>
+        <option value="todas">Todas las áreas</option>${areas}
+      </select>
+      <label for="vsub-persona">Persona</label>
+      <select id="vsub-persona" disabled><option value="">Primero elige un área</option></select>
+      <div class="vsub-acc">
+        <button type="button" class="vsub-cerrar">Cerrar</button>
+        <button type="button" class="vsub-ver" disabled>Ver</button>
+      </div>
+    </div>`;
+  document.body.appendChild(fondo);
+  const selA = fondo.querySelector('#vsub-area');
+  const selP = fondo.querySelector('#vsub-persona');
+  const ver  = fondo.querySelector('.vsub-ver');
+  const esc = e => { if (e.key === 'Escape') cerrar(); };
+  const cerrar = () => { fondo.remove(); document.removeEventListener('keydown', esc); };
+  document.addEventListener('keydown', esc);
+  fondo.addEventListener('click', e => { if (e.target === fondo) cerrar(); });
+  fondo.querySelector('.vsub-cerrar').onclick = cerrar;
+
+  selA.onchange = async () => {
+    ver.disabled = !selA.value;
+    selP.disabled = true;
+    if (!selA.value) { selP.innerHTML = '<option value="">Primero elige un área</option>'; return; }
+    selP.innerHTML = '<option value="">Cargando…</option>';
+    try {
+      const res = await apiFetch(`${API}/oficios/subturnados/personas?area=${encodeURIComponent(selA.value)}`);
+      if (!res.ok) throw new Error();
+      const { personas } = await res.json();
+      const total = personas.reduce((n, p) => n + p.subturnados, 0);
+      selP.innerHTML = `<option value="">Todas las personas (${total})</option>` +
+        personas.map(p => `<option value="${p.id}" data-nombre="${p.nombre}">${p.nombre}${selA.value === 'todas' ? ' · ' + p.area : ''} (${p.subturnados})</option>`).join('');
+      selP.disabled = false;
+    } catch {
+      selP.innerHTML = '<option value="">No se pudo cargar</option>';
+    }
+  };
+  ver.onclick = () => {
+    filtroArea = selA.value || 'todas';
+    const op = selP.selectedOptions[0];
+    filtroPersona = selP.value ? Number(selP.value) : null;
+    filtroPersonaNombre = filtroPersona ? (op?.dataset.nombre || '') : '';
+    const sel = document.getElementById('filtro-area');
+    if (sel) sel.value = filtroArea;
+    pintarFiltroPersona();
+    cerrar();
+    cargarOficios('sub_turnado');
+  };
+  selA.focus();
+}
+
+/* Etiqueta «Persona ✕» junto al filtro de área */
+function pintarFiltroPersona() {
+  document.getElementById('filtro-persona-pill')?.remove();
+  if (!filtroPersona || filtroActual !== 'sub_turnado') return;
+  const sel = document.getElementById('filtro-area');
+  if (!sel) return;
+  const pill = document.createElement('span');
+  pill.id = 'filtro-persona-pill';
+  pill.className = 'filtro-persona-pill';
+  pill.innerHTML = `<i class="ti ti-user"></i> ${filtroPersonaNombre} <button type="button" title="Quitar persona" aria-label="Quitar persona">×</button>`;
+  pill.querySelector('button').onclick = () => { filtroPersona = null; filtroPersonaNombre = ''; pintarFiltroPersona(); cargarOficios('sub_turnado'); };
+  sel.after(pill);
+}
