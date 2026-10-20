@@ -1502,30 +1502,118 @@ window.addEventListener('pageshow', (evento) => {
 
 /* ── Ventanita de Sub-turnado: «Selecciona área» → personas del área ──
    Al abrir el chip Sub-turnado se elige un área y, de su desplegable,
-   una persona para ver solo lo que tiene sub-turnado. */
+   una persona para ver solo lo que tiene sub-turnado.
+   Los desplegables son propios (no <select>) para poder darles diseño. */
+
+/* Desplegable con estilo: botón + lista. Devuelve { el, setOpciones, setActivo, valor, etiqueta }.
+   Opciones: [{ valor, texto, detalle? }]. Teclado: ↑ ↓ Enter Esc. */
+function crearDesplegable({ id, placeholder, onChange }) {
+  const el = document.createElement('div');
+  el.className = 'dd';
+  el.innerHTML = `
+    <button type="button" class="dd-btn" id="${id}" aria-haspopup="listbox" aria-expanded="false">
+      <span class="dd-txt dd-vacio">${placeholder}</span>
+      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+    </button>
+    <ul class="dd-lista" role="listbox" tabindex="-1" hidden></ul>`;
+  const btn = el.querySelector('.dd-btn'), txt = el.querySelector('.dd-txt'), ul = el.querySelector('.dd-lista');
+  let opciones = [], valor = '', etiqueta = '', indice = -1;
+
+  const pintarSeleccion = () => {
+    const o = opciones.find(x => String(x.valor) === String(valor));
+    txt.textContent = o ? o.texto : placeholder;
+    txt.classList.toggle('dd-vacio', !o);
+    etiqueta = o ? (o.nombre || o.texto) : '';
+    ul.querySelectorAll('li').forEach(li => li.setAttribute('aria-selected', String(li.dataset.valor === String(valor))));
+  };
+  const cerrar = () => { ul.hidden = true; btn.setAttribute('aria-expanded', 'false'); el.classList.remove('abierto'); };
+  const abrir = () => {
+    if (btn.disabled) return;
+    ul.hidden = false; btn.setAttribute('aria-expanded', 'true'); el.classList.add('abierto');
+    indice = Math.max(0, opciones.findIndex(x => String(x.valor) === String(valor)));
+    resaltar();
+  };
+  const resaltar = () => {
+    ul.querySelectorAll('li').forEach((li, i) => li.classList.toggle('dd-foco', i === indice));
+    ul.querySelector('.dd-foco')?.scrollIntoView({ block: 'nearest' });
+  };
+  const elegir = (v) => { valor = v; pintarSeleccion(); cerrar(); onChange && onChange(valor); btn.focus(); };
+
+  btn.addEventListener('click', () => (ul.hidden ? abrir() : cerrar()));
+  btn.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (ul.hidden) return abrir();
+      indice = (indice + (e.key === 'ArrowDown' ? 1 : -1) + opciones.length) % opciones.length; resaltar();
+    } else if ((e.key === 'Enter' || e.key === ' ') && !ul.hidden) {
+      e.preventDefault(); if (opciones[indice]) elegir(opciones[indice].valor);
+    } else if (e.key === 'Escape' && !ul.hidden) { e.stopPropagation(); cerrar(); }
+  });
+  document.addEventListener('click', e => { if (!el.contains(e.target)) cerrar(); });
+
+  return {
+    el,
+    get valor() { return valor; },
+    get etiqueta() { return etiqueta; },
+    setOpciones(lista, nuevoValor = '') {
+      opciones = lista; valor = nuevoValor;
+      ul.innerHTML = lista.map(o => `
+        <li role="option" data-valor="${o.valor}" aria-selected="false">
+          <span>${o.texto}</span>${o.detalle != null ? `<em>${o.detalle}</em>` : ''}
+        </li>`).join('');
+      ul.querySelectorAll('li').forEach((li, i) => {
+        li.addEventListener('click', () => elegir(opciones[i].valor));
+        li.addEventListener('mousemove', () => { indice = i; resaltar(); });
+      });
+      pintarSeleccion();
+    },
+    setActivo(on, textoInactivo) {
+      btn.disabled = !on; el.classList.toggle('inactivo', !on);
+      if (!on) { txt.textContent = textoInactivo || placeholder; txt.classList.add('dd-vacio'); cerrar(); }
+    },
+    cerrar,
+  };
+}
+
 function abrirVentanaSubturnado() {
   document.getElementById('vsub')?.remove();
   if (!document.getElementById('vsub-css')) {
     const st = document.createElement('style');
     st.id = 'vsub-css';
     st.textContent = `
-      .vsub-fondo { position:fixed; inset:0; background:rgba(32,16,23,.42); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; }
-      .vsub-caja { background:#fff; border:1px solid var(--borde,#E4D6C8); border-radius:16px; width:100%; max-width:380px; padding:22px 22px 18px; box-shadow:0 18px 50px rgba(61,20,32,.28); font-family:'Montserrat',sans-serif; }
-      .vsub-caja h3 { margin:0 0 4px; font-size:15px; color:var(--guinda,#5F2132); }
-      .vsub-caja p { margin:0 0 14px; font-size:12px; color:var(--txt2,#6B5563); }
-      .vsub-caja label { display:block; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--dorado-oscuro,#7C5D31); margin:12px 0 5px; }
-      .vsub-caja select { width:100%; border:1px solid #d8ccd0; border-radius:10px; padding:9px 12px; font:600 13px 'Montserrat',sans-serif; color:#333; background:#fff; }
-      .vsub-caja select:focus { outline:none; border-color:var(--guinda,#6B0F2B); box-shadow:0 0 0 3px rgba(107,15,43,.09); }
-      .vsub-caja select:disabled { background:#f6f3f2; color:#999; }
-      .vsub-acc { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
-      .vsub-acc button { border-radius:999px; padding:8px 18px; font:700 12px 'Montserrat',sans-serif; cursor:pointer; border:1px solid #d8ccd0; background:#fff; color:#444; }
+      .vsub-fondo { position:fixed; inset:0; background:rgba(32,16,23,.45); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; z-index:9999; padding:16px; animation:vsub-in .18s ease-out; }
+      @keyframes vsub-in { from { opacity:0 } to { opacity:1 } }
+      .vsub-caja { background:#fff; border:1px solid var(--borde,#E4D6C8); border-top:4px solid var(--guinda,#5F2132); border-radius:16px; width:100%; max-width:400px; padding:22px 22px 18px; box-shadow:0 22px 60px rgba(61,20,32,.32); font-family:'Montserrat',sans-serif; }
+      .vsub-caja h3 { margin:0 0 4px; font-size:16px; letter-spacing:.01em; color:var(--guinda,#5F2132); }
+      .vsub-caja p { margin:0 0 6px; font-size:12px; line-height:1.45; color:var(--txt2,#6B5563); }
+      .vsub-caja .vsub-lbl { display:block; font-size:10.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--dorado-oscuro,#7C5D31); margin:14px 0 6px; }
+      .dd { position:relative; }
+      .dd-btn { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; text-align:left; border:1px solid #d8ccd0; border-radius:12px; padding:10px 14px; background:#fff; font:600 13px 'Montserrat',sans-serif; color:var(--txt,#201017); cursor:pointer; transition:border-color .15s, box-shadow .15s, background .15s; }
+      .dd-btn:hover:not(:disabled) { border-color:var(--dorado,#A9824C); background:var(--fondo-par,#FFFDF9); }
+      .dd-btn:focus-visible, .dd.abierto .dd-btn { outline:none; border-color:var(--guinda,#6B0F2B); box-shadow:0 0 0 3px rgba(107,15,43,.10); }
+      .dd-btn svg { flex:none; color:var(--dorado-oscuro,#7C5D31); transition:transform .18s; }
+      .dd.abierto .dd-btn svg { transform:rotate(180deg); }
+      .dd-vacio { color:#9b8b92; font-weight:500; }
+      .dd.inactivo .dd-btn { background:#f7f3f1; cursor:default; }
+      .dd-lista { position:absolute; left:0; right:0; top:calc(100% + 6px); z-index:10; margin:0; padding:6px; list-style:none; max-height:220px; overflow-y:auto; background:#fff; border:1px solid var(--borde,#E4D6C8); border-radius:12px; box-shadow:0 14px 34px rgba(61,20,32,.20); animation:dd-in .14s ease-out; }
+      @keyframes dd-in { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:none } }
+      .dd-lista li { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 11px; border-radius:8px; font-size:13px; font-weight:500; color:var(--txt,#201017); cursor:pointer; }
+      .dd-lista li em { font-style:normal; font-size:11px; font-weight:700; color:#8A5F1E; background:var(--dorado-claro,#F6EEDD); border-radius:999px; padding:2px 8px; }
+      .dd-lista li.dd-foco { background:var(--guinda-claro,#f9f0f3); }
+      .dd-lista li[aria-selected="true"] { color:#fff; background:var(--guinda,#5F2132); font-weight:700; }
+      .dd-lista li[aria-selected="true"] em { background:rgba(255,255,255,.18); color:#fff; }
+      .dd-lista::-webkit-scrollbar { width:8px; } .dd-lista::-webkit-scrollbar-thumb { background:#dccfd3; border-radius:8px; }
+      .vsub-acc { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
+      .vsub-acc button { border-radius:999px; padding:9px 20px; font:700 12px 'Montserrat',sans-serif; cursor:pointer; border:1px solid #d8ccd0; background:#fff; color:#444; transition:background .15s; }
+      .vsub-acc button:hover:not(:disabled) { background:var(--guinda-claro,#f9f0f3); }
       .vsub-acc .vsub-ver { background:var(--guinda,#5F2132); border-color:var(--guinda,#5F2132); color:#fff; }
-      .vsub-acc .vsub-ver:disabled { opacity:.5; cursor:default; }
+      .vsub-acc .vsub-ver:hover:not(:disabled) { background:var(--guinda-oscuro,#3D1420); }
+      .vsub-acc .vsub-ver:disabled { opacity:.45; cursor:default; }
       .filtro-persona-pill { display:inline-flex; align-items:center; gap:6px; background:var(--dorado-claro,#F6EEDD); color:#8A5F1E; border:1px solid #E3C98A; border-radius:999px; padding:6px 8px 6px 12px; font:700 12px 'Montserrat',sans-serif; }
-      .filtro-persona-pill button { border:0; background:transparent; color:inherit; cursor:pointer; font-size:14px; line-height:1; padding:0 4px; }`;
+      .filtro-persona-pill button { border:0; background:transparent; color:inherit; cursor:pointer; font-size:14px; line-height:1; padding:0 4px; }
+      @media (prefers-reduced-motion: reduce) { .vsub-fondo, .dd-lista { animation:none } .dd-btn svg { transition:none } }`;
     document.head.appendChild(st);
   }
-  const areas = AREAS_TURNADO.map(a => `<option value="${a}">${a}</option>`).join('');
   const fondo = document.createElement('div');
   fondo.id = 'vsub';
   fondo.className = 'vsub-fondo';
@@ -1533,57 +1621,63 @@ function abrirVentanaSubturnado() {
     <div class="vsub-caja" role="dialog" aria-modal="true" aria-labelledby="vsub-t">
       <h3 id="vsub-t">Sub-turnado</h3>
       <p>Elige un área y después una persona para ver lo que tiene sub-turnado.</p>
-      <label for="vsub-area">Selecciona área</label>
-      <select id="vsub-area">
-        <option value="">— Selecciona área —</option>
-        <option value="todas">Todas las áreas</option>${areas}
-      </select>
-      <label for="vsub-persona">Persona</label>
-      <select id="vsub-persona" disabled><option value="">Primero elige un área</option></select>
+      <label class="vsub-lbl" for="vsub-area">Selecciona área</label>
+      <div id="vsub-slot-area"></div>
+      <label class="vsub-lbl" for="vsub-persona">Persona</label>
+      <div id="vsub-slot-persona"></div>
       <div class="vsub-acc">
         <button type="button" class="vsub-cerrar">Cerrar</button>
         <button type="button" class="vsub-ver" disabled>Ver</button>
       </div>
     </div>`;
   document.body.appendChild(fondo);
-  const selA = fondo.querySelector('#vsub-area');
-  const selP = fondo.querySelector('#vsub-persona');
-  const ver  = fondo.querySelector('.vsub-ver');
+  const ver = fondo.querySelector('.vsub-ver');
   const esc = e => { if (e.key === 'Escape') cerrar(); };
   const cerrar = () => { fondo.remove(); document.removeEventListener('keydown', esc); };
   document.addEventListener('keydown', esc);
   fondo.addEventListener('click', e => { if (e.target === fondo) cerrar(); });
   fondo.querySelector('.vsub-cerrar').onclick = cerrar;
 
-  selA.onchange = async () => {
-    ver.disabled = !selA.value;
-    selP.disabled = true;
-    if (!selA.value) { selP.innerHTML = '<option value="">Primero elige un área</option>'; return; }
-    selP.innerHTML = '<option value="">Cargando…</option>';
-    try {
-      const res = await apiFetch(`${API}/oficios/subturnados/personas?area=${encodeURIComponent(selA.value)}`);
-      if (!res.ok) throw new Error();
-      const { personas } = await res.json();
-      const total = personas.reduce((n, p) => n + p.subturnados, 0);
-      selP.innerHTML = `<option value="">Todas las personas (${total})</option>` +
-        personas.map(p => `<option value="${p.id}" data-nombre="${p.nombre}">${p.nombre}${selA.value === 'todas' ? ' · ' + p.area : ''} (${p.subturnados})</option>`).join('');
-      selP.disabled = false;
-    } catch {
-      selP.innerHTML = '<option value="">No se pudo cargar</option>';
-    }
-  };
+  const ddPersona = crearDesplegable({ id: 'vsub-persona', placeholder: 'Primero elige un área' });
+  const ddArea = crearDesplegable({
+    id: 'vsub-area', placeholder: '— Selecciona área —',
+    onChange: async (area) => {
+      ver.disabled = !area;
+      ddPersona.setActivo(false, 'Cargando…');
+      try {
+        const res = await apiFetch(`${API}/oficios/subturnados/personas?area=${encodeURIComponent(area)}`);
+        if (!res.ok) throw new Error();
+        const { personas } = await res.json();
+        const total = personas.reduce((n, p) => n + p.subturnados, 0);
+        ddPersona.setOpciones([
+          { valor: '', texto: 'Todas las personas', nombre: '', detalle: total },
+          ...personas.map(p => ({ valor: p.id, nombre: p.nombre, texto: p.nombre + (area === 'todas' ? ' · ' + p.area : ''), detalle: p.subturnados })),
+        ], '');
+        ddPersona.setActivo(true);
+      } catch {
+        ddPersona.setActivo(false, 'No se pudo cargar');
+      }
+    },
+  });
+  ddArea.setOpciones([
+    { valor: 'todas', texto: 'Todas las áreas' },
+    ...AREAS_TURNADO.map(a => ({ valor: a, texto: a })),
+  ], '');
+  ddPersona.setOpciones([], ''); ddPersona.setActivo(false, 'Primero elige un área');
+  fondo.querySelector('#vsub-slot-area').appendChild(ddArea.el);
+  fondo.querySelector('#vsub-slot-persona').appendChild(ddPersona.el);
+
   ver.onclick = () => {
-    filtroArea = selA.value || 'todas';
-    const op = selP.selectedOptions[0];
-    filtroPersona = selP.value ? Number(selP.value) : null;
-    filtroPersonaNombre = filtroPersona ? (op?.dataset.nombre || '') : '';
+    filtroArea = ddArea.valor || 'todas';
+    filtroPersona = ddPersona.valor ? Number(ddPersona.valor) : null;
+    filtroPersonaNombre = filtroPersona ? ddPersona.etiqueta : '';
     const sel = document.getElementById('filtro-area');
     if (sel) sel.value = filtroArea;
     pintarFiltroPersona();
     cerrar();
     cargarOficios('sub_turnado');
   };
-  selA.focus();
+  fondo.querySelector('#vsub-area').focus();
 }
 
 /* Etiqueta «Persona ✕» junto al filtro de área */
