@@ -8,6 +8,7 @@ const API = window.location.origin + '/api';
 const BADGE = {
   por_turnar: ['b-portu', 'Por Turnar'],
   turnado:    ['b-tur',   'Turnado'],
+  sub_turnado:['b-sub',   'Sub-turnado'],
   atendido:   ['b-ate',   'Atendido'],
   rechazado:  ['b-rech',  'Rechazado'],
   completado: ['b-comp',  'Completado'],
@@ -503,7 +504,8 @@ function construirTarjeta(r, i) {
   const badgeHTML = r.turnado_a
     ? `<span class="badge ${cls}">${lbl}</span>
        <span style="font-size:10px;color:var(--txt2);margin-top:2px;">→ ${r.turnado_a}</span>
-       ${r.turnado_por ? `<span style="font-size:9.5px;color:var(--txt2);opacity:.85;">por ${r.turnado_por}</span>` : ''}`
+       ${r.turnado_por ? `<span style="font-size:9.5px;color:var(--txt2);opacity:.85;">por ${r.turnado_por}</span>` : ''}
+       ${r.estatus === 'sub_turnado' && r.usuario_asignado_nombre ? `<span style="font-size:10px;color:#8A5F1E;font-weight:600;"><i class="ti ti-user"></i> Asignado a ${r.usuario_asignado_nombre}</span>` : ''}`
     : `<span class="badge ${cls}">${lbl}</span>`;
 
   const doc1HTML = r.doc1
@@ -592,7 +594,7 @@ function construirTarjeta(r, i) {
   }
 
   /* Días transcurridos desde creación (turnado o por_turnar) */
-  const enConteo   = (r.estatus === 'turnado' || r.estatus === 'por_turnar');
+  const enConteo   = (r.estatus === 'turnado' || r.estatus === 'sub_turnado' || r.estatus === 'por_turnar');
   /* dias_entrega: 0 o null = "No aplica" (sin plazo). Si tiene plazo,
      se muestran los días RESTANTES (plazo - transcurridos), no los
      transcurridos — antes se mostraban mal como si fueran lo mismo. */
