@@ -157,8 +157,10 @@
       if (img) { img.style.width = w + 'px'; img.style.height = h + 'px'; }
       if (!movil) ventana.style.width = Math.max(w + pad * 2, 560) + 'px';
     } else if (medida.tipo === 'pdf') {
-      // Hoja carta vertical + barra del visor de PDF del navegador (~56 px) y su barra de desplazamiento
-      const h = maxH, w = Math.min(maxW, Math.round((h - 56) * (8.5 / 11)) + 64);
+      // Sin la barra del visor del navegador. Más ancho que una hoja carta a la altura de la
+      // pantalla (×1.3, mín. 900 px): la hoja se ajusta al ancho y la letra chica se lee mejor;
+      // lo que sobra hacia abajo se recorre con la rueda.
+      const h = maxH, w = Math.min(maxW, Math.max(900, Math.round(h * (8.5 / 11) * 1.3)));
       const hoja = raiz.querySelector('.vd-hoja');
       if (hoja) { hoja.style.width = w + 'px'; hoja.style.height = h + 'px'; }
       if (!movil) ventana.style.width = Math.max(w + pad * 2, 560) + 'px';
@@ -285,7 +287,7 @@
         cuerpo.innerHTML = '<div class="vd-hoja"></div>';
         const marco = document.createElement('iframe');
         marco.title = nombreActual;
-        marco.src = urlActual + '#navpanes=0&view=FitH';
+        marco.src = urlActual + '#toolbar=0&navpanes=0&view=FitH';   // sin las opciones del visor de Chrome
         cuerpo.firstChild.appendChild(marco);
         medida = { tipo: 'pdf' };
         ajustar();
