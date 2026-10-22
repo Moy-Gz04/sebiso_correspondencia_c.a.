@@ -9,11 +9,16 @@
      · imagen  -> la imagen a su medida, con acercar / alejar
      · otros (Word, etc.) -> aviso + botón Descargar (el navegador no los muestra)
    Uso:  abrirVisorDocumento({ titulo: 'Turno', subtitulo: 'N. Control 123', obtenerUrl: async () => url });
+         abrirVisorDocumento({ titulo: 'Tarjeta 0077', drive: urlDeDrive });
+   "drive": archivos de Drive que el servidor no puede bajar (p. ej. las Tarjetas de
+   Salas, que viven en otra cuenta de Google). Se muestran con la vista previa de
+   Drive; Descargar baja el archivo desde Drive e Imprimir lo abre en Drive.
    obtenerUrl devuelve la URL de un solo uso (/api/docs/:token); si lanza un
    error, el visor muestra el mensaje en lugar del documento.
    ========================================================= */
 
 (() => {
+  let driveActual = null;   // { id, url } cuando el documento se muestra con la vista previa de Drive
   let raiz = null, urlActual = null, nombreActual = 'documento', tipoActual = '', ctrl = null, ultimoFoco = null;
   let medida = null;   // { tipo: 'imagen'|'pdf'|'aviso', w, h } del documento abierto, para reajustar al cambiar la ventana
 
@@ -191,6 +196,7 @@
   }
 
   function descargar() {
+    if (driveActual) { window.open(`https://drive.google.com/uc?export=download&id=${driveActual.id}`, '_blank', 'noopener'); return; }
     if (!urlActual) return;
     const a = document.createElement('a');
     a.href = urlActual; a.download = nombreActual;
@@ -198,6 +204,7 @@
   }
 
   function imprimir() {
+    if (driveActual) { window.open(driveActual.url, '_blank', 'noopener'); return; }
     if (!urlActual) return;
     const marco = $('vd-cuerpo').querySelector('iframe');
     if (/pdf/i.test(tipoActual) && marco) {
@@ -231,10 +238,35 @@
   }
 
 
-  async function abrirVisorDocumento({ titulo = 'Documento', subtitulo = '', etiqueta = '', obtenerUrl }) {
+  async function abrirVisorDocumento({ titulo = 'Documento', subtitulo = '', etiqueta = '', obtenerUrl, drive = null }) {
     inyectar();
     if (ctrl) ctrl.abort();
     if (urlActual) { URL.revokeObjectURL(urlActual); urlActual = null; }
+    driveActual = null;
+    if (drive) {
+      const id = (/\/d\/([A-Za-z0-9_-]{20,})/.exec(drive) || /[?&]id=([A-Za-z0-9_-]{20,})/.exec(drive) || [])[1];
+      if (id) {
+        driveActual = { id, url: drive };
+        ultimoFoco = document.activeElement;
+        $('vd-titulo').textContent = titulo;
+        $('vd-chip').textContent = etiqueta;
+        $('vd-sub').textContent = subtitulo;
+        $('vd-icono').className = 'ti ti-file-type-pdf';
+        raiz.hidden = false;
+        document.body.style.overflow = 'hidden';
+        $('vd-cuerpo').innerHTML = '<div class="vd-hoja"></div>';
+        const marco = document.createElement('iframe');
+        marco.title = titulo;
+        marco.allow = 'autoplay';
+        marco.src = `https://drive.google.com/file/d/${id}/preview`;
+        $('vd-cuerpo').firstChild.appendChild(marco);
+        medida = { tipo: 'pdf' };
+        ajustar();
+        $('vd-descargar').disabled = $('vd-imprimir').disabled = false;
+        $('vd-cerrar').focus();
+        return;
+      }
+    }
     ultimoFoco = document.activeElement;
     $('vd-titulo').textContent = titulo;
     $('vd-chip').textContent = etiqueta;

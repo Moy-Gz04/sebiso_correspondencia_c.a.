@@ -397,6 +397,7 @@
       transition: opacity .15s ease;
     }
     .nota-card-abrir:hover { opacity: 1; }
+    button.nota-card-abrir { border: 0; font-family: inherit; cursor: pointer; }
     .nota-card-preview {
       width: 100%; aspect-ratio: 4 / 3; border: none; border-top: 1px solid rgba(0,0,0,.08);
       background: rgba(255,255,255,.4); display: block;
@@ -425,8 +426,9 @@
       background: #F3E9EC; color: var(--guinda, #5F2132); border: 1px solid #E4CFD5;
       text-decoration: none;
     }
-    a.hist-tarjeta:hover { background: var(--guinda, #5F2132); color: #fff; border-color: var(--guinda, #5F2132); }
-    a.hist-tarjeta:focus-visible { outline: 2px solid var(--guinda, #5F2132); outline-offset: 2px; }
+    button.hist-tarjeta { font-family: inherit; cursor: pointer; }
+    button.hist-tarjeta:hover { background: var(--guinda, #5F2132); color: #fff; border-color: var(--guinda, #5F2132); }
+    button.hist-tarjeta:focus-visible { outline: 2px solid var(--guinda, #5F2132); outline-offset: 2px; }
     .ticket-nota-badge {
       display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 0;
       padding: 3px 9px; font-size: 0.74rem; font-weight: 700; border-radius: 999px;
@@ -838,7 +840,8 @@
     </div>
   </div>
 
-  <script src="js/salas.js?v=5"></script>
+  <script src="js/visor-documento.js?v=5"></script>
+  <script src="js/salas.js?v=6"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>

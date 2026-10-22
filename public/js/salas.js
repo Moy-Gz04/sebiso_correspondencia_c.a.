@@ -617,6 +617,14 @@ function iniciarCuentaRegresiva() {
   }, 30000);
 }
 
+/* Abre el PDF de la Tarjeta en el visor de la página (js/visor-documento.js),
+   con la vista previa de Drive: el archivo vive en otra cuenta de Google
+   (Tarjeta_sala), así que el servidor no lo puede bajar. */
+function verTarjetaSala(url, folio) {
+  abrirVisorDocumento({ titulo: `Tarjeta ${folio}`, etiqueta: 'Salas', drive: url });
+}
+window.verTarjetaSala = verTarjetaSala;
+
 /* Extrae el fileId de una URL de Drive tipo
    "https://drive.google.com/file/d/<ID>/view?usp=drivesdk". */
 function idDriveDesdeUrl(url) {
@@ -643,7 +651,7 @@ function pintarTarjetaNota(ap) {
   return `
     <div class="nota-card-head">
       <span class="folio"><i class="ti ti-file-description"></i> Tarjeta ${ap.folio_nota}</span>
-      <a class="nota-card-abrir" href="${ap.nota_pdf_url}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i> Abrir en Drive</a>
+      <button type="button" class="nota-card-abrir" onclick="verTarjetaSala('${ap.nota_pdf_url}', '${ap.folio_nota}')"><i class="ti ti-eye"></i> Ver en grande</button>
     </div>
     ${fileId ? `<iframe class="nota-card-preview" src="https://drive.google.com/file/d/${fileId}/preview" allow="autoplay" loading="lazy"></iframe>` : ''}`;
 }
@@ -969,7 +977,7 @@ async function cargarHistorial() {
           <td>${h.personas ?? '—'}</td>
           <td>${h.descripcion || '—'}</td>
           <td>${h.no_oficio || '—'}</td>
-          <td>${h.folio_nota ? (h.nota_pdf_url ? `<a class="hist-tarjeta" href="${h.nota_pdf_url}" target="_blank" rel="noopener" title="Abrir PDF de la tarjeta"><i class="ti ti-file-description"></i> Tarjeta ${h.folio_nota}</a>` : `<span class="hist-tarjeta"><i class="ti ti-file-description"></i> Tarjeta ${h.folio_nota}</span>`) : '—'}</td>
+          <td>${h.folio_nota ? (h.nota_pdf_url ? `<button type="button" class="hist-tarjeta" onclick="verTarjetaSala('${h.nota_pdf_url}', '${h.folio_nota}')" title="Ver PDF de la tarjeta"><i class="ti ti-file-description"></i> Tarjeta ${h.folio_nota}</button>` : `<span class="hist-tarjeta"><i class="ti ti-file-description"></i> Tarjeta ${h.folio_nota}</span>`) : '—'}</td>
           <td>${h.creado_por || '—'}</td>
           <td><span class="badge-motivo ${h.motivo_eliminacion}">${{ vencido: 'Vencido', cancelado: 'Cancelado', sala_eliminada: 'Sala eliminada' }[h.motivo_eliminacion] || h.motivo_eliminacion}</span></td>
           <td>${h.eliminado_por || '—'}</td>
