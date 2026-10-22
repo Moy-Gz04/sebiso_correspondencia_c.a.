@@ -64,13 +64,9 @@ function mostrarZonaCaptura() {
   pintarHojas();
 }
 
-/* Abre la cámara (escáner en vivo si está disponible, si no la cámara normal) */
+/* La 2ª hoja se toma con la cámara normal del celular (no con el escáner) */
 function tomarFoto() {
-  if (window.EscanerDoc && EscanerDoc.soportado()) {
-    EscanerDoc.abrir({ onListo: (archivo) => mostrarPreview(archivo) });
-  } else {
-    document.getElementById('input-foto').click();
-  }
+  document.getElementById('input-foto').click();
 }
 
 function mostrarPreview(archivo) {
