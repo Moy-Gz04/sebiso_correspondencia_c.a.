@@ -16,7 +16,6 @@
 (() => {
   let raiz = null, urlActual = null, nombreActual = 'documento', tipoActual = '', ctrl = null, ultimoFoco = null;
   let medida = null;   // { tipo: 'imagen'|'pdf'|'aviso', w, h } del documento abierto, para reajustar al cambiar la ventana
-  let zoom = 1;
 
   const BARRA = 64, PIE = 46, PAD = 20;   // alturas fijas de la ventana (px) y margen alrededor de la hoja
 
@@ -64,7 +63,7 @@
       .vd-btn-dorado:hover { background: linear-gradient(135deg, #F0D995, #BC9545); }
       .vd-btn:disabled { opacity: .4; pointer-events: none; }
       .vd-cerrar { width: 36px; padding: 0; justify-content: center; border-color: rgba(246,238,221,.3); margin-left: 2px; }
-      .vd-btn:focus-visible, .vd-zbtn:focus-visible { outline: 2px solid #E7CD86; outline-offset: 2px; }
+      .vd-btn:focus-visible { outline: 2px solid #E7CD86; outline-offset: 2px; }
 
       .vd-cuerpo { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: ${PAD}px;
         background-color: #E8E0D5;
@@ -75,17 +74,9 @@
       .vd-hoja iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
       .vd-img-marco { overflow: auto; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 10px 30px rgba(61,20,32,.22); background: #fff; }
       .vd-img-marco img { display: block; transform-origin: 0 0; }
-      .vd-img-marco.ampliada { cursor: grab; }
 
-      .vd-pie { height: ${PIE}px; box-sizing: border-box; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      .vd-pie { height: ${PIE}px; box-sizing: border-box; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px;
         padding: 0 14px; background: #F7F3EE; border-top: 1px solid #E4D9CC; font-size: 11.5px; color: #7A6470; }
-      .vd-zoom { display: flex; align-items: center; gap: 4px; }
-      .vd-zoom[hidden] { display: none; }
-      .vd-zbtn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #DCCFC0; background: #fff; color: #5F2132;
-        display: grid; place-items: center; cursor: pointer; font-size: 15px; }
-      .vd-zbtn:hover { border-color: #BC955C; background: #FBF6EE; }
-      .vd-zpct { min-width: 46px; text-align: center; font-weight: 700; color: #5F2132; font-variant-numeric: tabular-nums; }
-      .vd-ajustar { width: auto; padding: 0 10px; font: 600 11.5px 'Montserrat', 'Segoe UI', Arial, sans-serif; }
       .vd-tecla { display: inline-flex; align-items: center; gap: 6px; }
       .vd-tecla kbd { font: 700 10px 'Montserrat', sans-serif; padding: 2px 6px; border-radius: 5px; border: 1px solid #DCCFC0;
         border-bottom-width: 2px; background: #fff; color: #5F2132; }
@@ -129,13 +120,6 @@
         </div>
         <div class="vd-cuerpo" id="vd-cuerpo"></div>
         <div class="vd-pie">
-          <div class="vd-zoom" id="vd-zoom" hidden>
-            <button type="button" class="vd-zbtn" id="vd-zmenos" aria-label="Alejar"><i class="ti ti-minus"></i></button>
-            <span class="vd-zpct" id="vd-zpct">100%</span>
-            <button type="button" class="vd-zbtn" id="vd-zmas" aria-label="Acercar"><i class="ti ti-plus"></i></button>
-            <button type="button" class="vd-zbtn vd-ajustar" id="vd-zajustar">Ajustar</button>
-          </div>
-          <span id="vd-info"></span>
           <span class="vd-tecla"><kbd>Esc</kbd> para cerrar</span>
         </div>
       </div>`;
@@ -145,9 +129,6 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !raiz.hidden) cerrar(); });
     raiz.querySelector('#vd-descargar').addEventListener('click', descargar);
     raiz.querySelector('#vd-imprimir').addEventListener('click', imprimir);
-    raiz.querySelector('#vd-zmas').addEventListener('click', () => ponerZoom(zoom * 1.25));
-    raiz.querySelector('#vd-zmenos').addEventListener('click', () => ponerZoom(zoom / 1.25));
-    raiz.querySelector('#vd-zajustar').addEventListener('click', () => ponerZoom(1));
     window.addEventListener('resize', () => { if (!raiz.hidden && medida) ajustar(); });
   }
 
@@ -172,7 +153,8 @@
       medida.ajuste = { w, h };
       const marco = raiz.querySelector('.vd-img-marco');
       if (marco) { marco.style.width = w + 'px'; marco.style.height = h + 'px'; }
-      ponerZoom(zoom);
+      const img = marco && marco.querySelector('img');
+      if (img) { img.style.width = w + 'px'; img.style.height = h + 'px'; }
       if (!movil) ventana.style.width = Math.max(w + pad * 2, 560) + 'px';
     } else if (medida.tipo === 'pdf') {
       // Hoja carta vertical + barra del visor de PDF del navegador (~56 px) y su barra de desplazamiento
@@ -183,19 +165,8 @@
     } else if (!movil) ventana.style.width = '560px';
   }
 
-  function ponerZoom(z) {
-    if (!medida || medida.tipo !== 'imagen' || !medida.ajuste) return;
-    zoom = Math.min(5, Math.max(1, z));
-    const img = raiz.querySelector('.vd-img-marco img');
-    if (img) { img.style.width = Math.round(medida.ajuste.w * zoom) + 'px'; img.style.height = Math.round(medida.ajuste.h * zoom) + 'px'; }
-    raiz.querySelector('.vd-img-marco')?.classList.toggle('ampliada', zoom > 1);
-    $('vd-zpct').textContent = Math.round(zoom * 100) + '%';
-    $('vd-zmenos').disabled = zoom <= 1;
-  }
-
   function estado(icono, titulo, texto, conBarra) {
     medida = { tipo: 'aviso' };
-    $('vd-zoom').hidden = true;
     $('vd-cuerpo').innerHTML = `
       <div class="vd-estado">
         ${icono ? `<i class="ti ${icono}" aria-hidden="true"></i>` : ''}
@@ -257,18 +228,15 @@
     return nombre;
   }
 
-  const pesoLegible = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
   async function abrirVisorDocumento({ titulo = 'Documento', subtitulo = '', etiqueta = '', obtenerUrl }) {
     inyectar();
     if (ctrl) ctrl.abort();
     if (urlActual) { URL.revokeObjectURL(urlActual); urlActual = null; }
     ultimoFoco = document.activeElement;
-    zoom = 1;
     $('vd-titulo').textContent = titulo;
     $('vd-chip').textContent = etiqueta;
     $('vd-sub').textContent = subtitulo;
-    $('vd-info').textContent = '';
     $('vd-icono').className = 'ti ti-file-text';
     $('vd-descargar').disabled = $('vd-imprimir').disabled = true;
     raiz.hidden = false;
@@ -314,8 +282,6 @@
       const cuerpo = $('vd-cuerpo');
       if (/pdf/.test(tipoActual)) {
         $('vd-icono').className = 'ti ti-file-type-pdf';
-        $('vd-info').textContent = `PDF · ${pesoLegible(blob.size)}`;
-        $('vd-zoom').hidden = true;
         cuerpo.innerHTML = '<div class="vd-hoja"></div>';
         const marco = document.createElement('iframe');
         marco.title = nombreActual;
@@ -331,17 +297,14 @@
         await img.decode().catch(() => {});
         if (miCtrl !== ctrl) return;
         $('vd-icono').className = 'ti ti-photo';
-        $('vd-info').textContent = `${img.naturalWidth} × ${img.naturalHeight} px · ${pesoLegible(blob.size)}`;
         cuerpo.innerHTML = '<div class="vd-img-marco"></div>';
         cuerpo.firstChild.appendChild(img);
         medida = { tipo: 'imagen', w: img.naturalWidth || 800, h: img.naturalHeight || 1000 };
-        $('vd-zoom').hidden = false;
         ajustar();
         $('vd-imprimir').disabled = false;
       } else {
         estado('ti-file-download', 'Este tipo de archivo no se puede mostrar aquí',
           `«${nombreActual}» se abre con su programa (por ejemplo Word). Usa el botón Descargar.`);
-        $('vd-info').textContent = pesoLegible(blob.size);
       }
     } catch (err) {
       if (err.name === 'AbortError') return;
