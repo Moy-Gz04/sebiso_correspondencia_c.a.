@@ -725,7 +725,7 @@ async function verDocSeguro(oficioId, slot) {
   const oficio = (typeof DATOS !== 'undefined' ? DATOS : []).find(o => o.id === oficioId);
   abrirVisorDocumento({
     titulo: NOMBRE_SLOT_DOC[slot] || 'Documento adicional',
-    subtitulo: oficio?.n_control ? `N. Control ${oficio.n_control}` : '',
+    etiqueta: oficio?.n_control ? `N. Control ${oficio.n_control}` : '',
     obtenerUrl: async () => {
       const res = await apiFetch(`${API}/oficios/${oficioId}/doc-token/${slot}`);
       if (!res.ok) {

@@ -242,7 +242,7 @@ async function verDocumento(id) {
   const r = HISTORIAL.find(x => x.id === id);
   abrirVisorDocumento({
     titulo: 'Documento de Rúbrica',
-    subtitulo: r?.numero ? `Oficio ${r.numero}` : '',
+    etiqueta: r?.numero ? `Oficio ${r.numero}` : '',
     obtenerUrl: async () => (await api(`/rubricas/${id}/doc-token`)).url,
   });
 }
