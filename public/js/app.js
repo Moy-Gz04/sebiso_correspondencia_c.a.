@@ -1371,6 +1371,25 @@ function crearBotonPdf(row) {
   a.className = 'btn-ver-pdf';
   const controles = (row.folios || []).join(', ');
   a.innerHTML = `<i class="ti ti-eye"></i> Ver PDF N. Control ${controles}`;
+  // Se abre en el visor de la misma página (js/visor-documento.js); el enlace
+  // a Drive se conserva por si se abre con clic central / "abrir en pestaña".
+  a.addEventListener('click', (e) => {
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    abrirVisorDocumento({
+      titulo: 'Listado PDF',
+      etiqueta: (row.folios || []).length > 1 ? `${row.folios.length} oficios` : '',
+      subtitulo: `N. Control ${controles}`,
+      obtenerUrl: async () => {
+        const r = await apiFetch(`${API}/pdfs-generados/${row.id}/token`);
+        if (!r.ok) {
+          const d = await r.json().catch(() => ({}));
+          throw new Error(d.mensaje || 'No se pudo abrir el PDF.');
+        }
+        return (await r.json()).url;
+      },
+    });
+  });
 
   wrap.appendChild(chk);
   wrap.appendChild(a);

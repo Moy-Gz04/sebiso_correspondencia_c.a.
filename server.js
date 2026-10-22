@@ -3220,6 +3220,56 @@ app.delete('/api/pdfs-generados/:id', verifyToken, async (req, res) => {
   }
 });
 
+/* ══ GET /api/pdfs-generados/:id/token ══
+   Para verlos en el visor de la página (js/visor-documento.js): mismo patrón
+   que /doc-token/:slot — un enlace de un solo propósito, válido 3 minutos,
+   que se canjea en /api/pdfs-generados-archivo/:token. ══ */
+app.get('/api/pdfs-generados/:id/token', verifyToken, async (req, res) => {
+  try {
+    const [row] = await sql`SELECT id, area FROM pdfs_generados WHERE id = ${req.params.id}`;
+    if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
+    const { rol, area } = req.user;
+    if (rol !== 'admin' && row.area !== area) return res.status(403).json({ mensaje: 'Sin acceso.' });
+    const token = jwt.sign({ propósito: 'pdf_generado', pdfId: row.id }, process.env.JWT_SECRET, { expiresIn: '3m' });
+    res.json({ url: `/api/pdfs-generados-archivo/${token}` });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo generar el enlace del PDF.');
+  }
+});
+
+/* ══ GET /api/pdfs-generados-archivo/:token ══
+   Entrega el PDF desde Drive (el servidor lo pide; el archivo es privado),
+   igual que /api/docs/:token. Si Drive no responde, redirige al enlace. ══ */
+app.get('/api/pdfs-generados-archivo/:token', async (req, res) => {
+  try {
+    let payload;
+    try { payload = jwt.verify(req.params.token, process.env.JWT_SECRET); }
+    catch { return res.status(401).send('Enlace inválido o expirado.'); }
+    if (payload?.propósito !== 'pdf_generado') return res.status(401).send('Enlace inválido.');
+
+    const [row] = await sql`SELECT * FROM pdfs_generados WHERE id = ${payload.pdfId}`;
+    if (!row) return res.status(404).send('No encontrado.');
+    const fileId = row.file_id || idArchivoDrive(row.url || '');
+    if (fileId && await enviarDesdeDrive(res, fileId)) return;
+    if (fileId) {
+      try {
+        const doc = await llamarAppsScript({ action: 'obtenerDocumento', fileId }, { intentos: 2, timeoutMs: 45000 });
+        const nombre = String(doc.nombre || 'listado.pdf').replace(/["\r\n]/g, '');
+        res.set('Content-Type', doc.mimeType || 'application/pdf');
+        res.set('Content-Disposition', `inline; filename="${nombre.replace(/[^\x20-\x7E]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(nombre)}`);
+        res.set('Cache-Control', 'private, no-store');
+        return res.send(Buffer.from(doc.contenidoBase64, 'base64'));
+      } catch (errDrive) {
+        console.warn(`⚠️  No se pudo entregar el PDF generado desde Drive (${errDrive.message}); se redirige al enlace.`);
+      }
+    }
+    if (row.url) return res.redirect(302, row.url);
+    res.status(404).send('PDF no disponible.');
+  } catch (err) {
+    manejarError(res, err, 'No se pudo abrir el PDF.');
+  }
+});
+
 /* ══ GET /api/pdfs-generados ══ */
 app.get('/api/pdfs-generados', verifyToken, async (req, res) => {
   try {
