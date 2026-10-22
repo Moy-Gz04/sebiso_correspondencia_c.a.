@@ -236,20 +236,15 @@ async function cargarHistorial() {
   }
 }
 
-/* Abre el documento en otra pestaña (como en la tabla de Salas). La pestaña
-   se abre al instante, dentro del clic, para que el navegador no la bloquee. */
-async function verDocumento(id, btn) {
-  const pestaña = window.open('', '_blank');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2 girando"></i> Abriendo…'; }
-  try {
-    const { url } = await api(`/rubricas/${id}/doc-token`);
-    if (pestaña) pestaña.location.href = url; else window.location.href = url;
-  } catch (e) {
-    if (pestaña) pestaña.close();
-    window.alert(e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-file-description"></i> Ver documento'; }
-  }
+/* Abre el documento en el visor de la misma página (js/visor-documento.js),
+   con botones de Descargar e Imprimir. */
+async function verDocumento(id) {
+  const r = HISTORIAL.find(x => x.id === id);
+  abrirVisorDocumento({
+    titulo: 'Documento de Rúbrica',
+    subtitulo: r?.numero ? `Oficio ${r.numero}` : '',
+    obtenerUrl: async () => (await api(`/rubricas/${id}/doc-token`)).url,
+  });
 }
 window.verDocumento = verDocumento;
 

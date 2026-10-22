@@ -718,22 +718,23 @@ function vigilarDocsPendientes() {
   }, 7000);
 }
 
+/* Abre el documento en el visor de la misma página (js/visor-documento.js),
+   al centro de la pantalla y con botones de Descargar e Imprimir. */
+const NOMBRE_SLOT_DOC = { doc1: 'Documento del registro', doc2: 'Documento del registro', doc3: 'Turno', doc4: 'Seguimiento' };
 async function verDocSeguro(oficioId, slot) {
-  const nuevaVentana = window.open('', '_blank');
-  // Pantalla de carga con barra de avance mientras baja el archivo (js/carga-documento.js)
-  const carga = iniciarCargaDocumento(nuevaVentana);
-  try {
-    const res = await apiFetch(`${API}/oficios/${oficioId}/doc-token/${slot}`);
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.mensaje || 'No se pudo abrir el documento.');
-    }
-    const { url } = await res.json();
-    await carga.abrir(url);
-  } catch (err) {
-    carga.cancelar();
-    await sbisAlert({ titulo: 'Error', mensaje: err.message || 'No se pudo abrir el documento.', tipo: 'error' });
-  }
+  const oficio = (typeof DATOS !== 'undefined' ? DATOS : []).find(o => o.id === oficioId);
+  abrirVisorDocumento({
+    titulo: NOMBRE_SLOT_DOC[slot] || 'Documento adicional',
+    subtitulo: oficio?.n_control ? `N. Control ${oficio.n_control}` : '',
+    obtenerUrl: async () => {
+      const res = await apiFetch(`${API}/oficios/${oficioId}/doc-token/${slot}`);
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.mensaje || 'No se pudo abrir el documento.');
+      }
+      return (await res.json()).url;
+    },
+  });
 }
 
 function formatFecha(iso) {
