@@ -54,7 +54,13 @@ const sqlFotos = process.env.DATABASE_URL_FOTOS ? neon(process.env.DATABASE_URL_
    Migración mínima e idempotente: las filas existentes quedan como 'oficio'. */
 const ESQUEMA_FOTOS_LISTO = sqlFotos`
   ALTER TABLE oficios_pendientes_ia ADD COLUMN IF NOT EXISTS tipo VARCHAR(20) NOT NULL DEFAULT 'oficio'`
-  .catch(err => console.error('⚠️  No se pudo asegurar la columna tipo de oficios_pendientes_ia:', err.message));
+  /* Un registro puede llevar una SEGUNDA foto (2ª hoja del mismo oficio). Columnas opcionales:
+     las filas existentes quedan con una sola hoja. */
+  .then(() => sqlFotos`
+    ALTER TABLE oficios_pendientes_ia
+      ADD COLUMN IF NOT EXISTS imagen2 BYTEA,
+      ADD COLUMN IF NOT EXISTS imagen2_mime VARCHAR(60)`)
+  .catch(err => console.error('⚠️  No se pudo asegurar las columnas tipo/imagen2 de oficios_pendientes_ia:', err.message));
 
 /* La app corre detrás del proxy de Render (u otro similar): sin esto,
    express-rate-limit y cualquier lógica basada en IP ven siempre la IP
@@ -705,7 +711,9 @@ function normalizarExtraccionSala(p) {
   };
 }
 
-async function extraerDatosOficioDeImagen(base64, mimeType, tipo = 'oficio') {
+/* "extras": hojas adicionales del MISMO documento ([{ base64, mimeType }]); viajan en la misma
+   petición para que la IA lea el oficio completo (p. ej. la firma suele quedar en la 2ª hoja). */
+async function extraerDatosOficioDeImagen(base64, mimeType, tipo = 'oficio', extras = []) {
   const promptOficio = `Eres un asistente que ayuda a digitalizar correspondencia oficial de gobierno en México.
 
 Te voy a dar la foto de un oficio (documento físico, puede estar inclinado, con sombras, escrito a mano o a máquina). Léelo con cuidado y extrae SOLO estos datos, en este formato JSON exacto:
@@ -727,7 +735,10 @@ Reglas estrictas:
   const promptTurno = promptOficio.replace(
     '  "descripcion":',
     '  "turno": "junto al sello de recibido (o muy cerca) viene escrito, normalmente a mano, un número de Turno con formato T- seguido de dígitos (ej. T-6026). Escribe SOLO los dígitos (ej. 6026), o cadena vacía si no se alcanza a leer. No inventes dígitos",\n  "descripcion":');
-  const prompt = tipo === 'sala' ? construirPromptSala() : tipo === 'turno' ? promptTurno : promptOficio;
+  const promptBase = tipo === 'sala' ? construirPromptSala() : tipo === 'turno' ? promptTurno : promptOficio;
+  const prompt = extras.length
+    ? `${promptBase}\n\nIMPORTANTE: te doy ${extras.length + 1} fotos, en orden. Son las hojas de UN MISMO documento (hoja 1, hoja 2…). Léelas juntas y devuelve UN solo JSON con los datos del documento completo (la firma y el cargo suelen venir en la última hoja).`
+    : promptBase;
 
   // Varios modelos en rotación, no solo dos: cada uno tiene su propia
   // cuota/disponibilidad en Google, así que cuando uno está caído (503
@@ -774,6 +785,7 @@ Reglas estrictas:
               parts: [
                 { text: prompt },
                 { inline_data: { mime_type: mimeType, data: base64 } },
+                ...extras.map(h => ({ inline_data: { mime_type: h.mimeType, data: h.base64 } })),
               ],
             }],
             generationConfig: {
@@ -831,9 +843,9 @@ Reglas estrictas:
 
 /* Procesa un registro pendiente: llama a Gemini Vision y actualiza su
    estado. */
-async function procesarRegistroPendienteIA(id, base64, mimeType, tipo = 'oficio') {
+async function procesarRegistroPendienteIA(id, base64, mimeType, tipo = 'oficio', extras = []) {
   try {
-    const datos = await extraerDatosOficioDeImagen(base64, mimeType, tipo);
+    const datos = await extraerDatosOficioDeImagen(base64, mimeType, tipo, extras);
     await sqlFotos`
       UPDATE oficios_pendientes_ia
       SET estado = 'listo', datos_json = ${JSON.stringify(datos)}::jsonb
@@ -858,8 +870,8 @@ async function procesarRegistroPendienteIA(id, base64, mimeType, tipo = 'oficio'
 const COLA_PENDIENTES_IA = [];
 let procesandoColaIA = false;
 
-function encolarRegistroPendienteIA(id, base64, mimeType, tipo = 'oficio') {
-  COLA_PENDIENTES_IA.push({ id, base64, mimeType, tipo });
+function encolarRegistroPendienteIA(id, base64, mimeType, tipo = 'oficio', extras = []) {
+  COLA_PENDIENTES_IA.push({ id, base64, mimeType, tipo, extras });
   if (!procesandoColaIA) procesarColaIA();
 }
 
@@ -867,7 +879,7 @@ async function procesarColaIA() {
   procesandoColaIA = true;
   let item;
   while ((item = COLA_PENDIENTES_IA.shift())) {
-    await procesarRegistroPendienteIA(item.id, item.base64, item.mimeType, item.tipo);
+    await procesarRegistroPendienteIA(item.id, item.base64, item.mimeType, item.tipo, item.extras);
   }
   procesandoColaIA = false;
 }
@@ -1951,25 +1963,29 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
    opcional por si un navegador viejo no soporta canvas.toBlob: en ese
    caso simplemente no hay miniatura y se sirve la imagen completa. */
 app.post('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin,
-  upload.fields([{ name: 'imagen', maxCount: 1 }, { name: 'imagen_thumb', maxCount: 1 }]),
+  upload.fields([{ name: 'imagen', maxCount: 1 }, { name: 'imagen2', maxCount: 1 }, { name: 'imagen_thumb', maxCount: 1 }]),
   async (req, res) => {
   try {
     const archivoImagen = req.files?.imagen?.[0];
+    // 2ª hoja del mismo oficio (opcional)
+    const archivoImagen2 = req.files?.imagen2?.[0] || null;
     if (!archivoImagen) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
     const archivoThumb = req.files?.imagen_thumb?.[0];
     const tipo = req.body?.tipo === 'sala' ? 'sala' : 'oficio';
     await ESQUEMA_FOTOS_LISTO;
 
     const [nuevo] = await sqlFotos`
-      INSERT INTO oficios_pendientes_ia (imagen, imagen_mime, imagen_thumb, creado_por, tipo)
-      VALUES (${archivoImagen.buffer}, ${archivoImagen.mimetype}, ${archivoThumb?.buffer ?? null}, ${req.user.username}, ${tipo})
+      INSERT INTO oficios_pendientes_ia (imagen, imagen_mime, imagen2, imagen2_mime, imagen_thumb, creado_por, tipo)
+      VALUES (${archivoImagen.buffer}, ${archivoImagen.mimetype}, ${archivoImagen2?.buffer ?? null}, ${archivoImagen2?.mimetype ?? null},
+              ${archivoThumb?.buffer ?? null}, ${req.user.username}, ${tipo})
       RETURNING id, estado, creado_en`;
 
     // Se encola (no se procesa directo) para que, si llegan varias fotos
     // casi juntas, no se disparen todas a la vez contra Gemini — quien
     // tomó la foto no espera de todos modos, la cola corre en segundo
     // plano.
-    encolarRegistroPendienteIA(nuevo.id, archivoImagen.buffer.toString('base64'), archivoImagen.mimetype, tipo);
+    const extras = archivoImagen2 ? [{ base64: archivoImagen2.buffer.toString('base64'), mimeType: archivoImagen2.mimetype }] : [];
+    encolarRegistroPendienteIA(nuevo.id, archivoImagen.buffer.toString('base64'), archivoImagen.mimetype, tipo, extras);
 
     res.status(201).json({ id: nuevo.id, estado: nuevo.estado, creado_en: nuevo.creado_en });
   } catch (err) {
@@ -1993,7 +2009,8 @@ app.get('/api/oficios/pendientes', verifyToken, onlyCoordOrAdmin, async (req, re
     await ESQUEMA_FOTOS_LISTO;
     const rows = await sqlFotos`
       SELECT id, estado, datos_json, error_mensaje, creado_por, creado_en,
-             (imagen_thumb IS NOT NULL) AS tiene_miniatura
+             (imagen_thumb IS NOT NULL) AS tiene_miniatura,
+             CASE WHEN imagen2 IS NOT NULL THEN 2 ELSE 1 END AS hojas
       FROM oficios_pendientes_ia
       WHERE usado = FALSE AND tipo = ${tipo} AND creado_en > NOW() - INTERVAL '3 days'
       ORDER BY creado_en DESC`;
@@ -2030,8 +2047,9 @@ app.get('/api/oficios/pendientes/:id/imagen-token', verifyToken, onlyCoordOrAdmi
     // completa, para la vista previa al pasar el cursor). Por defecto
     // "full" para no romper a nadie que no mande el parámetro.
     const tipo = req.query.tipo === 'mini' ? 'mini' : 'full';
+    const hoja = req.query.hoja === '2' ? 2 : 1;   // 2ª hoja del mismo oficio
     const token = jwt.sign(
-      { propósito: 'imagen_pendiente', pendienteId: row.id, tipo },
+      { propósito: 'imagen_pendiente', pendienteId: row.id, tipo, hoja },
       process.env.JWT_SECRET,
       { expiresIn: '30m' }
     );
@@ -2076,6 +2094,20 @@ app.get('/api/pendientes-imagen/:token', async (req, res) => {
       }
     }
 
+    if (payload.hoja === 2) {
+      const clave2 = `${pid}:2`;
+      let foto2 = CACHE_FOTOS.get(clave2);
+      if (!foto2) {
+        const [r2] = await sqlFotos`SELECT imagen2, imagen2_mime FROM oficios_pendientes_ia WHERE id = ${pid}`;
+        if (!r2?.imagen2) return res.status(404).end();
+        foto2 = { imagen: r2.imagen2, imagen_mime: r2.imagen2_mime || 'image/jpeg' };
+        guardarEnCacheLimitada(CACHE_FOTOS, CACHE_FOTOS_MAX, clave2, foto2);
+      }
+      res.set('Content-Type', foto2.imagen_mime);
+      res.set('Cache-Control', 'private, max-age=1800');
+      return res.send(foto2.imagen);
+    }
+
     let foto = CACHE_FOTOS.get(pid);
     if (!foto) {
       const [row] = await sqlFotos`SELECT imagen, imagen_mime FROM oficios_pendientes_ia WHERE id = ${pid}`;
@@ -2096,12 +2128,14 @@ app.get('/api/pendientes-imagen/:token', async (req, res) => {
    falló por una caída pasajera. ══ */
 app.post('/api/oficios/pendientes/:id/reintentar', verifyToken, onlyCoordOrAdmin, async (req, res) => {
   try {
-    const [row] = await sqlFotos`SELECT imagen, imagen_mime, tipo FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
+    await ESQUEMA_FOTOS_LISTO;
+    const [row] = await sqlFotos`SELECT imagen, imagen_mime, imagen2, imagen2_mime, tipo FROM oficios_pendientes_ia WHERE id = ${req.params.id}`;
     if (!row) return res.status(404).json({ mensaje: 'No encontrado.' });
 
     await sqlFotos`UPDATE oficios_pendientes_ia SET estado = 'procesando', error_mensaje = NULL WHERE id = ${req.params.id}`;
 
-    encolarRegistroPendienteIA(req.params.id, row.imagen.toString('base64'), row.imagen_mime, row.tipo || 'oficio');
+    const extras = row.imagen2 ? [{ base64: row.imagen2.toString('base64'), mimeType: row.imagen2_mime || 'image/jpeg' }] : [];
+    encolarRegistroPendienteIA(req.params.id, row.imagen.toString('base64'), row.imagen_mime, row.tipo || 'oficio', extras);
 
     res.json({ ok: true, estado: 'procesando' });
   } catch (err) {
@@ -2118,6 +2152,7 @@ app.delete('/api/oficios/pendientes/:id', verifyToken, onlyCoordOrAdmin, async (
     if (!rows[0]) return res.status(404).json({ mensaje: 'No encontrado.' });
     CACHE_MINIATURAS.delete(rows[0].id);
     CACHE_FOTOS.delete(rows[0].id);
+    CACHE_FOTOS.delete(`${rows[0].id}:2`);
     res.json({ ok: true });
   } catch (err) {
     manejarError(res, err, 'No se pudo eliminar el registro pendiente.');
@@ -2223,6 +2258,7 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
         await sqlFotos`DELETE FROM oficios_pendientes_ia WHERE id = ${idFoto}`;
         CACHE_MINIATURAS.delete(idFoto);
         CACHE_FOTOS.delete(idFoto);
+        CACHE_FOTOS.delete(`${idFoto}:2`);
       } catch (err) { console.error('No se pudo quitar la foto usada', idFoto, err.message); }
     }
     res.status(201).json(sanitizarOficio(nuevo));

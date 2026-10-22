@@ -47,24 +47,80 @@ function cerrarSesion() {
   window.location.href = '/login';
 }
 
-let ARCHIVO_SELECCIONADO = null;
+/* Un registro puede llevar hasta 2 fotos: las hojas del MISMO oficio (p. ej.
+   cuando la firma queda en la segunda hoja). Viajan juntas y la IA las lee
+   como un solo documento. Salas siempre usa una sola foto. */
+const MAX_HOJAS = TIPO === 'oficio' ? 2 : 1;
+let ARCHIVOS = [];
 
 function mostrarZonaCaptura() {
   document.getElementById('cm-captura-zona').style.display = 'flex';
   document.getElementById('cm-preview').classList.remove('visible');
   document.getElementById('cm-error-msg').classList.remove('visible');
   document.getElementById('input-foto').value = '';
-  ARCHIVO_SELECCIONADO = null;
+  const btnEscanear = document.getElementById('btn-escanear');
+  if (btnEscanear && btnEscanear.dataset.disponible) btnEscanear.style.display = 'flex';
+  ARCHIVOS = [];
+  pintarHojas();
+}
+
+/* Abre la cámara (escáner en vivo si está disponible, si no la cámara normal) */
+function tomarFoto() {
+  if (window.EscanerDoc && EscanerDoc.soportado()) {
+    EscanerDoc.abrir({ onListo: (archivo) => mostrarPreview(archivo) });
+  } else {
+    document.getElementById('input-foto').click();
+  }
 }
 
 function mostrarPreview(archivo) {
-  ARCHIVO_SELECCIONADO = archivo;
+  if (ARCHIVOS.length >= MAX_HOJAS) return;
+  ARCHIVOS.push(archivo);
   document.getElementById('cm-captura-zona').style.display = 'none';
+  const btnEscanear = document.getElementById('btn-escanear');
+  if (btnEscanear) btnEscanear.style.display = 'none';
   document.getElementById('cm-preview').classList.add('visible');
-  const img = document.getElementById('cm-preview-img');
-  const url = URL.createObjectURL(archivo);
-  img.src = url;
-  img.onload = () => URL.revokeObjectURL(url);
+  document.getElementById('input-foto').value = '';
+  pintarHojas();
+}
+
+function quitarHoja(i) {
+  ARCHIVOS.splice(i, 1);
+  if (!ARCHIVOS.length) { mostrarZonaCaptura(); return; }
+  pintarHojas();
+}
+
+function pintarHojas() {
+  const cont = document.getElementById('cm-hojas');
+  if (!cont) return;
+  cont.querySelectorAll('img').forEach(im => im.src && URL.revokeObjectURL(im.src));
+  cont.innerHTML = '';
+  cont.classList.toggle('dos', ARCHIVOS.length > 1 || (ARCHIVOS.length === 1 && MAX_HOJAS > 1));
+  ARCHIVOS.forEach((archivo, i) => {
+    const fig = document.createElement('figure');
+    fig.className = 'cm-hoja';
+    const img = document.createElement('img');
+    img.alt = `Hoja ${i + 1}`;
+    img.src = URL.createObjectURL(archivo);
+    const pie = document.createElement('figcaption');
+    pie.textContent = MAX_HOJAS > 1 ? `Hoja ${i + 1}` : '';
+    const quitar = document.createElement('button');
+    quitar.type = 'button'; quitar.className = 'cm-hoja-quitar';
+    quitar.setAttribute('aria-label', `Quitar hoja ${i + 1}`);
+    quitar.innerHTML = '<i class="ti ti-x"></i>';
+    quitar.addEventListener('click', () => quitarHoja(i));
+    fig.append(img, pie, quitar);
+    cont.appendChild(fig);
+  });
+  if (ARCHIVOS.length && ARCHIVOS.length < MAX_HOJAS) {
+    const agregar = document.createElement('button');
+    agregar.type = 'button'; agregar.className = 'cm-hoja-agregar';
+    agregar.innerHTML = '<i class="ti ti-camera-plus"></i><strong>Agregar 2ª hoja</strong><span>Opcional · mismo oficio</span>';
+    agregar.addEventListener('click', tomarFoto);
+    cont.appendChild(agregar);
+  }
+  const btn = document.getElementById('btn-enviar-foto');
+  if (btn && !btn.disabled) btn.innerHTML = `<i class="ti ti-send"></i> ${ARCHIVOS.length > 1 ? 'Enviar 2 hojas' : 'Enviar'}`;
 }
 
 /* Redimensiona/recomprime una foto con <canvas> — se usa tanto para
@@ -99,8 +155,17 @@ function redimensionarImagen(archivo, dimensionMaxima, calidad) {
   });
 }
 
+/* Achica la foto a 1800px (de sobra para que Gemini lea el texto). Si algo
+   falla (navegador viejo, formato raro) se sube el original tal cual. */
+async function prepararHoja(archivo, nombre) {
+  try {
+    const foto = await redimensionarImagen(archivo, 1800, 0.85);
+    return new File([foto], nombre, { type: 'image/jpeg' });
+  } catch { return archivo; }
+}
+
 async function enviarFoto() {
-  if (!ARCHIVO_SELECCIONADO) return;
+  if (!ARCHIVOS.length) return;
   const btn = document.getElementById('btn-enviar-foto');
   const errMsg = document.getElementById('cm-error-msg');
   errMsg.classList.remove('visible');
@@ -115,19 +180,19 @@ async function enviarFoto() {
     // cual salen de la cámara. Si algo falla al procesarla (navegador
     // viejo, formato raro), se sube el archivo original tal cual —
     // nunca se bloquea el envío por esto.
-    let archivoParaSubir = ARCHIVO_SELECCIONADO;
-    try {
-      const foto = await redimensionarImagen(ARCHIVO_SELECCIONADO, 1800, 0.85);
-      archivoParaSubir = new File([foto], 'foto.jpg', { type: 'image/jpeg' });
-    } catch { /* se sube el original */ }
-    fd.append('imagen', archivoParaSubir, archivoParaSubir.name || 'foto.jpg');
+    const hoja1 = await prepararHoja(ARCHIVOS[0], 'foto.jpg');
+    fd.append('imagen', hoja1, hoja1.name || 'foto.jpg');
+    if (ARCHIVOS[1]) {
+      const hoja2 = await prepararHoja(ARCHIVOS[1], 'foto-hoja2.jpg');
+      fd.append('imagen2', hoja2, hoja2.name || 'foto-hoja2.jpg');
+    }
     fd.append('tipo', TIPO);
 
     // Miniatura (~240px) para la lista de pendientes — opcional, si
     // falla simplemente no se manda y el servidor cae de vuelta a
     // mostrar la imagen completa donde se necesite.
     try {
-      const mini = await redimensionarImagen(ARCHIVO_SELECCIONADO, 240, 0.7);
+      const mini = await redimensionarImagen(ARCHIVOS[0], 240, 0.7);
       fd.append('imagen_thumb', mini, 'miniatura.jpg');
     } catch { /* sin miniatura, no es crítico */ }
 
@@ -150,7 +215,7 @@ async function enviarFoto() {
     errMsg.classList.add('visible');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-send"></i> Enviar';
+    btn.innerHTML = `<i class="ti ti-send"></i> ${ARCHIVOS.length > 1 ? 'Enviar 2 hojas' : 'Enviar'}`;
   }
 }
 
@@ -189,7 +254,7 @@ async function cargarRecientes() {
       <div class="cm-item-reciente">
         <img src="${p.miniatura || ''}" alt=""/>
         <div class="cm-item-info">
-          <span class="cm-item-estado e-${p.estado}">${ETIQUETA_ESTADO[p.estado] || p.estado}</span>
+          <span class="cm-item-estado e-${p.estado}">${ETIQUETA_ESTADO[p.estado] || p.estado}${p.hojas > 1 ? ' · 2 hojas' : ''}</span>
           <span class="cm-item-hora">${tiempoRelativo(p.creado_en)}</span>
         </div>
       </div>`).join('');
@@ -223,9 +288,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnEscanear = document.getElementById('btn-escanear');
   if (btnEscanear && window.EscanerDoc && EscanerDoc.soportado()) {
     btnEscanear.style.display = 'flex';
+    btnEscanear.dataset.disponible = '1';
     btnEscanear.addEventListener('click', () => EscanerDoc.abrir({ onListo: (archivo) => mostrarPreview(archivo) }));
   }
   document.getElementById('btn-cambiar-foto').addEventListener('click', mostrarZonaCaptura);
+  if (MAX_HOJAS > 1) {
+    const zona = document.querySelector('#cm-captura-zona span');
+    if (zona) zona.textContent = 'Toca aquí para abrir la cámara · si el oficio tiene 2 hojas, después podrás agregar la segunda';
+  }
   document.getElementById('btn-enviar-foto').addEventListener('click', enviarFoto);
 
   cargarRecientes();

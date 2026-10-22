@@ -502,7 +502,7 @@ async function enviarForm(e) {
     let doc3EnProceso = null;
     if (PENDIENTE_SELECCIONADO_ID && DOC3_AUTO_PROMISE) {
       if (DOC3_AUTO_LISTO) {
-        if (DOC3_AUTO_BLOB) fd.append('doc3', DOC3_AUTO_BLOB, 'oficio-escaneado.jpg');
+        if (DOC3_AUTO_BLOB) fd.append('doc3', DOC3_AUTO_BLOB, nombreEscaneo(DOC3_AUTO_BLOB));
       } else {
         fd.append('doc3_pendiente', '1');
         doc3EnProceso = DOC3_AUTO_PROMISE;
@@ -530,7 +530,7 @@ async function enviarForm(e) {
     const subidaDoc3 = doc3EnProceso
       ? doc3EnProceso.then(b => b || null, () => null).then(async (blob) => {
           const f = new FormData();
-          if (blob) f.append('doc3', blob, 'oficio-escaneado.jpg');
+          if (blob) f.append('doc3', blob, nombreEscaneo(blob));
           try {
             await fetch(`${API}/oficios/${data.id}/doc3-diferido`, {
               method: 'POST', body: f, headers: { 'Authorization': `Bearer ${TOKEN}` }
@@ -810,11 +810,11 @@ function tiempoRelativo(fechaISO) {
    "full" (foto completa, solo se pide al pasar el cursor encima). */
 const URLS_IMAGEN_PENDIENTE = {};
 
-async function obtenerUrlImagenPendiente(id, tipo = 'mini') {
-  const clave = `${id}:${tipo}`;
+async function obtenerUrlImagenPendiente(id, tipo = 'mini', hoja = 1) {
+  const clave = `${id}:${tipo}:${hoja}`;
   if (URLS_IMAGEN_PENDIENTE[clave]) return URLS_IMAGEN_PENDIENTE[clave];
   try {
-    const res = await fetch(`${API}/oficios/pendientes/${id}/imagen-token?tipo=${tipo}`, {
+    const res = await fetch(`${API}/oficios/pendientes/${id}/imagen-token?tipo=${tipo}&hoja=${hoja}`, {
       headers: { 'Authorization': `Bearer ${TOKEN}` },
     });
     if (!res.ok) return '';
@@ -900,6 +900,7 @@ function pintarPendientesIA() {
         <img class="tpi-thumb" src="${p.miniatura || ''}" loading="lazy" alt="Foto del oficio"
              onmouseenter="mostrarPreviewImagenCompleta(${p.id})" onmouseleave="ocultarPreviewImagen()"/>
         ${overlay}
+        ${p.hojas > 1 ? '<span class="tpi-hojas" title="Este registro trae 2 fotos (hojas del mismo oficio)"><i class="ti ti-files"></i> 2 hojas</span>' : ''}
         ${badge}
       </div>`;
   }).join('');
@@ -1105,79 +1106,121 @@ function detectarYEnderezarHoja(cv, canvasOrigen) {
       parejo.
    Devuelve un Blob JPEG, o null si algo falla (nunca debe bloquear el
    guardado del registro). */
+const nombreEscaneo = (blob) => blob?.type === 'application/pdf' ? 'oficio-escaneado.pdf' : 'oficio-escaneado.jpg';
+
+/* Procesa UNA hoja (foto completa) y devuelve el <canvas> ya con aspecto de escaneo. */
+async function escanearHoja(url) {
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error('No se pudo cargar la imagen.'));
+    im.src = url;
+  });
+
+  const DIMENSION_MAXIMA = 2000;
+  let { naturalWidth: w, naturalHeight: h } = img;
+  if (w > DIMENSION_MAXIMA || h > DIMENSION_MAXIMA) {
+    const escala = DIMENSION_MAXIMA / Math.max(w, h);
+    w = Math.round(w * escala);
+    h = Math.round(h * escala);
+  }
+
+  const canvasBase = document.createElement('canvas');
+  canvasBase.width = w;
+  canvasBase.height = h;
+  canvasBase.getContext('2d').drawImage(img, 0, 0, w, h);
+
+  // Corrección de perspectiva (mejor esfuerzo): si OpenCV no carga a
+  // tiempo o no detecta una hoja clara, se sigue con canvasBase tal
+  // cual — nunca bloquea ni arriesga un recorte equivocado.
+  let canvasTrabajo = canvasBase;
+  try {
+    const cv = await obtenerCV();
+    const enderezado = detectarYEnderezarHoja(cv, canvasBase);
+    if (enderezado) canvasTrabajo = enderezado;
+  } catch (err) {
+    console.warn('⚠️  Corrección de perspectiva no disponible, se usa la foto tal cual:', err.message);
+  }
+
+  const ctx = canvasTrabajo.getContext('2d');
+  const w2 = canvasTrabajo.width, h2 = canvasTrabajo.height;
+  const datos = ctx.getImageData(0, 0, w2, h2);
+  const px = datos.data;
+  const total = w2 * h2;
+
+  // Escala de grises (luminancia perceptual) + histograma, en un solo
+  // recorrido.
+  const gris = new Uint8ClampedArray(total);
+  const histograma = new Uint32Array(256);
+  for (let i = 0, p = 0; i < total; i++, p += 4) {
+    const g = 0.299 * px[p] + 0.587 * px[p + 1] + 0.114 * px[p + 2];
+    gris[i] = g;
+    histograma[g | 0]++;
+  }
+
+  // "Auto-niveles": se recortan el 1% más oscuro y el 1% más claro
+  // (sombras/brillos raros de una foto de celular) y se estira el
+  // resto a 0-255, tal como hace un escáner al ajustar la lectura.
+  const recorte = total * 0.01;
+  let acumulado = 0, lo = 0;
+  for (; lo < 255; lo++) { acumulado += histograma[lo]; if (acumulado > recorte) break; }
+  acumulado = 0;
+  let hi = 255;
+  for (; hi > 0; hi--) { acumulado += histograma[hi]; if (acumulado > recorte) break; }
+  if (hi <= lo) { lo = 0; hi = 255; } // imagen casi plana: no se toca
+
+  const rango = hi - lo || 1;
+  for (let i = 0, p = 0; i < total; i++, p += 4) {
+    const v = Math.min(255, Math.max(0, ((gris[i] - lo) / rango) * 255));
+    px[p] = px[p + 1] = px[p + 2] = v;
+  }
+
+  ctx.putImageData(datos, 0, 0);
+  return canvasTrabajo;
+}
+
+/* Une las hojas ya escaneadas en un PDF tamaño carta, una hoja por página. */
+function hojasAPdf(canvases) {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
+  const anchoPag = pdf.internal.pageSize.getWidth(), altoPag = pdf.internal.pageSize.getHeight();
+  canvases.forEach((c, i) => {
+    if (i) pdf.addPage('letter');
+    const escala = Math.min(anchoPag / c.width, altoPag / c.height);
+    const w = c.width * escala, h = c.height * escala;
+    pdf.addImage(c.toDataURL('image/jpeg', 0.85), 'JPEG', (anchoPag - w) / 2, (altoPag - h) / 2, w, h);
+  });
+  return pdf.output('blob');
+}
+
+/* Toma la(s) foto(s) COMPLETA(s) de un pendiente y las procesa para que se
+   vean como un documento escaneado en impresora en vez de una foto de
+   celular:
+   1) Detecta los bordes de la hoja y corrige la perspectiva (endereza
+      el ángulo y recorta el fondo) con OpenCV.js — si no encuentra una
+      hoja clara, sigue con la foto completa tal cual venía.
+   2) Escala de grises con contraste ajustado automáticamente
+      ("auto-niveles", igual que hace un escáner/copiadora al leer un
+      documento), para que el texto se lea nítido y el fondo salga
+      parejo.
+   Con una hoja devuelve un JPEG (como siempre); con dos hojas, un PDF de
+   2 páginas (o, si el PDF no se pudo armar, solo la primera hoja en JPEG).
+   Devuelve null si algo falla (nunca debe bloquear el guardado). */
 async function generarDocumentoEscaneado(id) {
   try {
-    const url = await obtenerUrlImagenPendiente(id, 'full');
-    if (!url) return null;
-
-    const img = await new Promise((resolve, reject) => {
-      const im = new Image();
-      im.onload = () => resolve(im);
-      im.onerror = () => reject(new Error('No se pudo cargar la imagen.'));
-      im.src = url;
-    });
-
-    const DIMENSION_MAXIMA = 2000;
-    let { naturalWidth: w, naturalHeight: h } = img;
-    if (w > DIMENSION_MAXIMA || h > DIMENSION_MAXIMA) {
-      const escala = DIMENSION_MAXIMA / Math.max(w, h);
-      w = Math.round(w * escala);
-      h = Math.round(h * escala);
+    const p = PENDIENTES_IA.find(x => x.id === id);
+    const numHojas = p?.hojas > 1 ? 2 : 1;
+    const canvases = [];
+    for (let hoja = 1; hoja <= numHojas; hoja++) {
+      const url = await obtenerUrlImagenPendiente(id, 'full', hoja);
+      if (!url) { if (hoja === 1) return null; break; }
+      canvases.push(await escanearHoja(url));
     }
-
-    const canvasBase = document.createElement('canvas');
-    canvasBase.width = w;
-    canvasBase.height = h;
-    canvasBase.getContext('2d').drawImage(img, 0, 0, w, h);
-
-    // Corrección de perspectiva (mejor esfuerzo): si OpenCV no carga a
-    // tiempo o no detecta una hoja clara, se sigue con canvasBase tal
-    // cual — nunca bloquea ni arriesga un recorte equivocado.
-    let canvasTrabajo = canvasBase;
-    try {
-      const cv = await obtenerCV();
-      const enderezado = detectarYEnderezarHoja(cv, canvasBase);
-      if (enderezado) canvasTrabajo = enderezado;
-    } catch (err) {
-      console.warn('⚠️  Corrección de perspectiva no disponible, se usa la foto tal cual:', err.message);
+    if (canvases.length > 1 && window.jspdf) {
+      try { return hojasAPdf(canvases); }
+      catch (err) { console.error('⚠️  No se pudo armar el PDF de 2 hojas, se usa solo la primera:', err.message); }
     }
-
-    const ctx = canvasTrabajo.getContext('2d');
-    const w2 = canvasTrabajo.width, h2 = canvasTrabajo.height;
-    const datos = ctx.getImageData(0, 0, w2, h2);
-    const px = datos.data;
-    const total = w2 * h2;
-
-    // Escala de grises (luminancia perceptual) + histograma, en un solo
-    // recorrido.
-    const gris = new Uint8ClampedArray(total);
-    const histograma = new Uint32Array(256);
-    for (let i = 0, p = 0; i < total; i++, p += 4) {
-      const g = 0.299 * px[p] + 0.587 * px[p + 1] + 0.114 * px[p + 2];
-      gris[i] = g;
-      histograma[g | 0]++;
-    }
-
-    // "Auto-niveles": se recortan el 1% más oscuro y el 1% más claro
-    // (sombras/brillos raros de una foto de celular) y se estira el
-    // resto a 0-255, tal como hace un escáner al ajustar la lectura.
-    const recorte = total * 0.01;
-    let acumulado = 0, lo = 0;
-    for (; lo < 255; lo++) { acumulado += histograma[lo]; if (acumulado > recorte) break; }
-    acumulado = 0;
-    let hi = 255;
-    for (; hi > 0; hi--) { acumulado += histograma[hi]; if (acumulado > recorte) break; }
-    if (hi <= lo) { lo = 0; hi = 255; } // imagen casi plana: no se toca
-
-    const rango = hi - lo || 1;
-    for (let i = 0, p = 0; i < total; i++, p += 4) {
-      const v = Math.min(255, Math.max(0, ((gris[i] - lo) / rango) * 255));
-      px[p] = px[p + 1] = px[p + 2] = v;
-    }
-
-    ctx.putImageData(datos, 0, 0);
-
-    return await new Promise(resolve => canvasTrabajo.toBlob(resolve, 'image/jpeg', 0.88));
+    return await new Promise(resolve => canvases[0].toBlob(resolve, 'image/jpeg', 0.88));
   } catch (err) {
     console.error('⚠️  No se pudo generar el documento con aspecto de escaneo:', err.message);
     return null;

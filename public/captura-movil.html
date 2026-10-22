@@ -51,7 +51,22 @@
 
     .cm-preview { display: none; }
     .cm-preview.visible { display: block; }
-    .cm-preview img { width: 100%; border-radius: 10px; display: block; max-height: 340px; object-fit: contain; background: #eee; }
+    /* Hojas del oficio (1 o 2 fotos para el mismo registro) */
+    .cm-hojas { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .cm-hojas.dos { grid-template-columns: 1fr 1fr; }
+    .cm-hoja { position: relative; margin: 0; display: flex; flex-direction: column; gap: 5px; }
+    .cm-hoja img { width: 100%; border-radius: 10px; display: block; height: 300px; object-fit: contain; background: #eee; }
+    .cm-hojas.dos .cm-hoja img { height: 210px; }
+    .cm-hoja figcaption { font-size: 11.5px; font-weight: 700; color: var(--guinda, #5F2132); text-align: center; }
+    .cm-hoja figcaption:empty { display: none; }
+    .cm-hoja-quitar { position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 50%; border: none;
+      background: rgba(61, 20, 32, .82); color: #fff; display: grid; place-items: center; font-size: 15px; cursor: pointer; }
+    .cm-hoja-agregar { height: 210px; border: 2px dashed #d8c4ca; border-radius: 10px; background: #faf7f5; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 10px; font-family: inherit; }
+    .cm-hoja-agregar i { font-size: 30px; color: var(--guinda, #5F2132); }
+    .cm-hoja-agregar strong { font-size: 13.5px; color: var(--guinda, #5F2132); }
+    .cm-hoja-agregar span { font-size: 11.5px; color: var(--txt2, #6B5563); }
+    .cm-hoja-agregar:active { background: #f0e9eb; }
     .cm-preview-acciones { display: flex; gap: 10px; margin-top: 12px; }
 
     .btn-cm { border: none; border-radius: 9px; padding: 13px 16px; font-weight: 700; font-size: 14px;
@@ -121,10 +136,10 @@
       <input type="file" id="input-foto" accept="image/*" capture="environment"/>
 
       <div class="cm-preview" id="cm-preview">
-        <img id="cm-preview-img" alt="Vista previa"/>
+        <div class="cm-hojas" id="cm-hojas"></div>
         <div class="cm-preview-acciones">
           <button type="button" class="btn-cm btn-cm-secundario" id="btn-cambiar-foto">
-            <i class="ti ti-refresh"></i> Cambiar
+            <i class="ti ti-refresh"></i> Empezar de nuevo
           </button>
           <button type="button" class="btn-cm btn-cm-primario" id="btn-enviar-foto">
             <i class="ti ti-send"></i> Enviar
@@ -144,7 +159,7 @@
   </main>
 
   <script src="js/escaner.js"></script>
-  <script src="js/captura-movil.js"></script>
+  <script src="js/captura-movil.js?v=2"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>
   <script src="js/minisebiso-asistente.js?v=3"></script>
   <script src="js/asistente-extra.js?v=9"></script>
