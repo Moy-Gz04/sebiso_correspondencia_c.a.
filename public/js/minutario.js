@@ -250,7 +250,15 @@ function filaRegistro(r) {
   const cfg = moduloActivo();
   return `
     <tr data-id="${r.id}">
-      <td class="td-numero">${r[cfg.campoNumero]}</td>
+      <td class="td-numero">
+        ${r[cfg.campoNumero]}
+        ${MODO_AREA
+          ? (r.folio ? `<span class="folio-lectura" title="Folio del documento">${escaparAtributo(r.folio)}</span>` : '')
+          : `<input type="text" class="input-folio" maxlength="400" value="${escaparAtributo(r.folio)}"
+                   placeholder="Folio…" title="Folio completo del documento (p. ej. SEBISO/CA/DRF/167/2026)"
+                   aria-label="Folio del oficio ${r[cfg.campoNumero]}"
+                   onchange="guardarSello(${r.id}, 'folio', this)"/>`}
+      </td>
       <td>${formatearFecha(r.fecha)}</td>
       <td class="td-dirige">${r.a_quien_se_dirige || ''}</td>
       <td class="td-asunto">${r.asunto || '<span class="td-vacio">—</span>'}</td>

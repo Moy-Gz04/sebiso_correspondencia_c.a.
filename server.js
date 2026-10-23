@@ -62,6 +62,14 @@ const ESQUEMA_FOTOS_LISTO = sqlFotos`
       ADD COLUMN IF NOT EXISTS imagen2_mime VARCHAR(60)`)
   .catch(err => console.error('⚠️  No se pudo asegurar las columnas tipo/imagen2 de oficios_pendientes_ia:', err.message));
 
+/* Folio completo tal como va impreso en el documento (p. ej. «SEBISO/CA/DRF/167/2026»).
+   El consecutivo solo guarda el número; el folio sirve para ligar listas externas
+   (como «oficios para firma.xlsx») y para buscarlo pegándolo tal cual. */
+const ESQUEMA_FOLIO_LISTO = sql`ALTER TABLE no_oficio ADD COLUMN IF NOT EXISTS folio VARCHAR(400)`
+  .then(() => sql`ALTER TABLE circular ADD COLUMN IF NOT EXISTS folio VARCHAR(400)`)
+  .then(() => sql`ALTER TABLE tarjeta_informativa ADD COLUMN IF NOT EXISTS folio VARCHAR(400)`)
+  .catch(err => console.error('⚠️  No se pudo asegurar la columna folio:', err.message));
+
 /* La app corre detrás del proxy de Render (u otro similar): sin esto,
    express-rate-limit y cualquier lógica basada en IP ven siempre la IP
    interna del proxy, no la del cliente real. */
@@ -2575,7 +2583,7 @@ async function registrosPorPartes(tabla, query, areaPatron = null) {
                no_oficio ILIKE ${patron} OR to_char(fecha, 'DD/MM/YYYY') ILIKE ${patron} OR
                a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
                area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
-               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
+               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR folio ILIKE ${patron} OR
                to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron}) AND (${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron})
         ORDER BY CAST(NULLIF(regexp_replace(no_oficio, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
@@ -2590,7 +2598,7 @@ async function registrosPorPartes(tabla, query, areaPatron = null) {
                no_circular ILIKE ${patron} OR to_char(fecha, 'DD/MM/YYYY') ILIKE ${patron} OR
                a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
                area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
-               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
+               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR folio ILIKE ${patron} OR
                to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron}) AND (${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron})
         ORDER BY CAST(NULLIF(regexp_replace(no_circular, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
@@ -2605,7 +2613,7 @@ async function registrosPorPartes(tabla, query, areaPatron = null) {
                no_tarjeta ILIKE ${patron} OR to_char(fecha, 'DD/MM/YYYY') ILIKE ${patron} OR
                a_quien_se_dirige ILIKE ${patron} OR asunto ILIKE ${patron} OR
                area_solicitante ILIKE ${patron} OR solicitante ILIKE ${patron} OR
-               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR
+               to_char(hora, 'HH24:MI') ILIKE ${patron} OR nota ILIKE ${patron} OR folio ILIKE ${patron} OR
                to_char(fecha_sello, 'DD/MM/YYYY') ILIKE ${patron} OR to_char(fecha_firma, 'DD/MM/YYYY') ILIKE ${patron}) AND (${areaPatron}::text IS NULL OR translate(lower(coalesce(area_solicitante, '')), 'áéíóúüñ', 'aeiouun') ~ ${areaPatron})
         ORDER BY CAST(NULLIF(regexp_replace(no_tarjeta, '[^0-9].*$', ''), '') AS INTEGER) DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
@@ -2736,7 +2744,7 @@ app.put('/api/no-oficio/:id', verifyToken, gestionOMinutarioArea, async (req, re
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,
-      solicitante, hora, fecha_sello, fecha_firma, nota
+      solicitante, hora, fecha_sello, fecha_firma, nota, folio
     } = req.body;
 
     const [actualizado] = await sql`
@@ -2750,6 +2758,7 @@ app.put('/api/no-oficio/:id', verifyToken, gestionOMinutarioArea, async (req, re
         fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : (existente.fecha_sello ?? null)},
         fecha_firma       = ${fecha_firma       !== undefined ? (fecha_firma       || null) : (existente.fecha_firma ?? null)},
         nota              = ${nota              !== undefined ? (nota              || null) : (existente.nota ?? null)},
+        folio             = ${folio             !== undefined ? (String(folio || '').trim().slice(0, 400) || null) : (existente.folio ?? null)},
         updated_at        = NOW()
       WHERE id = ${req.params.id}
       RETURNING *`;
@@ -2896,7 +2905,7 @@ app.put('/api/circular/:id', verifyToken, gestionOMinutarioArea, async (req, res
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,
-      solicitante, hora, fecha_sello, fecha_firma, nota
+      solicitante, hora, fecha_sello, fecha_firma, nota, folio
     } = req.body;
 
     const [actualizado] = await sql`
@@ -2910,6 +2919,7 @@ app.put('/api/circular/:id', verifyToken, gestionOMinutarioArea, async (req, res
         fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : (existente.fecha_sello ?? null)},
         fecha_firma       = ${fecha_firma       !== undefined ? (fecha_firma       || null) : (existente.fecha_firma ?? null)},
         nota              = ${nota              !== undefined ? (nota              || null) : (existente.nota ?? null)},
+        folio             = ${folio             !== undefined ? (String(folio || '').trim().slice(0, 400) || null) : (existente.folio ?? null)},
         updated_at        = NOW()
       WHERE id = ${req.params.id}
       RETURNING *`;
@@ -3104,7 +3114,7 @@ app.put('/api/tarjeta-informativa/:id', verifyToken, gestionOMinutarioArea, asyn
 
     const {
       fecha, a_quien_se_dirige, asunto, area_solicitante,
-      solicitante, hora, fecha_sello, fecha_firma, nota
+      solicitante, hora, fecha_sello, fecha_firma, nota, folio
     } = req.body;
 
     const [actualizado] = await sql`
@@ -3118,6 +3128,7 @@ app.put('/api/tarjeta-informativa/:id', verifyToken, gestionOMinutarioArea, asyn
         fecha_sello       = ${fecha_sello       !== undefined ? (fecha_sello       || null) : (existente.fecha_sello ?? null)},
         fecha_firma       = ${fecha_firma       !== undefined ? (fecha_firma       || null) : (existente.fecha_firma ?? null)},
         nota              = ${nota              !== undefined ? (nota              || null) : (existente.nota ?? null)},
+        folio             = ${folio             !== undefined ? (String(folio || '').trim().slice(0, 400) || null) : (existente.folio ?? null)},
         updated_at        = NOW()
       WHERE id = ${req.params.id}
       RETURNING *`;

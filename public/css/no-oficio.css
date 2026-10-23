@@ -574,3 +574,17 @@
   .modal-modo-toggle { flex-direction: column; }
   .fila-acciones { flex-direction: column; align-items: flex-end; }
 }
+/* Folio completo bajo el número (Minutario) */
+.td-numero .input-folio,
+.td-numero .folio-lectura {
+  display: block; margin-top: 4px; width: 168px; max-width: 100%;
+  font: 500 11px/1.3 var(--fuente-mono, ui-monospace, monospace); color: #6b5563;
+}
+.td-numero .input-folio {
+  padding: 4px 7px; border: 1px dashed #e0d3c6; border-radius: 6px; background: transparent;
+}
+.td-numero .input-folio:hover { border-color: #c9a24e; }
+.td-numero .input-folio:focus { outline: 0; border-style: solid; border-color: var(--guinda, #70122b); background: #fff; box-shadow: 0 0 0 3px rgba(112,18,43,.1); }
+.td-numero .input-folio:not(:placeholder-shown) { border-style: solid; border-color: #efe6da; color: var(--guinda, #70122b); }
+.td-numero .input-folio.guardando { opacity: .5; }
+.td-numero .folio-lectura { white-space: normal; word-break: break-all; }
