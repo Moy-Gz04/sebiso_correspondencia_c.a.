@@ -181,13 +181,15 @@
       <p class="turnos-intro">Toma una foto de cada Turno. Se extraen todos sus datos y el número escrito junto al sello (<b>T-…</b>), que será su número de control. Revísalos y al registrarlo queda directo en <b>Completado</b>, con la foto como su documento de Turno.</p>
 
       <div class="turnos-zona" id="turnos-zona">
-        <div class="turnos-zona-txt"><b>Agrega las fotos de los Turnos</b><span>Puedes tomar varias seguidas o arrastrarlas aquí.</span></div>
+        <div class="turnos-zona-txt"><b>Agrega las fotos de los Turnos</b><span>Cada foto es un Turno. Si un Turno tiene 2 hojas o más, usa «Turno de varias hojas».</span></div>
         <div class="turnos-botones">
           <button type="button" class="turnos-btn principal" id="btn-turnos-camara"><i class="ti ti-camera"></i> Tomar foto</button>
           <button type="button" class="turnos-btn" id="btn-turnos-galeria"><i class="ti ti-photo"></i> Elegir fotos</button>
+          <button type="button" class="turnos-btn" id="btn-turnos-hojas"><i class="ti ti-files"></i> Turno de varias hojas</button>
         </div>
         <input type="file" id="turnos-camara" accept="image/*" capture="environment" hidden>
         <input type="file" id="turnos-galeria" accept="image/*" multiple hidden>
+        <input type="file" id="turnos-hojas" accept="image/*" multiple hidden>
       </div>
 
       <div class="turnos-vacio" id="turnos-vacio"><i class="ti ti-photo-scan"></i>Aún no hay fotos. Toma o elige la foto de un Turno para empezar.</div>
@@ -208,7 +210,7 @@
     </div>
   </footer>
 
-  <script src="js/turnos.js?v=3"></script>
+  <script src="js/turnos.js?v=4"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>

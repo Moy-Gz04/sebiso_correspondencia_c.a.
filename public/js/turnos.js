@@ -152,10 +152,19 @@ async function registrar(t) {
   }
 }
 
-async function agregarFotos(archivos) {
-  for (const original of archivos) {
-    if (!original.type.startsWith('image/')) continue;
-    const archivo = await reducirImagen(original);
+/* juntas = true: todas las fotos son hojas de un mismo Turno */
+async function agregarFotos(archivos, juntas = false) {
+  archivos = archivos.filter(a => a.type.startsWith('image/'));
+  if (juntas && archivos.length) {
+    const hojas = []; for (const a of archivos) hojas.push(await reducirImagen(a));
+    return crearTarjeta(hojas);
+  }
+  for (const original of archivos) await crearTarjeta([await reducirImagen(original)]);
+}
+
+async function crearTarjeta(hojas) {
+  {
+    const archivo = hojas[0];
     const url = URL.createObjectURL(archivo);
     const t = document.createElement('article');
     t.className = 'turno-tarjeta';
@@ -182,7 +191,7 @@ async function agregarFotos(archivos) {
         </div>
       </div>`;
     t._archivo = archivo;          // la 1.ª hoja es la que se lee (ahí viene el T-número)
-    t._archivos = [archivo];
+    t._archivos = hojas;
     pintarHojas(t);
     lista().prepend(t);
     t.querySelector('.turno-quitar').onclick = () => { URL.revokeObjectURL(url); t.remove(); actualizarVacio(); };
@@ -207,6 +216,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-turnos-camara').onclick = () => camara.click();
   document.getElementById('btn-turnos-galeria').onclick = () => galeria.click();
   [camara, galeria].forEach(inp => inp.addEventListener('change', () => { agregarFotos([...inp.files]); inp.value = ''; }));
+  const hojas = document.getElementById('turnos-hojas');
+  document.getElementById('btn-turnos-hojas').onclick = () => hojas.click();
+  hojas.addEventListener('change', () => { agregarFotos([...hojas.files], true); hojas.value = ''; });
   const zona = document.getElementById('turnos-zona');
   zona.addEventListener('dragover', (e) => { e.preventDefault(); zona.classList.add('arrastrando'); });
   zona.addEventListener('dragleave', () => zona.classList.remove('arrastrando'));
