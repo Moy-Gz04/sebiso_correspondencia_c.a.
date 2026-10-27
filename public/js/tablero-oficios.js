@@ -103,6 +103,14 @@
     .tab-fila .pista i{ display:block; height:100%; width:0; background:linear-gradient(90deg, var(--c), var(--c2, var(--c))); transition:width .9s cubic-bezier(.2,.9,.3,1), filter .15s; }
     .tab-fila .pista i:hover{ filter:brightness(1.12); }
     .tab-fila .tot{ font-size:13px; font-weight:800; text-align:right; font-variant-numeric:tabular-nums; }
+    .tabp-fondo{ z-index:12600; }
+    .tabp-ventana{ width:min(820px,100%); max-height:none; overflow:visible; }
+    .tabp-ventana .tab-cuerpo{ gap:12px; }
+    .tabp-ventana .tab-personas{ margin:0; border:0; padding:0; }
+    .tabp-ventana .tab-personas h3{ display:none; }
+    .tabp-ventana .tab-personas .filas{ gap:7px; }
+    .tabp-ventana .tab-fila .pista{ height:14px; }
+    .tabp-ventana .tab-personas .tab-fila{ grid-template-columns:minmax(150px,275px) 1fr 70px; }
     .tab-personas{ margin-top:20px; }
     .tab-personas .filas{ display:grid; gap:10px; }
     .tab-personas .tab-fila{ grid-template-columns:minmax(150px,230px) 1fr 70px; }
@@ -308,8 +316,7 @@
           </div>
         </div>
         ${derecha}
-      </div>
-      <div class="tab-personas-caja">${personas(d.personas || [], null, d.general)}</div>`;
+      </div>`;
     animar(cuerpo);
     cuerpo.querySelectorAll('.tab-chip').forEach(b => b.addEventListener('click', () => {
       cuerpo.querySelectorAll('.tab-chip').forEach(x => { x.classList.toggle('activo', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
@@ -317,9 +324,6 @@
       const graf = cuerpo.querySelector('.tab-area-graf');
       graf.innerHTML = barras(a);
       animar(graf);
-      const caja = cuerpo.querySelector('.tab-personas-caja');
-      caja.innerHTML = personas(d.personas || [], b.dataset.area || null, d.general);
-      animar(caja);
     }));
   }
 
@@ -347,9 +351,41 @@
     requestAnimationFrame(paso);
   }
 
-  let fondo = null;
+  let fondo = null, ultimo = null, fondoP = null;
+  /* Segunda ventana: turnados por persona. Se elige un área a la vez para que todo quepa sin barra de desplazamiento. */
+  function cerrarPersonas() { if (!fondoP) return; fondoP.remove(); fondoP = null; }
+  function abrirPersonas() {
+    if (fondoP || !ultimo) return;
+    const d = ultimo, lista = d.personas || [];
+    const areas = [...new Set(lista.map(p => p.area))].sort((a, b) => a.localeCompare(b));
+    let sel = d.general ? (areas[0] || null) : null;
+    fondoP = document.createElement('div');
+    fondoP.className = 'tab-fondo tabp-fondo';
+    fondoP.innerHTML = `
+      <div class="tab-ventana tabp-ventana" role="dialog" aria-modal="true" aria-label="Turnados por persona">
+        <div class="tab-cab">
+          <div><div class="tab-tit">Turnados por persona</div><div class="tab-area">${esc(d.general ? 'Por área' : d.area)}</div></div>
+          <div class="tab-acc"><button type="button" class="tab-btn tabp-cerrar" title="Cerrar" aria-label="Cerrar"><i class="ti ti-x"></i></button></div>
+        </div>
+        <div class="tab-cuerpo">
+          ${d.general ? `<div class="tab-areas-sel" role="tablist" aria-label="Área">${areas.map((a, i) => `<button type="button" class="tab-chip${i === 0 ? ' activo' : ''}" data-area="${esc(a)}" role="tab" aria-selected="${i === 0}" title="${esc(a)}"><span>${esc(corto(a))}</span><b>${num(lista.filter(p => p.area === a).length)}</b></button>`).join('')}</div>` : ''}
+          <div class="tabp-caja"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(fondoP);
+    const caja = fondoP.querySelector('.tabp-caja');
+    const pintarP = () => { caja.innerHTML = personas(lista, sel, d.general); animar(caja); };
+    pintarP();
+    fondoP.querySelectorAll('.tab-chip').forEach(b => b.addEventListener('click', () => {
+      fondoP.querySelectorAll('.tab-chip').forEach(x => { x.classList.toggle('activo', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+      sel = b.dataset.area; pintarP();
+    }));
+    fondoP.addEventListener('pointerdown', (e) => { if (e.target === fondoP) cerrarPersonas(); });
+    fondoP.querySelector('.tabp-cerrar').onclick = cerrarPersonas;
+    fondoP.querySelector('.tabp-cerrar').focus();
+  }
   function cerrar() { if (!fondo) return; fondo.remove(); fondo = null; document.removeEventListener('keydown', teclas); document.querySelector('.tab-icono')?.focus(); }
-  function teclas(e) { if (e.key === 'Escape') cerrar(); }
+  function teclas(e) { if (e.key === 'Escape') { if (fondoP) cerrarPersonas(); else cerrar(); } }
   async function cargar() {
     const cuerpo = fondo.querySelector('.tab-cuerpo');
     cuerpo.innerHTML = '<div class="tab-msg">Cargando el tablero…</div>';
@@ -359,6 +395,7 @@
       if (!r.ok) throw new Error(d.mensaje || 'No se pudo cargar el resumen.');
       if (!fondo) return;
       fondo.querySelector('.tab-area').textContent = d.area;
+      ultimo = d;
       pintar(cuerpo, d);
     } catch (e) {
       if (fondo) cuerpo.innerHTML = `<div class="tab-msg">${esc(e.message)}</div>`;
@@ -373,6 +410,7 @@
         <div class="tab-cab">
           <div><div class="tab-tit">Tablero de oficios</div><div class="tab-area">…</div></div>
           <div class="tab-acc">
+            <button type="button" class="tab-btn tab-personas-btn" title="Turnados por persona" aria-label="Turnados por persona"><i class="ti ti-users"></i></button>
             <button type="button" class="tab-btn tab-actualizar" title="Actualizar" aria-label="Actualizar"><i class="ti ti-refresh"></i></button>
             <button type="button" class="tab-btn tab-cerrar" title="Cerrar" aria-label="Cerrar"><i class="ti ti-x"></i></button>
           </div>
@@ -383,6 +421,7 @@
     fondo.addEventListener('pointerdown', (e) => { if (e.target === fondo) cerrar(); });
     fondo.querySelector('.tab-cerrar').onclick = cerrar;
     fondo.querySelector('.tab-actualizar').onclick = cargar;
+    fondo.querySelector('.tab-personas-btn').onclick = abrirPersonas;
     document.addEventListener('keydown', teclas);
     fondo.querySelector('.tab-cerrar').focus();
     cargar();
