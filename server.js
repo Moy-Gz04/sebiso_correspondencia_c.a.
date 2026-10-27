@@ -1852,10 +1852,36 @@ app.get('/api/oficios/resumen', verifyToken, async (req, res) => {
       const a = (porArea[f.area] ||= vacio());
       for (const o of [totales, a]) { o.total += f.n; if (f.estatus in o) o[f.estatus] += f.n; }
     }
+    /* Por persona: lo que tiene cada usuario del área (pendientes = subturnados o por corregir).
+       Los oficios «turnados» al área que aún no se subturnan los tiene el titular del área. */
+    const areaF = general ? null : area;
+    const [usuarios, titulares, sinSub] = await Promise.all([
+      sql`SELECT u.area, u.username AS nombre,
+                 COUNT(o.id) FILTER (WHERE o.estatus IN ('sub_turnado','rechazado'))::int AS pendientes,
+                 COUNT(o.id) FILTER (WHERE o.estatus IN ('atendido','completado'))::int AS atendidos
+          FROM usuarios u LEFT JOIN oficios o ON o.usuario_asignado_id = u.id AND o.turnado_a = u.area
+          WHERE u.rol = 'usuario_area' AND u.activo AND (${areaF}::text IS NULL OR u.area = ${areaF})
+          GROUP BY u.area, u.username`,
+      sql`SELECT area, string_agg(username, ' / ' ORDER BY username) AS nombre
+          FROM usuarios WHERE rol = 'area' AND activo AND (${areaF}::text IS NULL OR area = ${areaF})
+          GROUP BY area`,
+      sql`SELECT turnado_a AS area, count(*)::int AS n FROM oficios
+          WHERE estatus = 'turnado' AND usuario_asignado_id IS NULL AND turnado_a IS NOT NULL AND turnado_a <> ''
+            AND (${areaF}::text IS NULL OR turnado_a = ${areaF})
+          GROUP BY turnado_a`,
+    ]);
+    const personas = [
+      ...titulares.map(t => ({ area: t.area, nombre: t.nombre, titular: true,
+        pendientes: (sinSub.find(s => s.area === t.area) || {}).n || 0, atendidos: 0 })),
+      ...sinSub.filter(s => !titulares.some(t => t.area === s.area))
+        .map(s => ({ area: s.area, nombre: 'Titular del área', titular: true, pendientes: s.n, atendidos: 0 })),
+      ...usuarios.map(u => ({ ...u, titular: false })),
+    ];
     res.json({
       general,
       area: general ? 'Todas las áreas' : area,
       totales,
+      personas,
       areas: general ? Object.entries(porArea).map(([nombre, v]) => ({ nombre, ...v })).sort((x, y) => y.total - x.total) : [],
       actualizado: new Date().toISOString(),
     });

@@ -103,6 +103,17 @@
     .tab-fila .pista i{ display:block; height:100%; width:0; background:linear-gradient(90deg, var(--c), var(--c2, var(--c))); transition:width .9s cubic-bezier(.2,.9,.3,1), filter .15s; }
     .tab-fila .pista i:hover{ filter:brightness(1.12); }
     .tab-fila .tot{ font-size:13px; font-weight:800; text-align:right; font-variant-numeric:tabular-nums; }
+    .tab-personas{ margin-top:20px; }
+    .tab-personas .filas{ display:grid; gap:10px; }
+    .tab-personas .tab-fila{ grid-template-columns:minmax(150px,230px) 1fr 70px; }
+    .tab-personas .nom small{ display:block; font-size:10.5px; font-weight:500; color:#9A8A90; }
+    .tab-personas .tab-fila.titular .nom{ color:#7C5D31; }
+    .tab-personas .pista i + i{ border-left:2px solid #fff; }
+    .tab-personas .tot small{ display:block; font-size:10px; font-weight:600; color:#9A8A90; }
+    .tab-personas .leyenda{ display:flex; flex-wrap:wrap; gap:6px 16px; margin:0 0 14px; font-size:11.5px; color:#6B5A60; }
+    .tab-personas .leyenda span{ display:inline-flex; align-items:center; gap:6px; }
+    .tab-personas .leyenda i{ width:12px; height:12px; border-radius:4px; background:var(--c); }
+    .tab-personas .vacio{ font-size:12.5px; color:#9A8A90; padding:6px 0; }
     .tab-ley-h{ display:flex; flex-wrap:wrap; gap:14px; margin-top:16px; padding-top:12px; border-top:1px solid #F3ECE4; }
     .tab-ley-h div{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:#6B5563; }
     .tab-ley-h i{ width:10px; height:10px; border-radius:3px; background:var(--c); }
@@ -197,6 +208,28 @@
     </svg>`;
   }
 
+  /* Barras por persona: pendientes (subturnados o por corregir) y atendidos.
+     El titular muestra los turnados al área que aún no se subturnan. */
+  const C_TIT = { c: '#2C8FC9', c2: '#62B6E6' }, C_PEN = { c: '#E39A2D', c2: '#F5C26B' }, C_ATE = { c: '#2E9D5B', c2: '#5FCB8A' };
+  function personas(lista, areaSel, general) {
+    const filas = lista.filter(p => !areaSel || p.area === areaSel)
+      .sort((a, b) => (b.titular - a.titular) || (a.area || '').localeCompare(b.area || '') || (b.pendientes + b.atendidos) - (a.pendientes + a.atendidos));
+    const max = Math.max(1, ...filas.map(p => p.pendientes + p.atendidos));
+    const verArea = general && !areaSel;
+    const fila = (p) => {
+      const cp = p.titular ? C_TIT : C_PEN, tot = p.pendientes + p.atendidos;
+      const w = (n) => (n / max * 100).toFixed(2) + '%';
+      return `<div class="tab-fila${p.titular ? ' titular' : ''}">
+        <span class="nom" title="${esc(p.nombre)}">${esc(p.nombre)}<small>${p.titular ? 'Titular · sin subturnar' : 'Persona del área'}${verArea ? ' · ' + esc(corto(p.area)) : ''}</small></span>
+        <span class="pista">${p.pendientes ? `<i style="--c:${cp.c}; --c2:${cp.c2}" data-w="${w(p.pendientes)}" title="${p.titular ? 'Sin subturnar' : 'Pendientes'}: ${num(p.pendientes)}"></i>` : ''}${p.atendidos ? `<i style="--c:${C_ATE.c}; --c2:${C_ATE.c2}" data-w="${w(p.atendidos)}" title="Atendidos: ${num(p.atendidos)}"></i>` : ''}</span>
+        <span class="tot">${num(p.titular ? p.pendientes : tot)}<small>${p.titular ? 'por subturnar' : num(p.pendientes) + ' pend.'}</small></span>
+      </div>`;
+    };
+    return `<div class="tab-tarjeta tab-personas"><h3>Turnados por persona<small>${areaSel ? esc(areaSel) : (general ? 'todas las áreas' : 'tu área')}</small></h3>
+      <div class="leyenda"><span><i style="--c:${C_TIT.c}"></i>Con el titular, aún sin subturnar</span><span><i style="--c:${C_PEN.c}"></i>Pendientes (subturnados o por corregir)</span><span><i style="--c:${C_ATE.c}"></i>Atendidos</span></div>
+      <div class="filas">${filas.length ? filas.map(fila).join('') : '<div class="vacio">No hay personas registradas en esta área.</div>'}</div></div>`;
+  }
+
   function pintar(cuerpo, d) {
     const t = d.totales;
     // Porcentajes con 2 decimales que suman exactamente 100.00 (método del mayor residuo:
@@ -275,7 +308,8 @@
           </div>
         </div>
         ${derecha}
-      </div>`;
+      </div>
+      <div class="tab-personas-caja">${personas(d.personas || [], null, d.general)}</div>`;
     animar(cuerpo);
     cuerpo.querySelectorAll('.tab-chip').forEach(b => b.addEventListener('click', () => {
       cuerpo.querySelectorAll('.tab-chip').forEach(x => { x.classList.toggle('activo', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
@@ -283,6 +317,9 @@
       const graf = cuerpo.querySelector('.tab-area-graf');
       graf.innerHTML = barras(a);
       animar(graf);
+      const caja = cuerpo.querySelector('.tab-personas-caja');
+      caja.innerHTML = personas(d.personas || [], b.dataset.area || null, d.general);
+      animar(caja);
     }));
   }
 
