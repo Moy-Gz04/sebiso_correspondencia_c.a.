@@ -1514,7 +1514,7 @@ app.get('/api/oficios/historial', verifyToken, async (req, res) => {
       ORDER BY
         CASE WHEN ${porVencer} AND COALESCE(dias_entrega, 0) > 0
           THEN dias_entrega - GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int) END ASC NULLS LAST,
-        created_at DESC, id DESC
+        CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC, id DESC
       LIMIT ${limite} OFFSET ${desde}`;
 
     const total = filas.length ? Number(filas[0].total_filtrado) : 0;
@@ -1606,7 +1606,7 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
         ORDER BY
           CASE WHEN ${porVencer} AND COALESCE(dias_entrega, 0) > 0
             THEN dias_entrega - GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int) END ASC NULLS LAST,
-          created_at DESC, id DESC
+          CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC, id DESC
         LIMIT ${limite} OFFSET ${desde}`,
       sql`
         SELECT
@@ -1882,13 +1882,13 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
               CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
-            FROM oficios WHERE estatus = ${estatus} ORDER BY created_at DESC`
+            FROM oficios WHERE estatus = ${estatus} ORDER BY CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC`
         : await sql`
             SELECT *,
               CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
-            FROM oficios ORDER BY created_at DESC`;
+            FROM oficios ORDER BY CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC`;
 
     } else if (rol === 'area' && origen === 'mio') {
       if (area !== AREA_CON_GESTION_COMPLETA)
@@ -1900,13 +1900,13 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
               CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
-            FROM oficios WHERE area_origen = ${area} AND estatus = ${estatus} ORDER BY created_at DESC`
+            FROM oficios WHERE area_origen = ${area} AND estatus = ${estatus} ORDER BY CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC`
         : await sql`
             SELECT *,
               CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
-            FROM oficios WHERE area_origen = ${area} ORDER BY created_at DESC`;
+            FROM oficios WHERE area_origen = ${area} ORDER BY CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC`;
 
     } else if (rol === 'area') {
       rows = estatus && estatus !== 'todos'
@@ -1915,13 +1915,13 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
               CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
-            FROM oficios WHERE turnado_a = ${area} AND estatus = ${estatus} ORDER BY created_at DESC`
+            FROM oficios WHERE turnado_a = ${area} AND estatus = ${estatus} ORDER BY CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC`
         : await sql`
             SELECT *,
               CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
-            FROM oficios WHERE turnado_a = ${area} ORDER BY created_at DESC`;
+            FROM oficios WHERE turnado_a = ${area} ORDER BY CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC`;
 
     } else if (rol === 'usuario_area') {
       rows = estatus && estatus !== 'todos'
@@ -1930,13 +1930,13 @@ app.get('/api/oficios', verifyToken, async (req, res) => {
               CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
-            FROM oficios WHERE usuario_asignado_id = ${id} AND estatus = ${estatus} ORDER BY created_at DESC`
+            FROM oficios WHERE usuario_asignado_id = ${id} AND estatus = ${estatus} ORDER BY CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC`
         : await sql`
             SELECT *,
               CASE WHEN estatus IN ('turnado','por_turnar','sub_turnado')
                 THEN GREATEST(0, EXTRACT(DAY FROM NOW() - created_at)::int)
                 ELSE NULL END AS dias_transcurridos
-            FROM oficios WHERE usuario_asignado_id = ${id} ORDER BY created_at DESC`;
+            FROM oficios WHERE usuario_asignado_id = ${id} ORDER BY CAST(NULLIF(regexp_replace(n_control, '[^0-9]', '', 'g'), '') AS BIGINT) DESC NULLS LAST, created_at DESC`;
 
     } else {
       return res.status(403).json({ mensaje: 'Rol no reconocido.' });
