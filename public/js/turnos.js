@@ -99,6 +99,32 @@ async function leer(t) {
   }
 }
 
+/* Une las hojas de un Turno (una debajo de otra) en una sola imagen JPG */
+async function unirHojas(archivos) {
+  if (archivos.length === 1) return archivos[0];
+  const imgs = await Promise.all(archivos.map(a => new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = mal; i.src = URL.createObjectURL(a); })));
+  const ancho = Math.max(...imgs.map(i => i.width));
+  const alto = imgs.reduce((s, i) => s + Math.round(i.height * ancho / i.width), 0);
+  const c = document.createElement('canvas'); c.width = ancho; c.height = alto;
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, ancho, alto);
+  let y = 0;
+  imgs.forEach(i => { const h = Math.round(i.height * ancho / i.width); ctx.drawImage(i, 0, y, ancho, h); y += h; URL.revokeObjectURL(i.src); });
+  return new Promise(ok => c.toBlob(b => ok(new File([b], 'turno.jpg', { type: 'image/jpeg' })), 'image/jpeg', 0.85));
+}
+
+function pintarHojas(t) {
+  const n = t._archivos.length;
+  t.querySelector('.turno-hojas').innerHTML = t._archivos.map((a, i) => `<span class="turno-hoja">Hoja ${i + 1}${i ? ` <button type="button" data-i="${i}" title="Quitar hoja ${i + 1}" aria-label="Quitar hoja ${i + 1}"><i class="ti ti-x"></i></button>` : ''}</span>`).join('')
+    + `<label class="turno-agregar-hoja"><i class="ti ti-file-plus"></i> Agregar hoja<input type="file" accept="image/*" multiple hidden></label>`;
+  t.querySelector('.turno-foto img').title = n > 1 ? `${n} hojas` : '';
+  t.querySelectorAll('.turno-hoja button').forEach(b => b.onclick = () => { t._archivos.splice(+b.dataset.i, 1); pintarHojas(t); });
+  const inp = t.querySelector('.turno-agregar-hoja input');
+  inp.onchange = async () => {
+    for (const f of [...inp.files]) if (f.type.startsWith('image/')) t._archivos.push(await reducirImagen(f));
+    pintarHojas(t);
+  };
+}
+
 async function registrar(t) {
   const n = campo(t, 'n_control').value.replace(/\D/g, '');
   const M = window.MiniSEBISO;
@@ -112,7 +138,7 @@ async function registrar(t) {
   try {
     const fd = new FormData();
     ['n_control', 'f_oficio', 'f_sello', 'numero', 'remitente', 'dependencia', 'descripcion', 'turnado_a'].forEach(k => fd.append(k, campo(t, k).value.trim()));
-    fd.append('doc3', t._archivo, `Turno_T-${n}.jpg`);
+    fd.append('doc3', await unirHojas(t._archivos), `Turno_T-${n}.jpg`);
     await api('/turnos/registrar', { method: 'POST', body: fd });
     t.classList.add('hecha');
     t.querySelectorAll('input, select, textarea').forEach(el => el.disabled = true);
@@ -138,6 +164,7 @@ async function agregarFotos(archivos) {
       <div class="turno-datos">
         <div class="turno-leyendo" hidden><i class="ti ti-loader-2 girando"></i> Leyendo los datos de la foto…</div>
         <div class="turno-nota"></div>
+        <div class="turno-hojas"></div>
         <div class="turno-form">
           <label class="tf tf-control"><span>Número de Turno (N. de control)</span>
             <span class="turno-num-fila"><span class="turno-t">T-</span><input name="n_control" inputmode="numeric" autocomplete="off" placeholder="Ej. 6026"></span></label>
@@ -154,7 +181,9 @@ async function agregarFotos(archivos) {
           <button type="button" class="turno-registrar" disabled><i class="ti ti-circle-check"></i> Registrar como completado</button>
         </div>
       </div>`;
-    t._archivo = archivo;
+    t._archivo = archivo;          // la 1.ª hoja es la que se lee (ahí viene el T-número)
+    t._archivos = [archivo];
+    pintarHojas(t);
     lista().prepend(t);
     t.querySelector('.turno-quitar').onclick = () => { URL.revokeObjectURL(url); t.remove(); actualizarVacio(); };
     t.querySelector('.turno-registrar').onclick = () => registrar(t);
