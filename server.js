@@ -1871,10 +1871,10 @@ app.get('/api/oficios/resumen', verifyToken, async (req, res) => {
           GROUP BY turnado_a`,
     ]);
     const personas = [
-      ...titulares.map(t => ({ area: t.area, nombre: t.nombre, titular: true,
+      ...titulares.map(t => ({ area: t.area, nombre: 'Encargados de Correspondencia del Área', titular: true,
         pendientes: (sinSub.find(s => s.area === t.area) || {}).n || 0, atendidos: 0 })),
       ...sinSub.filter(s => !titulares.some(t => t.area === s.area))
-        .map(s => ({ area: s.area, nombre: 'Titular del área', titular: true, pendientes: s.n, atendidos: 0 })),
+        .map(s => ({ area: s.area, nombre: 'Encargados de Correspondencia del Área', titular: true, pendientes: s.n, atendidos: 0 })),
       ...usuarios.map(u => ({ ...u, titular: false })),
     ];
     res.json({

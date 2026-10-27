@@ -220,13 +220,13 @@
       const cp = p.titular ? C_TIT : C_PEN, tot = p.pendientes + p.atendidos;
       const w = (n) => (n / max * 100).toFixed(2) + '%';
       return `<div class="tab-fila${p.titular ? ' titular' : ''}">
-        <span class="nom" title="${esc(p.nombre)}">${esc(p.nombre)}<small>${p.titular ? 'Titular · sin subturnar' : 'Persona del área'}${verArea ? ' · ' + esc(corto(p.area)) : ''}</small></span>
+        <span class="nom" title="${esc(p.nombre)}">${esc(p.nombre)}<small>${p.titular ? 'Aún sin subturnar' : 'Persona del área'}${verArea ? ' · ' + esc(corto(p.area)) : ''}</small></span>
         <span class="pista">${p.pendientes ? `<i style="--c:${cp.c}; --c2:${cp.c2}" data-w="${w(p.pendientes)}" title="${p.titular ? 'Sin subturnar' : 'Pendientes'}: ${num(p.pendientes)}"></i>` : ''}${p.atendidos ? `<i style="--c:${C_ATE.c}; --c2:${C_ATE.c2}" data-w="${w(p.atendidos)}" title="Atendidos: ${num(p.atendidos)}"></i>` : ''}</span>
         <span class="tot">${num(p.titular ? p.pendientes : tot)}<small>${p.titular ? 'por subturnar' : num(p.pendientes) + ' pend.'}</small></span>
       </div>`;
     };
     return `<div class="tab-tarjeta tab-personas"><h3>Turnados por persona<small>${areaSel ? esc(areaSel) : (general ? 'todas las áreas' : 'tu área')}</small></h3>
-      <div class="leyenda"><span><i style="--c:${C_TIT.c}"></i>Con el titular, aún sin subturnar</span><span><i style="--c:${C_PEN.c}"></i>Pendientes (subturnados o por corregir)</span><span><i style="--c:${C_ATE.c}"></i>Atendidos</span></div>
+      <div class="leyenda"><span><i style="--c:${C_TIT.c}"></i>Con los encargados de Correspondencia, aún sin subturnar</span><span><i style="--c:${C_PEN.c}"></i>Pendientes (subturnados o por corregir)</span><span><i style="--c:${C_ATE.c}"></i>Atendidos</span></div>
       <div class="filas">${filas.length ? filas.map(fila).join('') : '<div class="vacio">No hay personas registradas en esta área.</div>'}</div></div>`;
   }
 
