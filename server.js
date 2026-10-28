@@ -84,12 +84,14 @@ app.set('trust proxy', 1);
    etc.) se mantienen activas. */
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
-/* ── Servicio antiguo: acceso cerrado ──
-   Correspondencia se mudó a otro servicio de Render (mismo repo). En el
-   host viejo se bloquea la API (las sesiones dejan de valer) y toda página
-   muestra el aviso que manda al portal. El resto de hosts no se afecta.
-   /api/ping se deja abierto para los health checks. */
-const HOSTS_CERRADOS = ['sebiso-correspondencia-c-a.onrender.com'];
+/* ── Servicio cerrado ──
+   El mismo repo corre en dos servicios de Render. Solo uno debe estar en
+   uso: en el host cerrado se bloquea la API (las sesiones dejan de valer) y
+   toda página muestra el aviso que manda al portal. El resto de hosts no se
+   afecta. /api/ping se deja abierto para los health checks.
+   2026-10-29: se regresa al servicio original porque el "-054n" agotó su
+   transferencia gratis del mes en Render. */
+const HOSTS_CERRADOS = ['sebiso-correspondencia-c-a-054n.onrender.com'];
 app.use((req, res, next) => {
   if (!HOSTS_CERRADOS.includes(req.hostname)) return next();
   if (req.path === '/api/ping') return next();
