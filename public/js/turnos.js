@@ -83,10 +83,10 @@ async function leer(t) {
   t.querySelector('.turno-leyendo').hidden = false;
   validar(t);
   try {
-    const fd = new FormData(); fd.append('imagen', t._archivo);
+    const fd = new FormData(); t._archivos.forEach(a => fd.append('imagen', a));
     const { datos, mensaje } = await api('/turnos/leer', { method: 'POST', body: fd });
-    if (datos.turno) campo(t, 'n_control').value = datos.turno;
-    ['f_oficio', 'f_sello', 'numero', 'remitente', 'dependencia', 'descripcion'].forEach(n => { if (datos[n]) campo(t, n).value = datos[n]; });
+    if (datos.turno && !campo(t, 'n_control').value.trim()) campo(t, 'n_control').value = datos.turno;
+    ['f_oficio', 'f_sello', 'numero', 'remitente', 'dependencia', 'descripcion'].forEach(n => { if (datos[n] && !campo(t, n).value.trim()) campo(t, n).value = datos[n]; });
     if (mensaje) t.querySelector('.turno-nota').innerHTML = `<i class="ti ti-eye-off"></i> ${esc(mensaje)}`;
     else if (!datos.turno) t.querySelector('.turno-nota').innerHTML = '<i class="ti ti-eye-off"></i> No se alcanzó a leer el número de Turno (T-…). Escríbelo.';
     else t.querySelector('.turno-nota').innerHTML = '<i class="ti ti-sparkles"></i> Datos leídos de la foto. Revísalos antes de registrar.';
@@ -121,8 +121,11 @@ function pintarHojas(t) {
   const etiqueta = t.querySelector('.turno-agregar-hoja');
   const inp = etiqueta.querySelector('input');
   const agregarHojas = async (archivos) => {
-    for (const f of archivos) if (f.type.startsWith('image/')) t._archivos.push(await reducirImagen(f));
+    let hubo = false;
+    for (const f of archivos) if (f.type.startsWith('image/')) { t._archivos.push(await reducirImagen(f)); hubo = true; }
     pintarHojas(t);
+    // la hoja nueva puede traer el remitente/firma que faltaba en la 1.ª
+    if (hubo) leer(t);
   };
   inp.onchange = () => agregarHojas([...inp.files]);
   // también se puede soltar (arrastrar y soltar) la foto directo sobre "Agregar hoja"

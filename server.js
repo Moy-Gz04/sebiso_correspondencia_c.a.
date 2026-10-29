@@ -1642,12 +1642,17 @@ async function oficioConControl(numero) {
     WHERE regexp_replace(n_control, '[^0-9]', '', 'g') = ${numero} ORDER BY id DESC LIMIT 1`;
   return o || null;
 }
-app.post('/api/turnos/leer', verifyToken, onlyCoordOrAdmin, upload.single('imagen'), async (req, res) => {
+/* Acepta una o varias hojas ("imagen" repetido, hoja 1 primero): el
+   remitente y la firma muchas veces quedan en la 2ª hoja (o siguientes),
+   así que se le mandan todas juntas a la IA para que lea el Turno
+   completo — igual que ya hace el Registro Automático con su 2ª hoja. */
+app.post('/api/turnos/leer', verifyToken, onlyCoordOrAdmin, upload.array('imagen', 10), async (req, res) => {
   try {
-    const img = req.file;
+    const [img, ...resto] = req.files || [];
     if (!img) return res.status(400).json({ mensaje: 'No se recibió ninguna imagen.' });
+    const extras = resto.map(h => ({ base64: h.buffer.toString('base64'), mimeType: h.mimetype }));
     let datos = null, mensaje = null;
-    try { datos = await extraerDatosOficioDeImagen(img.buffer.toString('base64'), img.mimetype, 'turno'); }
+    try { datos = await extraerDatosOficioDeImagen(img.buffer.toString('base64'), img.mimetype, 'turno', extras); }
     catch (e) { mensaje = 'No se pudo leer la foto con IA. Llena los datos a mano.'; }
     const existente = await oficioConControl(datos?.turno);
     res.json({ datos: datos || {}, existente, mensaje });
