@@ -843,7 +843,9 @@ Reglas estrictas:
   // vale la pena recorrer TODAS las combinaciones de modelo x cuenta
   // antes de rendirse (una vuelta extra por si el primer combo vuelve a
   // estar disponible).
-  const INTENTOS = esEnVivo ? Math.min(COMBOS.length, 3) : COMBOS.length + 1;
+  // En vivo se recorren TODOS los combos (para no perder cobertura cuando
+  // el primer modelo falla), solo sin la vuelta extra de respaldo.
+  const INTENTOS = esEnVivo ? COMBOS.length : COMBOS.length + 1;
   for (let intento = 1; intento <= INTENTOS; intento++) {
     const { modelo, key } = COMBOS[(intento - 1) % COMBOS.length];
     try {
