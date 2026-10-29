@@ -102,7 +102,8 @@
     .turno-hoja { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; background: #F7EFE3; color: #6B1F3A; font-size: 12px; font-weight: 700; }
     .turno-hoja button { border: 0; background: none; color: inherit; cursor: pointer; padding: 0; display: inline-flex; }
     .turno-agregar-hoja { display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 999px; border: 1.5px dashed #A9824C; color: #7C5E2E; font-size: 12px; font-weight: 700; cursor: pointer; }
-    .turno-agregar-hoja:hover { background: #FBF4E8; }
+    .turno-agregar-hoja:hover, .turno-agregar-hoja.arrastrando { background: #FBF4E8; }
+    .turno-agregar-hoja.arrastrando { border-style: solid; border-color: #8C6A34; color: #6B1F3A; }
     .turno-tarjeta.hecha .turno-agregar-hoja, .turno-tarjeta.hecha .turno-hoja button { display: none; }
     .tf-control input { font: 800 17px 'JetBrains Mono', monospace; }
     .turno-nota { font-size: 12.5px; color: #6B5563; display: flex; gap: 6px; align-items: center; min-height: 18px; }
@@ -222,7 +223,7 @@
     </div>
   </footer>
 
-  <script src="js/turnos.js?v=5"></script>
+  <script src="js/turnos.js?v=6"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>

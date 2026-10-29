@@ -118,10 +118,19 @@ function pintarHojas(t) {
     + `<label class="turno-agregar-hoja"><i class="ti ti-file-plus"></i> Agregar hoja<input type="file" accept="image/*" multiple hidden></label>`;
   t.querySelector('.turno-foto img').title = n > 1 ? `${n} hojas` : '';
   t.querySelectorAll('.turno-hoja button').forEach(b => b.onclick = () => { t._archivos.splice(+b.dataset.i, 1); pintarHojas(t); });
-  const inp = t.querySelector('.turno-agregar-hoja input');
-  inp.onchange = async () => {
-    for (const f of [...inp.files]) if (f.type.startsWith('image/')) t._archivos.push(await reducirImagen(f));
+  const etiqueta = t.querySelector('.turno-agregar-hoja');
+  const inp = etiqueta.querySelector('input');
+  const agregarHojas = async (archivos) => {
+    for (const f of archivos) if (f.type.startsWith('image/')) t._archivos.push(await reducirImagen(f));
     pintarHojas(t);
+  };
+  inp.onchange = () => agregarHojas([...inp.files]);
+  // también se puede soltar (arrastrar y soltar) la foto directo sobre "Agregar hoja"
+  etiqueta.ondragover = (e) => { e.preventDefault(); etiqueta.classList.add('arrastrando'); };
+  etiqueta.ondragleave = () => etiqueta.classList.remove('arrastrando');
+  etiqueta.ondrop = (e) => {
+    e.preventDefault(); etiqueta.classList.remove('arrastrando');
+    agregarHojas([...e.dataTransfer.files]);
   };
 }
 
