@@ -226,3 +226,29 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarVacio();
 });
 window.addEventListener('pageshow', (e) => { if (e.persisted) verificarAcceso(); });
+
+/* Vista ampliada de la foto del Turno al pasar el mouse: una copia grande
+   flotando al centro, sin tapar la miniatura (así se puede leer el
+   oficio completo antes de revisar los datos). Solo en escritorio: en
+   touch no hay "hover", así que ahí no pasa nada (el tap sigue libre
+   para lo que ya hacía antes). */
+let elementoZoomFoto = null;
+function mostrarZoomFoto(img) {
+  quitarZoomFoto();
+  elementoZoomFoto = document.createElement('div');
+  elementoZoomFoto.className = 'foto-zoom-overlay';
+  const grande = document.createElement('img');
+  grande.src = img.currentSrc || img.src;
+  grande.alt = img.alt || '';
+  elementoZoomFoto.appendChild(grande);
+  document.body.appendChild(elementoZoomFoto);
+}
+function quitarZoomFoto() { elementoZoomFoto?.remove(); elementoZoomFoto = null; }
+document.addEventListener('mouseover', (e) => {
+  const img = e.target.closest('.turno-foto img'); if (img) mostrarZoomFoto(img);
+});
+document.addEventListener('mouseout', (e) => {
+  const img = e.target.closest('.turno-foto img');
+  if (img && !e.relatedTarget?.closest('.turno-foto img')) quitarZoomFoto();
+});
+document.addEventListener('scroll', quitarZoomFoto, true);

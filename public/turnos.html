@@ -38,7 +38,19 @@
     @keyframes turnoEntra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     .turno-tarjeta.hecha { border-color: #9fd3b0; background: linear-gradient(135deg, #F2FBF5, #fff 60%); }
     .turno-foto { position: relative; }
-    .turno-foto img { width: 100%; height: 260px; object-fit: cover; border-radius: 12px; display: block; background: #f3ece4; }
+    .turno-foto img { width: 100%; height: 260px; object-fit: cover; border-radius: 12px; display: block; background: #f3ece4; cursor: zoom-in; }
+    /* Vista ampliada al pasar el mouse sobre la foto (solo escritorio; en touch no hay hover) */
+    .foto-zoom-overlay {
+      position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center;
+      padding: 24px; background: rgba(28, 16, 8, .6); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+      pointer-events: none; animation: fotoZoomEntra .12s ease-out;
+    }
+    .foto-zoom-overlay img {
+      max-width: min(92vw, 760px); max-height: 90vh; object-fit: contain; border-radius: 14px;
+      border: 5px solid #fff; background: #fff; box-shadow: 0 24px 60px rgba(0,0,0,.45);
+    }
+    @keyframes fotoZoomEntra { from { opacity: 0; } to { opacity: 1; } }
+    @media (hover: none) { .turno-foto img { cursor: default; } }
     .turno-quitar { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer; background: rgba(0,0,0,.55); color: #fff; display: grid; place-items: center; }
     .turno-datos { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
     .turno-campo > span:first-child { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7C5D31; margin-bottom: 6px; }
@@ -210,7 +222,7 @@
     </div>
   </footer>
 
-  <script src="js/turnos.js?v=4"></script>
+  <script src="js/turnos.js?v=5"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>
