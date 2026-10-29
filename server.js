@@ -1127,13 +1127,14 @@ function sanitizarDoc(ruta, subidoPor) {
 
 function sanitizarOficio(o) {
   if (!o) return o;
-  const { ruta_doc1, ruta_doc2, ruta_doc3, ruta_doc4, doc3_subido_por, doc4_subido_por, docs_extra, ...resto } = o;
+  const { ruta_doc1, ruta_doc2, ruta_doc3, ruta_doc4, doc3_subido_por, doc4_subido_por, ruta_cd, cd_subido_por, docs_extra, ...resto } = o;
   return {
     ...resto,
     doc1: sanitizarDoc(ruta_doc1),
     doc2: sanitizarDoc(ruta_doc2),
     doc3: sanitizarDoc(ruta_doc3, doc3_subido_por),
     doc4: sanitizarDoc(ruta_doc4, doc4_subido_por),
+    cd: sanitizarDoc(ruta_cd, cd_subido_por),
     // Contestaciones adicionales: mismas reglas (sin URL), con su nombre de archivo real
     docs_extra: (Array.isArray(docs_extra) ? docs_extra : []).map(d => {
       const base = sanitizarDoc(d.ruta, d.subido_por);
@@ -1148,7 +1149,7 @@ function sanitizarOficio(o) {
    oficios.docs_extra (JSONB): [{ id, ruta, nombre, subido_por, fecha }].
    Para abrirlos se usa el mismo doc-token, con slot "extra-<id>". */
 const RE_SLOT_EXTRA = /^extra-([0-9a-f]{8})$/;
-const slotValido = (slot) => ['doc1', 'doc2', 'doc3', 'doc4'].includes(slot) || RE_SLOT_EXTRA.test(slot);
+const slotValido = (slot) => ['doc1', 'doc2', 'doc3', 'doc4', 'cd'].includes(slot) || RE_SLOT_EXTRA.test(slot);
 function rutaDeSlot(oficio, slot) {
   const m = RE_SLOT_EXTRA.exec(slot);
   if (!m) return oficio[`ruta_${slot}`];
@@ -2235,7 +2236,7 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
     const {
       f_sello, f_oficio, dias_entrega, numero, n_referencia,
       remitente, dependencia, instruccion, f_registro,
-      folio_despacho, hora_recibido, descripcion, turnado_a
+      folio_despacho, hora_recibido, descripcion, turnado_a, tiene_cd
     } = req.body;
 
     if (!f_oficio || !remitente?.trim())
@@ -2271,7 +2272,7 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
         n_control, f_sello, f_oficio, dias_entrega, numero,
         n_referencia, remitente, dependencia, instruccion, f_registro,
         folio_despacho, turnado_a, turnado_por, hora_recibido, estatus, descripcion,
-        ruta_doc1, ruta_doc2, ruta_doc3, doc3_subido_por, area_origen
+        ruta_doc1, ruta_doc2, ruta_doc3, doc3_subido_por, area_origen, tiene_cd
       ) VALUES (
         ${n_control},
         ${f_sello        || null},
@@ -2293,7 +2294,8 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
         ${ruta_doc2},
         ${ruta_doc3},
         ${doc3SubidoPor},
-        ${areaOrigen}
+        ${areaOrigen},
+        ${tiene_cd === 'si' || tiene_cd === '1' || tiene_cd === 'true'}
       )
       RETURNING *`;
 
@@ -2345,6 +2347,33 @@ app.post('/api/oficios/:id/doc3-diferido', verifyToken, onlyCoordOrAdmin,
     res.status(202).json({ ok: true });
   } catch (err) {
     manejarError(res, err, 'No se pudo adjuntar el documento.');
+  }
+});
+
+/* ══ POST /api/oficios/:id/cd ══
+   Sube (o reemplaza) la información del CD de un oficio marcado con
+   tiene_cd = true desde Registro Automático. Igual que el botón "Turnar
+   a Área", vive en el historial y lo usa Coordinación/admin. Sube de
+   forma síncrona (no hay cola de fondo para este slot, como con doc3/doc4
+   al atender) porque es un solo archivo a demanda, no parte del alta
+   masiva de Registro Automático. */
+app.post('/api/oficios/:id/cd', verifyToken, onlyCoordOrAdmin,
+  upload.single('cd'),
+  async (req, res) => {
+  try {
+    const [o] = await sql`SELECT * FROM oficios WHERE id = ${req.params.id}`;
+    if (!o) return res.status(404).json({ mensaje: 'Oficio no encontrado.' });
+    if (!o.tiene_cd) return res.status(409).json({ mensaje: 'Este oficio no está marcado con CD.' });
+    if (!req.file) return res.status(400).json({ mensaje: 'No se recibió ningún archivo.' });
+
+    const ruta_cd = await subirArchivoADrive(req.file, areaDeOficio(o));
+    await sql`UPDATE oficios SET ruta_cd = ${ruta_cd}, cd_subido_por = ${req.user.username} WHERE id = ${o.id}`;
+    GENERACION_OFICIOS++;
+    CACHE_OFICIOS.clear();
+    console.log(`📀  CD del oficio ${o.id} subido por ${req.user.username}.`);
+    res.json({ ok: true });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo subir el CD.');
   }
 });
 

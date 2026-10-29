@@ -120,3 +120,11 @@ CREATE TABLE IF NOT EXISTS salas_historial (
 -- Documentos extra de contestación (además de Turno doc3 y Seguimiento doc4):
 -- [{ id, ruta, nombre, subido_por, fecha }]. Ver calcularDocsExtra en server.js.
 ALTER TABLE oficios ADD COLUMN IF NOT EXISTS docs_extra JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- CD: en Registro Automático se marca si el oficio trae CD (default NO);
+-- si viene con SI, en el historial aparece el botón "Subir CD" para anexar
+-- la información del disco como otro documento (slot "cd", igual mecánica
+-- que doc3/doc4 — ver sanitizarDoc/rutaDeSlot en server.js).
+ALTER TABLE oficios ADD COLUMN IF NOT EXISTS tiene_cd BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE oficios ADD COLUMN IF NOT EXISTS ruta_cd VARCHAR(255);
+ALTER TABLE oficios ADD COLUMN IF NOT EXISTS cd_subido_por VARCHAR(150);

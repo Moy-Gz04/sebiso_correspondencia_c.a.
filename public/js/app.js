@@ -552,10 +552,21 @@ function construirTarjeta(r, i) {
          <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
        </div>` : '';
 
+  const cdHTML = r.cd
+    ? `<div class="doc-area-card" onclick="verDocSeguro(${r.id}, 'cd')">
+         <div class="doc-area-icon"><i class="ti ti-disc"></i></div>
+         <div class="doc-area-info">
+           <span class="doc-area-nombre">CD</span>
+           <span class="doc-area-meta">${r.cd.nombre}</span>
+           ${r.cd.subido_por ? `<span class="doc-area-subido-por"><i class="ti ti-user"></i> Subido por ${r.cd.subido_por}</span>` : ''}
+         </div>
+         <div class="doc-area-abrir"><i class="ti ti-external-link"></i></div>
+       </div>` : '';
+
   const extrasHTML = DocsExtra.tarjetas(r, 'doc-area');
-  const docsAreaHTML = (doc3HTML || doc4HTML || extrasHTML)
+  const docsAreaHTML = (doc3HTML || doc4HTML || cdHTML || extrasHTML)
     ? `<p class="t-docs-titulo" style="margin-top:14px">Documentos del Área</p>
-       <div class="docs-area-grid">${doc3HTML}${doc4HTML}${extrasHTML}</div>`
+       <div class="docs-area-grid">${doc3HTML}${doc4HTML}${cdHTML}${extrasHTML}</div>`
     : '';
 
   /* Nota de rechazo enviada al área (visible también para admin como referencia) */
@@ -594,6 +605,16 @@ function construirTarjeta(r, i) {
     botonesHTML = `<span style="font-size:11px;color:var(--txt2);">
       <i class="ti ti-clock"></i> Pendiente de área
     </span>`;
+  }
+
+  // Oficio marcado con CD en Registro Automático: botón para subir la
+  // información del CD, igual que "Turnar a Área" — independiente del
+  // estatus, y disponible mientras no se haya subido ya.
+  if (r.tiene_cd && !r.cd) {
+    botonesHTML += `
+      <button class="btn-accion btn-turnar" onclick="subirCd(${r.id})">
+        <i class="ti ti-disc"></i> Subir CD
+      </button>`;
   }
 
   /* Días transcurridos desde creación (turnado o por_turnar) */
@@ -854,6 +875,32 @@ async function finalizar(id) {
   } catch (err) {
     await sbisAlert({ titulo: 'Error de conexión', mensaje: err.message, tipo: 'error' });
   }
+}
+
+/* ── Subir CD (oficios marcados con tiene_cd en Registro Automático) ── */
+function subirCd(id) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.pdf,.doc,.docx,image/*';
+  input.onchange = async () => {
+    const archivo = input.files?.[0];
+    if (!archivo) return;
+    try {
+      const fd = new FormData();
+      fd.append('cd', archivo);
+      const res = await apiFetch(`${API}/oficios/${id}/cd`, { method: 'POST', body: fd });
+      if (res.ok) {
+        await sbisAlert({ titulo: 'CD subido', mensaje: 'La información del CD se adjuntó al oficio.', tipo: 'success', btnOk: 'Aceptar' });
+        cargarOficios(filtroActual);
+      } else {
+        const d = await res.json();
+        await sbisAlert({ titulo: 'Error', mensaje: d.mensaje || 'No se pudo subir el CD.', tipo: 'error' });
+      }
+    } catch (err) {
+      await sbisAlert({ titulo: 'Error de conexión', mensaje: err.message, tipo: 'error' });
+    }
+  };
+  input.click();
 }
 
 /* ── Eliminar ── */

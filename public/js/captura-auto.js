@@ -480,7 +480,7 @@ async function enviarForm(e) {
     const campos = [
       'f_sello', 'f_oficio', 'dias_entrega', 'numero', 'n_referencia',
       'remitente', 'dependencia', 'instruccion', 'f_registro',
-      'folio_despacho', 'descripcion', 'turnado_a'
+      'folio_despacho', 'descripcion', 'turnado_a', 'tiene_cd'
     ];
     campos.forEach(c => {
       const el = document.getElementById(c);
