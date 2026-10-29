@@ -99,17 +99,21 @@ async function leer(t) {
   }
 }
 
-/* Une las hojas de un Turno (una debajo de otra) en una sola imagen JPG */
+/* Une las hojas de un Turno en un PDF tamaño carta, una hoja por página
+   (igual que ya hace el Registro Automático con hojasAPdf en captura-auto.js). */
 async function unirHojas(archivos) {
-  if (archivos.length === 1) return archivos[0];
   const imgs = await Promise.all(archivos.map(a => new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = mal; i.src = URL.createObjectURL(a); })));
-  const ancho = Math.max(...imgs.map(i => i.width));
-  const alto = imgs.reduce((s, i) => s + Math.round(i.height * ancho / i.width), 0);
-  const c = document.createElement('canvas'); c.width = ancho; c.height = alto;
-  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, ancho, alto);
-  let y = 0;
-  imgs.forEach(i => { const h = Math.round(i.height * ancho / i.width); ctx.drawImage(i, 0, y, ancho, h); y += h; URL.revokeObjectURL(i.src); });
-  return new Promise(ok => c.toBlob(b => ok(new File([b], 'turno.jpg', { type: 'image/jpeg' })), 'image/jpeg', 0.85));
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ unit: 'pt', format: 'letter', compress: true });
+  const anchoPag = pdf.internal.pageSize.getWidth(), altoPag = pdf.internal.pageSize.getHeight();
+  imgs.forEach((img, i) => {
+    if (i) pdf.addPage('letter');
+    const escala = Math.min(anchoPag / img.naturalWidth, altoPag / img.naturalHeight);
+    const w = img.naturalWidth * escala, h = img.naturalHeight * escala;
+    pdf.addImage(img, 'JPEG', (anchoPag - w) / 2, (altoPag - h) / 2, w, h);
+    URL.revokeObjectURL(img.src);
+  });
+  return new File([pdf.output('blob')], 'turno.pdf', { type: 'application/pdf' });
 }
 
 function pintarHojas(t) {
@@ -150,7 +154,7 @@ async function registrar(t) {
   try {
     const fd = new FormData();
     ['n_control', 'f_oficio', 'f_sello', 'numero', 'remitente', 'dependencia', 'descripcion', 'turnado_a'].forEach(k => fd.append(k, campo(t, k).value.trim()));
-    fd.append('doc3', await unirHojas(t._archivos), `Turno_T-${n}.jpg`);
+    fd.append('doc3', await unirHojas(t._archivos), `Turno_T-${n}.pdf`);
     await api('/turnos/registrar', { method: 'POST', body: fd });
     t.classList.add('hecha');
     t.querySelectorAll('input, select, textarea').forEach(el => el.disabled = true);
