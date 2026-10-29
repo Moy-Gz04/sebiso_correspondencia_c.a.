@@ -128,8 +128,10 @@ function pintarHojas(t) {
     let hubo = false;
     for (const f of archivos) if (f.type.startsWith('image/')) { t._archivos.push(await reducirImagen(f)); hubo = true; }
     pintarHojas(t);
-    // la hoja nueva puede traer el remitente/firma que faltaba en la 1.ª
-    if (hubo) leer(t);
+    // Solo se vuelve a leer con IA (tarda varios segundos) si todavía falta
+    // el dato que normalmente viene en la hoja agregada (remitente o
+    // N. de control) — si la 1.ª hoja ya los traía, no hace falta releer.
+    if (hubo && (!campo(t, 'remitente').value.trim() || !campo(t, 'n_control').value.replace(/\D/g, ''))) leer(t);
   };
   inp.onchange = () => agregarHojas([...inp.files]);
   // también se puede soltar (arrastrar y soltar) la foto directo sobre "Agregar hoja"

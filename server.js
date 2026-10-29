@@ -781,9 +781,15 @@ Reglas estrictas:
     for (const modelo of MODELOS_VISION) COMBOS.push({ modelo, key });
   }
 
+  // El Turno se lee con el usuario esperando en vivo (a diferencia del
+  // Registro Automático, que es en segundo plano) — se acorta el tiempo
+  // máximo por intento y cuántos combos se recorren, para no dejarlo
+  // esperando varios minutos si los primeros modelos fallan o están lentos.
+  const esEnVivo = tipo === 'turno';
+
   async function intentar(modelo, apiKey) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // imagen (y el modelo de respaldo) tardan mas que texto
+    const timeout = setTimeout(() => controller.abort(), esEnVivo ? 12000 : 30000); // imagen (y el modelo de respaldo) tardan mas que texto
     try {
       const resp = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`,
@@ -837,7 +843,7 @@ Reglas estrictas:
   // vale la pena recorrer TODAS las combinaciones de modelo x cuenta
   // antes de rendirse (una vuelta extra por si el primer combo vuelve a
   // estar disponible).
-  const INTENTOS = COMBOS.length + 1;
+  const INTENTOS = esEnVivo ? Math.min(COMBOS.length, 3) : COMBOS.length + 1;
   for (let intento = 1; intento <= INTENTOS; intento++) {
     const { modelo, key } = COMBOS[(intento - 1) % COMBOS.length];
     try {
@@ -846,7 +852,7 @@ Reglas estrictas:
     } catch (err) {
       console.error(`⚠️  Intento ${intento}/${INTENTOS} (${modelo}) de extraer datos con Gemini Vision falló:`, err.message);
     }
-    if (intento < INTENTOS) await new Promise(r => setTimeout(r, 3000));
+    if (intento < INTENTOS) await new Promise(r => setTimeout(r, esEnVivo ? 1000 : 3000));
   }
   throw new Error(`No se pudo leer la imagen con IA tras probar los ${COMBOS.length} combos de modelo/cuenta disponibles.`);
 }
