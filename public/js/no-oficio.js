@@ -220,6 +220,7 @@ const CATALOGO_DIRIGE = [
   'Lic. Sergio Daniel Barrera Hernández, Director General de Servicios Generales de la OM',
   'Licenciada Anahi Castro García, Coordinadora de Operación Institucional',
   'Luis Fernando García Cruz, Representante del Presidente del Comité de Adquisiciones, Arrendamientos y Servicios',
+  'M.D.F. Leonardo Rodríguez Hernández, Coordinador de Planeación Financiera',
   'M.E.F. Ricardo Enrique Alviso Contreras, Titular del Sistema para el Desarrollo Integral de la Familia del Estado de Hidalgo',
   'M.I.E.F. Daniela Salinas Rosales, Directora General de Administración de la OM',
   'M.T.I. Edwin Mellado García, Director General de Innovación Gubernamental de la OM',
