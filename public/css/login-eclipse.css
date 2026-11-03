@@ -44,7 +44,7 @@ html:has(.login-eclipse), body:has(.login-eclipse) { margin: 0; padding: 0; min-
 .lluvia-flores { position: fixed; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
 .flor-lluvia {
   position: absolute; top: -6%;
-  background: url('../img/lluvia.png') center / contain no-repeat;
+  background: url('../img/lluvia.png?v=hoja1') center / contain no-repeat;
   opacity: 0; will-change: transform, opacity; pointer-events: auto; cursor: pointer;
   animation-name: caerFlorCempasuchil; animation-timing-function: linear; animation-iteration-count: infinite;
 }

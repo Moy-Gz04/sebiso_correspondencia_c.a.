@@ -106,7 +106,7 @@ img { max-width: 100%; }
 .flor-lluvia {
   position: absolute;
   top: -6%;
-  background-image: url('../img/lluvia.png');
+  background-image: url('../img/lluvia.png?v=hoja1');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
