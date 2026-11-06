@@ -5,7 +5,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Correspondencia C.A. SEBISO</title>
-  <link rel="stylesheet" href="css/styles.css?v=10"/>
+  <link rel="stylesheet" href="css/styles.css?v=11"/>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css"/>
   <style>
@@ -363,9 +363,12 @@
         <button class="chip chip-con-badge" data-estatus="asignados_mi" onclick="filtrarPorAsignados(this)" title="Oficios asignados a mí, pendientes de atención">
           Para Atender <span class="chip-badge chip-badge-azul" id="badge-asignados">0</span>
         </button>
+        <button class="chip" data-estatus="mi_personal" onclick="filtrar(this,'mi_personal')" title="Todos los oficios turnados a tu personal, incluido tú, con su avance"><i class="ti ti-users"></i> Mi personal</button>
         <div class="filtro-spacer"></div>
         <span class="filtro-total">Total: <strong id="tot">0</strong> registros</span>
       </div>
+
+      <section class="avance-personal" id="avance-personal" hidden aria-label="Avance del personal"></section>
 
       <div class="lista" id="lista"></div>
 
@@ -509,7 +512,7 @@
   <script src="js/docs-extra.js"></script>
   <script src="js/paginacion.js"></script>
   <script src="js/visor-documento.js?v=5"></script>
-  <script src="js/area.js?v=3"></script>
+  <script src="js/area.js?v=4"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>

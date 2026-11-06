@@ -1591,8 +1591,10 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
     if (rol !== 'area' && rol !== 'usuario_area') return res.status(403).json({ mensaje: 'Sin acceso a la bandeja.' });
     const { limite, desde, patron } = leerPaginado(req.query);
     const filtro  = String(req.query.filtro || 'todos');
-    const estatus = !['todos', 'asignados_mi', 'por_vencer'].includes(filtro) ? filtro : null;
+    const estatus = !['todos', 'asignados_mi', 'por_vencer', 'mi_personal'].includes(filtro) ? filtro : null;
     const soloMios = filtro === 'asignados_mi';
+    // 'mi_personal' (solo encargados): todo lo que se turnó a alguien del área, incluido el propio encargado
+    const miPersonal = filtro === 'mi_personal' && rol === 'area';
     // 'por_vencer': oficios pendientes, del más vencido al que menos días le quedan; los "No aplica" (sin plazo) van al final
     const porVencer = filtro === 'por_vencer';
     const deArea  = rol === 'area' ? area : null;   // bandeja del área
@@ -1610,6 +1612,7 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
           AND (${deUser}::int  IS NULL OR usuario_asignado_id = ${deUser})
           AND (${estatus}::text IS NULL OR estatus = ${estatus})
           AND (NOT ${soloMios} OR (usuario_asignado_id = ${id} AND estatus IN ('sub_turnado','rechazado')))
+          AND (NOT ${miPersonal} OR usuario_asignado_id IS NOT NULL)
           AND (NOT ${porVencer} OR estatus IN ('turnado','sub_turnado'))
           AND (${patron}::text IS NULL OR
                n_control ILIKE ${patron} OR n_referencia ILIKE ${patron} OR
@@ -1630,6 +1633,19 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
     ]);
     const r = respuestaPaginada(filas, desde, { conteos });
     r.items = r.items.map(sanitizarOficio);
+    if (miPersonal) {
+      // Avance del personal: turnados (aún pendientes), atendidos y completados, total y por persona
+      r.personal = await sql`
+        SELECT u.id, u.username AS nombre, (u.id = ${id}) AS yo,
+               COUNT(*)::int AS total,
+               COUNT(*) FILTER (WHERE o.estatus IN ('sub_turnado','rechazado','turnado'))::int AS turnados,
+               COUNT(*) FILTER (WHERE o.estatus = 'atendido')::int   AS atendidos,
+               COUNT(*) FILTER (WHERE o.estatus = 'completado')::int AS completados
+        FROM oficios o JOIN usuarios u ON u.id = o.usuario_asignado_id
+        WHERE o.turnado_a = ${area}
+        GROUP BY u.id, u.username
+        ORDER BY (u.id = ${id}) DESC, COUNT(*) DESC, u.username`;
+    }
     res.json(r);
   } catch (err) {
     manejarError(res, err, 'No se pudo cargar la bandeja.');

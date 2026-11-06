@@ -325,6 +325,7 @@ function paginador() {
     alRecibir: (data) => {
       DATOS = PAGINADOR.items;
       if (data.conteos) CONTEOS = data.conteos;
+      pintarAvancePersonal(data.personal);
       actualizarBadgeAsignados();
       actualizarBadgeRechazados();
       document.getElementById('tot').textContent = data.total;
@@ -333,6 +334,41 @@ function paginador() {
     },
   });
   return PAGINADOR;
+}
+
+/* ── Filtro "Mi personal": avance de lo turnado al personal del área ──
+   Porcentajes de turnados (aún pendientes), atendidos y completados,
+   del total y por persona (incluido el propio encargado, marcado "tú"). */
+function pintarAvancePersonal(personal) {
+  const el = document.getElementById('avance-personal');
+  if (!el) return;
+  if (filtroActual !== 'mi_personal' || !personal) { el.hidden = true; el.innerHTML = ''; return; }
+  const pct = (n, t) => t ? Math.round(n * 100 / t) : 0;
+  const suma = personal.reduce((a, p) => ({ total: a.total + p.total, turnados: a.turnados + p.turnados,
+    atendidos: a.atendidos + p.atendidos, completados: a.completados + p.completados }),
+    { total: 0, turnados: 0, atendidos: 0, completados: 0 });
+  const barra = (p) => `<div class="ap-barra" role="img" aria-label="${pct(p.turnados, p.total)}% turnados, ${pct(p.atendidos, p.total)}% atendidos, ${pct(p.completados, p.total)}% completados">
+      <span class="ap-tur" style="width:${pct(p.turnados, p.total)}%"></span><span class="ap-ate" style="width:${pct(p.atendidos, p.total)}%"></span><span class="ap-comp" style="width:${pct(p.completados, p.total)}%"></span></div>`;
+  const dato = (cls, lbl, n, t) => `<div class="ap-dato"><span class="ap-punto ${cls}"></span><span class="ap-lbl">${lbl}</span><strong>${pct(n, t)}%</strong><span class="ap-n">${n}</span></div>`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  if (!suma.total) { el.hidden = false; el.innerHTML = '<p class="ap-vacio">Aún no has turnado oficios a tu personal.</p>'; return; }
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="ap-resumen">
+      <div class="ap-total"><span>Turnados a tu personal</span><strong>${suma.total}</strong></div>
+      <div class="ap-datos">${dato('ap-tur', 'Turnados', suma.turnados, suma.total)}${dato('ap-ate', 'Atendidos', suma.atendidos, suma.total)}${dato('ap-comp', 'Completados', suma.completados, suma.total)}</div>
+      ${barra(suma)}
+    </div>
+    <div class="ap-tabla-wrap"><table class="ap-tabla">
+      <thead><tr><th>Persona</th><th>Oficios</th><th>Turnados</th><th>Atendidos</th><th>Completados</th><th class="ap-col-barra">Avance</th></tr></thead>
+      <tbody>${personal.map(p => `<tr>
+        <td>${esc(p.nombre)}${p.yo ? ' <span class="ap-yo">tú</span>' : ''}</td>
+        <td>${p.total}</td>
+        <td>${pct(p.turnados, p.total)}% <span class="ap-n">(${p.turnados})</span></td>
+        <td>${pct(p.atendidos, p.total)}% <span class="ap-n">(${p.atendidos})</span></td>
+        <td>${pct(p.completados, p.total)}% <span class="ap-n">(${p.completados})</span></td>
+        <td class="ap-col-barra">${barra(p)}</td></tr>`).join('')}</tbody>
+    </table></div>`;
 }
 
 async function cargarOficios() {
