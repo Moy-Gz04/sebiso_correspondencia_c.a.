@@ -318,6 +318,7 @@ function paginador() {
       const params = new URLSearchParams({ desde, limite, filtro: filtroActual });
       const q = (document.getElementById('buscador')?.value || '').trim();
       if (q) params.set('q', q);
+      if (filtroActual === 'mi_personal' && PERSONA_SEL) params.set('persona', PERSONA_SEL);
       return `${API}/oficios/bandeja?${params}`;
     },
     pintar: (r, i) => construirTarjeta(r, i),
@@ -339,10 +340,16 @@ function paginador() {
 /* ── Filtro "Mi personal": avance de lo turnado al personal del área ──
    Porcentajes de turnados (aún pendientes), atendidos y completados,
    del total y por persona (incluido el propio encargado, marcado "tú"). */
+let PERSONA_SEL = null;   // id de la persona elegida en la tabla de "Mi personal" (null = todo el personal)
+function elegirPersona(id) {
+  PERSONA_SEL = PERSONA_SEL === id ? null : id;   // tocar otra vez la misma persona regresa a todos
+  cargarOficios();
+}
 function pintarAvancePersonal(personal) {
   const el = document.getElementById('avance-personal');
   if (!el) return;
-  if (filtroActual !== 'mi_personal' || !personal) { el.hidden = true; el.innerHTML = ''; return; }
+  if (filtroActual !== 'mi_personal' || !personal) { el.hidden = true; el.innerHTML = ''; PERSONA_SEL = null; return; }
+  const sel = personal.find(p => p.id === PERSONA_SEL);
   const pct = (n, t) => t ? Math.round(n * 100 / t) : 0;
   const suma = personal.reduce((a, p) => ({ total: a.total + p.total, turnados: a.turnados + p.turnados,
     atendidos: a.atendidos + p.atendidos, completados: a.completados + p.completados }),
@@ -359,9 +366,13 @@ function pintarAvancePersonal(personal) {
       <div class="ap-datos">${dato('ap-tur', 'Turnados', suma.turnados, suma.total)}${dato('ap-ate', 'Atendidos', suma.atendidos, suma.total)}${dato('ap-comp', 'Completados', suma.completados, suma.total)}</div>
       ${barra(suma)}
     </div>
+    <div class="ap-ayuda">${sel
+      ? `Mostrando solo los oficios de <strong>${esc(sel.nombre)}</strong> <button type="button" class="chip ap-ver-todos" onclick="elegirPersona(${sel.id})"><i class="ti ti-users"></i> Ver todo el personal</button>`
+      : 'Selecciona una persona para ver solo sus oficios.'}</div>
     <div class="ap-tabla-wrap"><table class="ap-tabla">
       <thead><tr><th>Persona</th><th>Oficios</th><th>Turnados</th><th>Atendidos</th><th>Completados</th><th class="ap-col-barra">Avance</th></tr></thead>
-      <tbody>${personal.map(p => `<tr>
+      <tbody>${personal.map(p => `<tr class="ap-fila${p.id === PERSONA_SEL ? ' ap-sel' : ''}" tabindex="0" role="button" aria-pressed="${p.id === PERSONA_SEL}"
+          onclick="elegirPersona(${p.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();elegirPersona(${p.id})}">
         <td>${esc(p.nombre)}${p.yo ? ' <span class="ap-yo">tú</span>' : ''}</td>
         <td>${p.total}</td>
         <td>${pct(p.turnados, p.total)}% <span class="ap-n">(${p.turnados})</span></td>

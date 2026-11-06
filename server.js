@@ -1595,6 +1595,7 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
     const soloMios = filtro === 'asignados_mi';
     // 'mi_personal' (solo encargados): todo lo que se turnó a alguien del área, incluido el propio encargado
     const miPersonal = filtro === 'mi_personal' && rol === 'area';
+    const personaF = miPersonal ? (parseInt(req.query.persona, 10) || null) : null;   // una sola persona del personal
     // 'por_vencer': oficios pendientes, del más vencido al que menos días le quedan; los "No aplica" (sin plazo) van al final
     const porVencer = filtro === 'por_vencer';
     const deArea  = rol === 'area' ? area : null;   // bandeja del área
@@ -1613,6 +1614,7 @@ app.get('/api/oficios/bandeja', verifyToken, async (req, res) => {
           AND (${estatus}::text IS NULL OR estatus = ${estatus})
           AND (NOT ${soloMios} OR (usuario_asignado_id = ${id} AND estatus IN ('sub_turnado','rechazado')))
           AND (NOT ${miPersonal} OR usuario_asignado_id IS NOT NULL)
+          AND (${personaF}::int IS NULL OR usuario_asignado_id = ${personaF})
           AND (NOT ${porVencer} OR estatus IN ('turnado','sub_turnado'))
           AND (${patron}::text IS NULL OR
                n_control ILIKE ${patron} OR n_referencia ILIKE ${patron} OR
