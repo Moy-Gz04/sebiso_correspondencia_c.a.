@@ -1985,3 +1985,10 @@ body.minutario-area .tabla-simple tbody td:nth-child(10) { display: none; }
 .ap-fila:focus-visible { outline: 2px solid var(--guinda); outline-offset: -2px; }
 .ap-fila.ap-sel { background: var(--dorado-claro); }
 .ap-fila.ap-sel td:first-child { font-weight: var(--fw-semibold); }
+
+/* No. de CD en el detalle del Historial */
+.cd-num { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.cd-num-input { font: inherit; font-size: 12.5px; padding: 4px 8px; border: 0.5px solid var(--borde); border-radius: 6px; width: 130px; max-width: 100%; color: var(--guinda-oscuro); background: var(--blanco); }
+.cd-num-input:focus-visible { outline: 2px solid var(--guinda); outline-offset: 1px; }
+.cd-num-btn { font: inherit; font-size: 11.5px; font-weight: var(--fw-semibold); color: var(--guinda); background: var(--blanco); border: 0.5px solid var(--borde); border-radius: var(--radio-pill); padding: 4px 12px; cursor: pointer; }
+.cd-num-btn:hover { background: var(--dorado-claro); border-color: var(--dorado); }

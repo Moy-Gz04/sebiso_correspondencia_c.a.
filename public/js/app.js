@@ -556,7 +556,7 @@ function construirTarjeta(r, i) {
     ? `<div class="doc-area-card" onclick="verDocSeguro(${r.id}, 'cd')">
          <div class="doc-area-icon"><i class="ti ti-disc"></i></div>
          <div class="doc-area-info">
-           <span class="doc-area-nombre">CD</span>
+           <span class="doc-area-nombre">CD${r.numero_cd ? ` No. ${String(r.numero_cd).replace(/[&<>"]/g, '')}` : ''}</span>
            <span class="doc-area-meta">${r.cd.nombre}</span>
            ${r.cd.subido_por ? `<span class="doc-area-subido-por"><i class="ti ti-user"></i> Subido por ${r.cd.subido_por}</span>` : ''}
          </div>
@@ -697,6 +697,14 @@ function construirTarjeta(r, i) {
           <span class="t-extra-label">Turnado por</span>
           <span class="t-extra-val">${r.turnado_por || '—'}</span>
         </div>
+        ${r.tiene_cd ? `<div class="t-extra-item">
+          <label class="t-extra-label" for="cdnum-${r.id}">No. de CD</label>
+          <span class="t-extra-val cd-num">
+            <input id="cdnum-${r.id}" class="cd-num-input" type="text" maxlength="60" value="${String(r.numero_cd || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))}"
+                   placeholder="Sin número" onclick="event.stopPropagation()" onkeydown="event.stopPropagation(); if (event.key === 'Enter') guardarNumeroCd(${r.id})"/>
+            <button type="button" class="cd-num-btn" onclick="event.stopPropagation(); guardarNumeroCd(${r.id})" title="Guardar No. de CD"><i class="ti ti-device-floppy"></i> Guardar</button>
+          </span>
+        </div>` : ''}
         <div class="t-extra-item">
           <span class="t-extra-label">F. Registro</span>
           <span class="t-extra-val">${formatFecha(r.f_registro)}</span>
@@ -874,6 +882,24 @@ async function finalizar(id) {
     }
   } catch (err) {
     await sbisAlert({ titulo: 'Error de conexión', mensaje: err.message, tipo: 'error' });
+  }
+}
+
+/* ── No. de CD (opcional) de un oficio que trae CD ── */
+async function guardarNumeroCd(id) {
+  const campo = document.getElementById(`cdnum-${id}`);
+  if (!campo) return;
+  try {
+    const res = await apiFetch(`${API}/oficios/${id}/numero-cd`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ numero_cd: campo.value })
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) return sbisAlert({ titulo: 'Error', mensaje: d.mensaje || 'No se pudo guardar el No. de CD.', tipo: 'error' });
+    const r = (typeof DATOS !== 'undefined' ? DATOS : []).find(x => x.id === id);
+    if (r) r.numero_cd = d.numero_cd;
+    sbisAlert({ titulo: 'No. de CD guardado', mensaje: d.numero_cd ? `Quedó registrado el CD ${d.numero_cd}.` : 'Se quitó el No. de CD.', tipo: 'success', btnOk: 'Aceptar' });
+  } catch (err) {
+    sbisAlert({ titulo: 'Error de conexión', mensaje: err.message, tipo: 'error' });
   }
 }
 

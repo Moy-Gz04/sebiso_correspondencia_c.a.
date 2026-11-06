@@ -128,3 +128,5 @@ ALTER TABLE oficios ADD COLUMN IF NOT EXISTS docs_extra JSONB NOT NULL DEFAULT '
 ALTER TABLE oficios ADD COLUMN IF NOT EXISTS tiene_cd BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE oficios ADD COLUMN IF NOT EXISTS ruta_cd VARCHAR(255);
 ALTER TABLE oficios ADD COLUMN IF NOT EXISTS cd_subido_por VARCHAR(150);
+-- No. de CD (opcional): el número escrito en el disco, solo si el oficio trae CD.
+ALTER TABLE oficios ADD COLUMN IF NOT EXISTS numero_cd VARCHAR(60);

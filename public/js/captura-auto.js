@@ -441,8 +441,18 @@ function validarForm(form) {
   return valido;
 }
 
+/* No. de CD: solo se muestra cuando «¿Viene CD?» es Sí */
+function mostrarNumeroCd() {
+  const sel = document.getElementById('tiene_cd'), campo = document.getElementById('campo-numero-cd');
+  if (!sel || !campo) return;
+  campo.hidden = sel.value !== 'si';
+  if (campo.hidden) document.getElementById('numero_cd').value = '';
+}
+document.addEventListener('change', (e) => { if (e.target && e.target.id === 'tiene_cd') mostrarNumeroCd(); });
+
 function limpiarForm() {
   document.getElementById('form-captura').reset();
+  mostrarNumeroCd();
   document.querySelectorAll('.invalido').forEach(el => el.classList.remove('invalido'));
   borrarBorrador();
   preRellenar();
@@ -480,7 +490,7 @@ async function enviarForm(e) {
     const campos = [
       'f_sello', 'f_oficio', 'dias_entrega', 'numero', 'n_referencia',
       'remitente', 'dependencia', 'instruccion', 'f_registro',
-      'folio_despacho', 'descripcion', 'turnado_a', 'tiene_cd'
+      'folio_despacho', 'descripcion', 'turnado_a', 'tiene_cd', 'numero_cd'
     ];
     campos.forEach(c => {
       const el = document.getElementById(c);

@@ -2254,8 +2254,9 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
     const {
       f_sello, f_oficio, dias_entrega, numero, n_referencia,
       remitente, dependencia, instruccion, f_registro,
-      folio_despacho, hora_recibido, descripcion, turnado_a, tiene_cd
+      folio_despacho, hora_recibido, descripcion, turnado_a, tiene_cd, numero_cd
     } = req.body;
+    const traeCd = tiene_cd === 'si' || tiene_cd === '1' || tiene_cd === 'true';
 
     if (!f_oficio || !remitente?.trim())
       return res.status(400).json({ mensaje: 'F. Oficio y Remitente son obligatorios.' });
@@ -2290,7 +2291,7 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
         n_control, f_sello, f_oficio, dias_entrega, numero,
         n_referencia, remitente, dependencia, instruccion, f_registro,
         folio_despacho, turnado_a, turnado_por, hora_recibido, estatus, descripcion,
-        ruta_doc1, ruta_doc2, ruta_doc3, doc3_subido_por, area_origen, tiene_cd
+        ruta_doc1, ruta_doc2, ruta_doc3, doc3_subido_por, area_origen, tiene_cd, numero_cd
       ) VALUES (
         ${n_control},
         ${f_sello        || null},
@@ -2313,7 +2314,8 @@ app.post('/api/oficios', verifyToken, onlyCoordOrAdmin, upload.fields([
         ${ruta_doc3},
         ${doc3SubidoPor},
         ${areaOrigen},
-        ${tiene_cd === 'si' || tiene_cd === '1' || tiene_cd === 'true'}
+        ${traeCd},
+        ${traeCd ? (truncar(String(numero_cd || '').trim(), 60) || null) : null}
       )
       RETURNING *`;
 
@@ -2365,6 +2367,21 @@ app.post('/api/oficios/:id/doc3-diferido', verifyToken, onlyCoordOrAdmin,
     res.status(202).json({ ok: true });
   } catch (err) {
     manejarError(res, err, 'No se pudo adjuntar el documento.');
+  }
+});
+
+/* ══ PUT /api/oficios/:id/numero-cd ══
+   Guarda o corrige el No. de CD (opcional) de un oficio que trae CD. Solo C.A. / admin. */
+app.put('/api/oficios/:id/numero-cd', verifyToken, onlyCoordOrAdmin, async (req, res) => {
+  try {
+    const [o] = await sql`SELECT id, tiene_cd FROM oficios WHERE id = ${Number(req.params.id)}`;
+    if (!o) return res.status(404).json({ mensaje: 'Oficio no encontrado.' });
+    if (!o.tiene_cd) return res.status(409).json({ mensaje: 'Este oficio no está marcado con CD.' });
+    const numero = truncar(String(req.body?.numero_cd || '').trim(), 60) || null;
+    await sql`UPDATE oficios SET numero_cd = ${numero} WHERE id = ${o.id}`;
+    res.json({ ok: true, numero_cd: numero });
+  } catch (err) {
+    manejarError(res, err, 'No se pudo guardar el No. de CD.');
   }
 });
 
