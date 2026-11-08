@@ -704,7 +704,14 @@ function construirTarjeta(r, i) {
                    placeholder="Sin número" onclick="event.stopPropagation()" onkeydown="event.stopPropagation(); if (event.key === 'Enter') guardarNumeroCd(${r.id})"/>
             <button type="button" class="cd-num-btn" onclick="event.stopPropagation(); guardarNumeroCd(${r.id})" title="Guardar No. de CD"><i class="ti ti-device-floppy"></i> Guardar</button>
           </span>
-        </div>` : ''}
+        </div>` : `<div class="t-extra-item">
+          <label class="t-extra-label" for="cdnum-${r.id}">CD</label>
+          <span class="t-extra-val cd-num">
+            <input id="cdnum-${r.id}" class="cd-num-input" type="text" maxlength="60" placeholder="No. de CD (opcional)"
+                   onclick="event.stopPropagation()" onkeydown="event.stopPropagation(); if (event.key === 'Enter') agregarCd(${r.id})"/>
+            <button type="button" class="cd-num-btn" onclick="event.stopPropagation(); agregarCd(${r.id})" title="Marcar este oficio con CD"><i class="ti ti-disc"></i> Agregar CD</button>
+          </span>
+        </div>`}
         <div class="t-extra-item">
           <span class="t-extra-label">F. Registro</span>
           <span class="t-extra-val">${formatFecha(r.f_registro)}</span>
@@ -886,6 +893,22 @@ async function finalizar(id) {
 }
 
 /* ── No. de CD (opcional) de un oficio que trae CD ── */
+async function agregarCd(id) {
+  const campo = document.getElementById('cdnum-' + id);
+  try {
+    const res = await apiFetch(`${API}/oficios/${id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tiene_cd: true, numero_cd: campo ? campo.value.trim() : '' })
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.mensaje || 'No se pudo agregar el CD.');
+    sbisAlert({ titulo: 'CD agregado', mensaje: 'El oficio quedó marcado con CD.', tipo: 'success', btnOk: 'Aceptar' });
+    cargarOficios(filtroActual);
+  } catch (err) {
+    sbisAlert({ titulo: 'Error', mensaje: err.message, tipo: 'error', btnOk: 'Aceptar' });
+  }
+}
+
 async function guardarNumeroCd(id) {
   const campo = document.getElementById(`cdnum-${id}`);
   if (!campo) return;
