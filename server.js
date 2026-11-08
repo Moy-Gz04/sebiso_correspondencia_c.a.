@@ -2442,8 +2442,12 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
         estatus, turnado_a, instruccion, descripcion,
         obs_area, obs_admin, nota_rechazo,
         f_sello, f_oficio, dias_entrega, numero, n_referencia,
-        remitente, dependencia, f_registro, folio_despacho, hora_recibido
+        remitente, dependencia, f_registro, folio_despacho, hora_recibido,
+        tiene_cd, numero_cd
       } = req.body;
+      const cdDefinido = typeof tiene_cd === 'boolean';
+      const cdValor = cdDefinido && tiene_cd;
+      const cdNumero = cdValor ? (truncar(String(numero_cd || '').trim(), 60) || null) : null;
 
       const estatusValidos = ['por_turnar', 'turnado', 'sub_turnado', 'atendido', 'rechazado', 'completado'];
       const nuevoEstatus = estatus && estatusValidos.includes(estatus) ? estatus : null;
@@ -2483,6 +2487,8 @@ app.put('/api/oficios/:id', verifyToken, upload.fields([
           f_registro              = COALESCE(${f_registro     ?? null}, f_registro),
           folio_despacho          = COALESCE(${truncar(folio_despacho, 40) ?? null}, folio_despacho),
           hora_recibido           = COALESCE(${hora_recibido  ?? null}, hora_recibido),
+          tiene_cd                = CASE WHEN ${cdDefinido} THEN ${cdValor} ELSE tiene_cd END,
+          numero_cd               = CASE WHEN ${cdDefinido} THEN ${cdNumero} ELSE numero_cd END,
           ruta_doc1               = COALESCE(${ruta_doc1}, ruta_doc1),
           ruta_doc2               = COALESCE(${ruta_doc2}, ruta_doc2),
           ruta_doc3               = COALESCE(${ruta_doc3}, ruta_doc3),

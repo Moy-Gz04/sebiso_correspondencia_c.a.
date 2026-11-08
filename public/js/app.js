@@ -1068,6 +1068,9 @@ function abrirEditar(id) {
   document.getElementById('edit-dias').value          = r.dias_entrega != null ? String(r.dias_entrega) : '';
   document.getElementById('edit-descripcion').value   = r.descripcion    || '';
   document.getElementById('edit-turnado').value       = r.turnado_a      || '';
+  document.getElementById('edit-tiene-cd').value      = r.tiene_cd ? 'si' : 'no';
+  document.getElementById('edit-numero-cd').value     = r.numero_cd || '';
+  mostrarEditNumeroCd();
   document.getElementById('edit-error').textContent   = '';
 
   // Si aún no se turna, "Actualizar cambios" también lo turna al área elegida
@@ -1093,6 +1096,12 @@ function cerrarEditar() {
 }
 
 let editandoPorTurnar = false;
+
+function mostrarEditNumeroCd() {
+  const si = document.getElementById('edit-tiene-cd').value === 'si';
+  document.getElementById('edit-campo-numero-cd').hidden = !si;
+  if (!si) document.getElementById('edit-numero-cd').value = '';
+}
 
 async function guardarEdicion() {
   if (!editandoId) return;
@@ -1125,6 +1134,9 @@ async function guardarEdicion() {
     descripcion:    document.getElementById('edit-descripcion').value   || null,
     turnado_a:      document.getElementById('edit-turnado').value       || null,
   };
+  payload.tiene_cd  = document.getElementById('edit-tiene-cd').value === 'si';
+  payload.numero_cd = payload.tiene_cd ? (document.getElementById('edit-numero-cd').value.trim() || null) : null;
+  const areaTurnar = document.getElementById('edit-turnado').value;
   if (turnar) payload.estatus = 'turnado';
 
   const btnGuardar = document.getElementById('edit-btn-guardar');

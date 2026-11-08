@@ -693,6 +693,19 @@
             <textarea id="edit-descripcion" rows="3" placeholder="Descripción del asunto..."></textarea>
           </div>
 
+          <div class="modal-campo">
+            <label>¿Viene CD?</label>
+            <select id="edit-tiene-cd" onchange="mostrarEditNumeroCd()">
+              <option value="no">No</option>
+              <option value="si">Sí</option>
+            </select>
+          </div>
+
+          <div class="modal-campo" id="edit-campo-numero-cd" hidden>
+            <label>No. de CD</label>
+            <input id="edit-numero-cd" type="text" maxlength="60" placeholder="Número escrito en el CD (opcional)"/>
+          </div>
+
         </div>
       </div>
 
@@ -830,7 +843,7 @@
   <script src="js/carga-documento.js?v=3"></script>
   <script src="js/docs-extra.js"></script>
   <script src="js/visor-documento.js?v=5"></script>
-  <script src="js/app.js?v=7"></script>
+  <script src="js/app.js?v=8"></script>
   <script src="js/lluvia.js"></script>
   <script src="js/menu-registro.js"></script>
   <script src="js/minisebiso-flotante.js?v=20"></script>
