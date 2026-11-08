@@ -1098,29 +1098,13 @@ async function guardarEdicion() {
   if (!editandoId) return;
   const turnar = editandoPorTurnar;
 
-  const fOficio   = document.getElementById('edit-f-oficio').value;
-  const remitente = document.getElementById('edit-remitente').value.trim();
   const errEl     = document.getElementById('edit-error');
 
-  if (!fOficio || !remitente) {
-    errEl.textContent = 'F. Oficio y Remitente son obligatorios.';
-    return;
-  }
-  // Instrucción, Hora de recibido y Área son obligatorias. Si falta alguna,
-  // MiniSEBISO salta junto a ella y la pide (una a la vez, en ese orden).
-  const selArea    = document.getElementById('edit-turnado');
-  const areaTurnar = selArea.value;
-  const faltantes = [
-    ['edit-instruccion', 'Escribe la Instrucción para continuar'],
-    ['edit-hora',        'Agrega la Hora de recibido para continuar'],
-    ['edit-turnado',     'Selecciona el Área para continuar']
-  ];
-  for (const [idCampo, mensaje] of faltantes) {
-    const campo = document.getElementById(idCampo);
-    if (String(campo.value || '').trim()) continue;
-    const senalo = window.MiniSEBISO && window.MiniSEBISO.senalar
-      ? window.MiniSEBISO.senalar(campo, mensaje)
-      : false;
+  // Se puede guardar con campos vacíos; solo turnar exige el Área.
+  if (turnar && !document.getElementById('edit-turnado').value) {
+    const campo = document.getElementById('edit-turnado');
+    const mensaje = 'Selecciona el Área para turnar';
+    const senalo = window.MiniSEBISO && window.MiniSEBISO.senalar ? window.MiniSEBISO.senalar(campo, mensaje) : false;
     if (!senalo) errEl.textContent = mensaje + '.';
     campo.focus();
     return;
