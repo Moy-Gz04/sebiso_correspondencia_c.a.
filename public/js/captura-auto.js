@@ -361,7 +361,7 @@ const CATALOGO_REMITENTE = [
   'Eglaim Damaris Acosta Vidal, Directora de Atención Integral',
   'Erik Guzmán Hernández, Director General de Desarrollo Institucional de la Secretaría del Despacho',
   'Fernando Estrada Cruz, Director de Fomento, Capacitación y Servicios de Información',
-  'Flor Nochebuena Manuel Gutiérrez, Directora de Promoción para la Comercialización',
+  'Manuel Gutiérrez Flor Nochebuena, Directora de Promoción para la Comercialización',
   'I.F. Ariana Salas Lugo, Directora de Recursos Financieros',
   'Ing. David Robles Hernández, Subsecretario de Desarrollo Social y Humano',
   'Ing. Juan Angel Aguilar Mendoza, Encargado de la Subdirección de Informática y Sistemas',
