@@ -119,10 +119,13 @@ img { max-width: 100%; }
   cursor: pointer;
 }
 
+.flor-lluvia.tipo-pino   { background-image: url('../img/pino.png?v=nav1'); }
+.flor-lluvia.tipo-muneco { background-image: url('../img/muneco.png?v=nav1'); }
+
 @keyframes caerFlorCempasuchil {
   0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
-  8%   { opacity: .78; }
-  90%  { opacity: .7; }
+  8%   { opacity: .92; }
+  90%  { opacity: .88; }
   100% { transform: translateY(112vh) translateX(var(--deriva, 24px)) rotate(var(--giro-final, 300deg)); opacity: 0; }
 }
 

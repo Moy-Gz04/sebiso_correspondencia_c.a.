@@ -20,9 +20,10 @@
 
   function crearUnaFlor(contenedor) {
     var flor = document.createElement('div');
-    flor.className = 'flor-lluvia';
+    var TIPOS = ['', ' tipo-pino', ' tipo-muneco'];
+    flor.className = 'flor-lluvia' + TIPOS[Math.floor(Math.random() * TIPOS.length)];
 
-    var tam       = (11 + Math.random() * 13).toFixed(0);         // 11–24px: flores muy pequeñas
+    var tam       = (20 + Math.random() * 14).toFixed(0);         // 11–24px: flores muy pequeñas
     var izquierda = (Math.random() * 100).toFixed(1);              // 0–100% del ancho
     var duracion  = (13 + Math.random() * 11).toFixed(1);          // 13–24s: caída relativamente normal
     var retraso   = (Math.random() * duracion).toFixed(1);
