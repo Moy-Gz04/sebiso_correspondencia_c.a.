@@ -1995,3 +1995,15 @@ body.minutario-area .tabla-simple tbody td:nth-child(10) { display: none; }
 .cd-num-input:focus-visible { outline: 2px solid var(--guinda); outline-offset: 1px; }
 .cd-num-btn { font: inherit; font-size: 11.5px; font-weight: var(--fw-semibold); color: var(--guinda); background: var(--blanco); border: 0.5px solid var(--borde); border-radius: var(--radio-pill); padding: 4px 12px; cursor: pointer; }
 .cd-num-btn:hover { background: var(--dorado-claro); border-color: var(--dorado); }
+
+/* Navidad: nieve estancada sobre la barra del menú (decorativa, no bloquea clics) */
+.barra-menu::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: -14px;
+  height: 46px;
+  background: url('../img/nieve-menu.svg?v=2') repeat-x left top / 490px 46px;
+  filter: drop-shadow(0 2px 2px rgba(40, 10, 20, .35));
+  pointer-events: none;
+  z-index: 2;
+}
