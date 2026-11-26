@@ -2000,10 +2000,11 @@ body.minutario-area .tabla-simple tbody td:nth-child(10) { display: none; }
 .barra-menu::before {
   content: '';
   position: absolute;
-  left: 0; right: 0; top: -14px;
-  height: 46px;
-  background: url('../img/nieve-menu.svg?v=2') repeat-x left top / 490px 46px;
-  filter: drop-shadow(0 2px 2px rgba(40, 10, 20, .35));
+  left: 0; right: 0; top: -24px;
+  height: 48px;
+  background: url('../img/nieve-menu.png?v=1') no-repeat center top / cover;
+  filter: drop-shadow(0 2px 3px rgba(40, 10, 20, .3));
   pointer-events: none;
   z-index: 2;
 }
+.barra-menu > .menu-container { position: relative; z-index: 3; }
